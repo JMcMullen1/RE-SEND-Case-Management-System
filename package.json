@@ -17,7 +17,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "fixtures:load": "npm run fixtures:load -w @re-send/api",
+    "fixtures:clear": "npm run fixtures:clear -w @re-send/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",

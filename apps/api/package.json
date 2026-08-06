@@ -8,7 +8,9 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "fixtures:load": "tsx src/fixtures/load.ts",
+    "fixtures:clear": "tsx src/fixtures/clear.ts"
   },
   "dependencies": {
     "@re-send/shared": "*",
