@@ -222,6 +222,14 @@ export const AI_JOB_OUTCOME_VALUES = [
 export type AiJobOutcome = (typeof AI_JOB_OUTCOME_VALUES)[number];
 export const AiJobOutcomeSchema = z.enum(AI_JOB_OUTCOME_VALUES);
 
+// --- Smart fill (JotForm intake) --------------------------------------------
+/** Confidence at or below this flags a smart-filled field for a closer look. */
+export const INTAKE_LOW_CONFIDENCE = 0.6;
+/** The AI job name for the intake extraction, shared by accounting and flags. */
+export const EXTRACT_INTAKE_JOB = 'extract_intake';
+/** Enquiry method used when a smart-filled submission arrived as an email. */
+export const INTAKE_EMAIL_METHOD = 'Email - Enquiries' as const;
+
 // --- Consultation states ----------------------------------------------------
 export const CONSULTATION_STATE_VALUES = [
   'not_required',

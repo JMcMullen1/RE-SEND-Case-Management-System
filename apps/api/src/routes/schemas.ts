@@ -257,6 +257,41 @@ export const CorpusItemSchema = z.object({
   text: z.string(),
 });
 
+const IntakeFieldValueSchema = z.object({
+  value: z.string(),
+  confidence: z.number(),
+});
+
+export const IntakeResultSchema = z.object({
+  source: z.enum(['form', 'email']),
+  client: z.record(IntakeFieldValueSchema),
+  child: z.record(IntakeFieldValueSchema),
+  case: z.record(IntakeFieldValueSchema),
+  keyDates: z.array(
+    z.object({
+      date: z.string(),
+      title: z.string(),
+      type: z.string(),
+      confidence: z.number(),
+    }),
+  ),
+  missing: z.array(z.object({ field: z.string(), reason: z.string() })),
+  ref: z.object({
+    storageKey: z.string(),
+    filename: z.string(),
+    mimeType: z.string(),
+    byteSize: z.number(),
+    sha256: z.string(),
+  }),
+});
+
+export const IntakeResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('ok'), result: IntakeResultSchema }),
+  z.object({ status: z.literal('disabled') }),
+  z.object({ status: z.literal('refused') }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+]);
+
 export const AiJobFlagSchema = z.object({
   jobName: z.string(),
   enabled: z.boolean(),
@@ -421,6 +456,11 @@ const CreateClientSchema = z
     postcode: z.string().nullable().optional(),
     dsplArea: DsplAreaSchema.nullable().optional(),
     additionalNeeds: z.string().nullable().optional(),
+    consentDataProcessing: z.boolean().optional(),
+    consentInformationSharing: z.boolean().optional(),
+    consentContact: z.boolean().optional(),
+    consentPrivacyNotice: z.boolean().optional(),
+    paymentPlanRequired: z.boolean().optional(),
   })
   .strict();
 
@@ -457,9 +497,33 @@ export const CreateCaseSchema = z
         supportLevel: z.string().nullable().optional(),
         paymentCode: PaymentCodeSchema.nullable().optional(),
         discountCode: DiscountCodeSchema.nullable().optional(),
+        aims: z.string().nullable().optional(),
+        finalPlanIssuedDate: z.string().nullable().optional(),
+        mediationStatus: z.string().nullable().optional(),
+        appealLodged: z.boolean().optional(),
+        representationWanted: z.boolean().optional(),
       })
       .strict(),
     firstNote: z.string().optional(),
+    keyDates: z
+      .array(
+        z.object({
+          date: z.string(),
+          title: z.string(),
+          type: KeyDateTypeSchema,
+          confidence: z.number().optional(),
+        }),
+      )
+      .optional(),
+    intake: z
+      .object({
+        storageKey: z.string(),
+        filename: z.string(),
+        mimeType: z.string(),
+        byteSize: z.number(),
+        sha256: z.string(),
+      })
+      .optional(),
   })
   .refine((v) => Boolean(v.existingClientId) || Boolean(v.client), {
     message: 'Provide a client or an existing client id.',

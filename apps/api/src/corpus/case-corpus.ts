@@ -22,6 +22,42 @@ export interface CorpusOptions {
   documentIds?: string[];
 }
 
+export interface SingleDocument {
+  id: string;
+  title: string;
+  date: string | null;
+  text: string;
+}
+
+/**
+ * Assemble a corpus from a single document that is not (yet) attached to a case
+ * — the smart-fill path. It mirrors caseCorpus's `{ include: ['document'],
+ * documentIds: [id] }` selection, sharing the exact serialisation and token
+ * count, so extraction reads the same corpus surface a full-corpus feature will
+ * use later. There is no database read because the document lives only in object
+ * storage until the case is created.
+ */
+export function singleDocumentCorpus(doc: SingleDocument): CorpusResult {
+  const items: CorpusItem[] = [
+    {
+      id: doc.id,
+      type: 'document',
+      title: doc.title,
+      date: doc.date,
+      text: doc.text,
+    },
+  ];
+  const serialised = serialiseCorpus(items);
+  return {
+    caseId: '',
+    items,
+    excluded: [],
+    registeredEmpty: [],
+    serialised,
+    tokenCount: estimateTokenCount(serialised),
+  };
+}
+
 const PRODUCING: CorpusItemType[] = ['case_record', 'document', 'note'];
 const REGISTERED_EMPTY: CorpusItemType[] = ['email', 'time_entry'];
 

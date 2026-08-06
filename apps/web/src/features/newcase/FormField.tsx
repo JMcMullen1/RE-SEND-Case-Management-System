@@ -18,6 +18,9 @@ export function FormField({
   placeholder,
   adornment,
   suggestion,
+  id,
+  machineFilled,
+  lowConfidence,
 }: {
   label: string;
   value: string | undefined;
@@ -31,20 +34,44 @@ export function FormField({
   placeholder?: string;
   adornment?: ReactNode;
   suggestion?: ReactNode;
+  /** DOM id, used to focus the lowest-confidence smart-filled field first. */
+  id?: string;
+  /** Prefilled by smart fill and not yet edited. */
+  machineFilled?: boolean;
+  /** Machine-filled and below the confidence threshold — flag for a check. */
+  lowConfidence?: boolean;
 }) {
-  const base = `w-full rounded-md border px-3 py-2 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:bg-gray-50 disabled:text-gray-500 ${
-    error ? 'border-status-amber' : 'border-gray-200'
-  }`;
+  const borderColour =
+    error || (machineFilled && lowConfidence)
+      ? 'border-status-amber'
+      : machineFilled
+        ? 'border-resend-purple'
+        : 'border-gray-200';
+  const base = `w-full rounded-md border px-3 py-2 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:bg-gray-50 disabled:text-gray-500 ${borderColour}`;
 
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-        {required && <span className="ml-0.5 text-status-amber">*</span>}
+      <span className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <span>
+          {label}
+          {required && <span className="ml-0.5 text-status-amber">*</span>}
+        </span>
+        {machineFilled && (
+          <span
+            className={`rounded px-1 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+              lowConfidence
+                ? 'border border-status-amber text-resend-ink'
+                : 'bg-resend-lilac text-white'
+            }`}
+          >
+            {lowConfidence ? 'AI · check' : 'AI'}
+          </span>
+        )}
       </span>
       <div className="flex items-center gap-2">
         {type === 'textarea' ? (
           <textarea
+            id={id}
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
             onBlur={onBlur}
@@ -55,6 +82,7 @@ export function FormField({
           />
         ) : type === 'select' ? (
           <select
+            id={id}
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
             onBlur={onBlur}
@@ -70,6 +98,7 @@ export function FormField({
           </select>
         ) : (
           <input
+            id={id}
             type={type}
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}

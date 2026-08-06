@@ -6,6 +6,8 @@ import {
   DISCOUNT_CODE_VALUES,
   DSPL_AREA_VALUES,
   ENQUIRY_METHOD_VALUES,
+  formatCivilDate,
+  INTAKE_LOW_CONFIDENCE,
   londonToday,
   OWNER_QUEUE_VALUES,
   PAYMENT_CODE_VALUES,
@@ -17,6 +19,8 @@ import {
   TEAM_VALUES,
   WORK_TYPE_VALUES,
   type CaseClientDetail,
+  type IntakeRef,
+  type IntakeResult,
   type Team,
 } from '@re-send/shared';
 import { fetchCaseDetail } from '../../api/caseScreen';
@@ -29,6 +33,7 @@ import {
 import { useUsers } from '../../hooks/useCaseData';
 import { FormField } from './FormField';
 import { DuplicateMatches } from './DuplicateMatches';
+import { SmartFill } from './SmartFill';
 
 const opts = (values: readonly string[]) =>
   values.map((v) => ({ value: v, label: v }));
@@ -62,10 +67,41 @@ const EMPTY_CHILD: Dict = {
   sendNeeds: '',
 };
 
+const CLIENT_FLAGS = [
+  'consentDataProcessing',
+  'consentInformationSharing',
+  'consentContact',
+  'consentPrivacyNotice',
+  'paymentPlanRequired',
+] as const;
+const CASE_FLAGS = [
+  'finalPlanReceived',
+  'appealLodged',
+  'representationWanted',
+] as const;
+const EMPTY_FLAGS: Record<string, boolean> = Object.fromEntries(
+  [...CLIENT_FLAGS, ...CASE_FLAGS].map((k) => [k, false]),
+);
+
+const CONSENT_LABELS: Record<string, string> = {
+  consentDataProcessing: 'Data processing',
+  consentInformationSharing: 'Information sharing',
+  consentContact: 'Contact',
+  consentPrivacyNotice: 'Privacy notice',
+  paymentPlanRequired: 'Payment plan required',
+};
+
 function nonEmpty(dict: Dict, keys: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const k of keys) if (dict[k]?.trim()) out[k] = dict[k]!.trim();
   return out;
+}
+
+interface IntakeKeyDateRow {
+  date: string;
+  title: string;
+  type: string;
+  confidence: number;
 }
 
 export function NewCasePage() {
@@ -87,10 +123,14 @@ export function NewCasePage() {
     status: 'Enquiry',
     consultStatus: '',
     supportLevel: '',
+    aims: '',
+    finalPlanIssuedDate: '',
+    mediationStatus: '',
     paymentCode: '',
     discountCode: '',
     firstNote: '',
   });
+  const [flags, setFlags] = useState<Record<string, boolean>>(EMPTY_FLAGS);
   const [team, setTeam] = useState<Team[]>([]);
   const [errors, setErrors] = useState<Dict>({});
   const [existingClientId, setExistingClientId] = useState<string | null>(null);
@@ -99,10 +139,107 @@ export function NewCasePage() {
   const [lockChild, setLockChild] = useState(false);
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
 
-  const setC = (k: string, v: string) => setClient((p) => ({ ...p, [k]: v }));
-  const setCh = (k: string, v: string) => setChild((p) => ({ ...p, [k]: v }));
-  const setF = (k: string, v: string) =>
+  // Smart fill: which fields were machine-filled (key -> confidence), plus the
+  // implied key dates and a reference to the stored submission.
+  const [machine, setMachine] = useState<Record<string, number>>({});
+  const [keyDatesReview, setKeyDatesReview] = useState<IntakeKeyDateRow[]>([]);
+  const [intakeRef, setIntakeRef] = useState<IntakeRef | null>(null);
+
+  const clearMark = (key: string) =>
+    setMachine((m) => {
+      if (!(key in m)) return m;
+      const next = { ...m };
+      delete next[key];
+      return next;
+    });
+
+  const setC = (k: string, v: string) => {
+    setClient((p) => ({ ...p, [k]: v }));
+    clearMark(`client.${k}`);
+  };
+  const setCh = (k: string, v: string) => {
+    setChild((p) => ({ ...p, [k]: v }));
+    clearMark(`child.${k}`);
+  };
+  const setF = (k: string, v: string) => {
     setCaseFields((p) => ({ ...p, [k]: v }));
+    clearMark(`case.${k}`);
+  };
+  const setFlag = (k: string, v: boolean) => {
+    setFlags((p) => ({ ...p, [k]: v }));
+    clearMark(`flag.${k}`);
+  };
+
+  // Machine-fill markers to spread onto a FormField.
+  const mf = (key: string) => {
+    const filled = key in machine;
+    return {
+      id: key,
+      machineFilled: filled,
+      lowConfidence: filled && (machine[key] ?? 1) <= INTAKE_LOW_CONFIDENCE,
+    };
+  };
+  const flagMachine = (name: string) => {
+    const key = `flag.${name}`;
+    const filled = key in machine;
+    return {
+      filled,
+      low: filled && (machine[key] ?? 1) <= INTAKE_LOW_CONFIDENCE,
+    };
+  };
+
+  // --- Apply a smart-fill result -------------------------------------------
+  const applyResult = (result: IntakeResult) => {
+    // Compute the marks and value patches up front from the result — not inside
+    // the setState updaters, whose callbacks run at commit time, after the focus
+    // logic below would read them.
+    const marks: Record<string, number> = {};
+    const clientPatch: Dict = {};
+    const childPatch: Dict = {};
+    const casePatch: Dict = {};
+    const flagPatch: Record<string, boolean> = {};
+
+    for (const [k, v] of Object.entries(result.client)) {
+      if ((CLIENT_FLAGS as readonly string[]).includes(k)) continue;
+      clientPatch[k] = v.value;
+      marks[`client.${k}`] = v.confidence;
+    }
+    for (const [k, v] of Object.entries(result.child)) {
+      childPatch[k] = v.value;
+      marks[`child.${k}`] = v.confidence;
+    }
+    for (const [k, v] of Object.entries(result.case)) {
+      if ((CASE_FLAGS as readonly string[]).includes(k)) continue;
+      casePatch[k] = v.value;
+      marks[`case.${k}`] = v.confidence;
+    }
+    for (const name of [...CLIENT_FLAGS, ...CASE_FLAGS]) {
+      const v = result.client[name] ?? result.case[name];
+      if (v) {
+        flagPatch[name] = v.value === 'true';
+        marks[`flag.${name}`] = v.confidence;
+      }
+    }
+
+    setClient((prev) => ({ ...prev, ...clientPatch }));
+    setChild((prev) => ({ ...prev, ...childPatch }));
+    setCaseFields((prev) => ({ ...prev, ...casePatch }));
+    setFlags((prev) => ({ ...prev, ...flagPatch }));
+    setKeyDatesReview(result.keyDates);
+    setIntakeRef(result.ref);
+    setMachine(marks);
+
+    // Focus the lowest-confidence text field first, so the riskiest value is
+    // checked before anything else.
+    const lowest = Object.entries(marks)
+      .filter(([k]) => !k.startsWith('flag.'))
+      .sort((a, b) => a[1] - b[1])[0];
+    if (lowest) {
+      window.setTimeout(() => {
+        document.getElementById(lowest[0])?.focus();
+      }, 50);
+    }
+  };
 
   // --- Prefill from an existing case or client -----------------------------
   const applyClient = (c: CaseClientDetail) => {
@@ -273,7 +410,14 @@ export function NewCasePage() {
 
     const payload: CreateCasePayload = { case: {} };
     if (existingClientId) payload.existingClientId = existingClientId;
-    else payload.client = nonEmpty(client, Object.keys(EMPTY_CLIENT));
+    else {
+      const clientOut: Record<string, unknown> = nonEmpty(
+        client,
+        Object.keys(EMPTY_CLIENT),
+      );
+      for (const k of CLIENT_FLAGS) if (flags[k]) clientOut[k] = true;
+      payload.client = clientOut;
+    }
     if (existingChildId) payload.existingChildId = existingChildId;
     else payload.child = nonEmpty(child, Object.keys(EMPTY_CHILD));
 
@@ -286,10 +430,15 @@ export function NewCasePage() {
         'status',
         'consultStatus',
         'supportLevel',
+        'aims',
+        'finalPlanIssuedDate',
+        'mediationStatus',
         'paymentCode',
         'discountCode',
       ]),
     };
+    if (flags.appealLodged) caseOut.appealLodged = true;
+    if (flags.representationWanted) caseOut.representationWanted = true;
     if (team.length) caseOut.team = team;
     const owner = caseFields.owner ?? '';
     if (owner.startsWith('user:')) caseOut.ownerUserId = owner.slice(5);
@@ -297,6 +446,15 @@ export function NewCasePage() {
     payload.case = caseOut;
     const firstNote = (caseFields.firstNote ?? '').trim();
     if (firstNote) payload.firstNote = firstNote;
+
+    if (keyDatesReview.length > 0)
+      payload.keyDates = keyDatesReview.map((k) => ({
+        date: k.date,
+        title: k.title,
+        type: k.type,
+        confidence: k.confidence,
+      }));
+    if (intakeRef) payload.intake = intakeRef;
 
     create.mutate(payload);
   };
@@ -338,6 +496,8 @@ export function NewCasePage() {
           </p>
         </div>
       </div>
+
+      {!isPrefill && <SmartFill onResult={applyResult} />}
 
       {showDraftPrompt && (
         <div className="mb-6 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 text-sm">
@@ -389,6 +549,7 @@ export function NewCasePage() {
             )
           }
           error={errors.clientFullName}
+          {...mf('client.fullName')}
         />
         <FormField
           label="Display name"
@@ -396,12 +557,14 @@ export function NewCasePage() {
           disabled={lockClient}
           onChange={(v) => setC('displayName', v)}
           placeholder="Surname, First — filled automatically if left blank"
+          {...mf('client.displayName')}
         />
         <FormField
           label="Preferred name"
           value={client.preferredName}
           disabled={lockClient}
           onChange={(v) => setC('preferredName', v)}
+          {...mf('client.preferredName')}
         />
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -410,12 +573,14 @@ export function NewCasePage() {
             value={client.email}
             disabled={lockClient}
             onChange={(v) => setC('email', v)}
+            {...mf('client.email')}
           />
           <FormField
             label="Phone"
             value={client.phone}
             disabled={lockClient}
             onChange={(v) => setC('phone', v)}
+            {...mf('client.phone')}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -424,6 +589,7 @@ export function NewCasePage() {
             value={client.mobile}
             disabled={lockClient}
             onChange={(v) => setC('mobile', v)}
+            {...mf('client.mobile')}
           />
           <FormField
             label="Other contact"
@@ -437,6 +603,7 @@ export function NewCasePage() {
           value={client.streetAddress}
           disabled={lockClient}
           onChange={(v) => setC('streetAddress', v)}
+          {...mf('client.streetAddress')}
         />
         <div className="grid grid-cols-3 gap-4">
           <FormField
@@ -456,6 +623,7 @@ export function NewCasePage() {
             value={client.postcode}
             disabled={lockClient}
             onChange={(v) => setC('postcode', v)}
+            {...mf('client.postcode')}
           />
         </div>
         <FormField
@@ -465,6 +633,7 @@ export function NewCasePage() {
           value={client.dsplArea}
           disabled={lockClient}
           onChange={(v) => setC('dsplArea', v)}
+          {...mf('client.dsplArea')}
           suggestion={
             !lockClient && dsplSuggestion && dsplSuggestion !== client.dsplArea
               ? applyLink(
@@ -480,7 +649,45 @@ export function NewCasePage() {
           value={client.additionalNeeds}
           disabled={lockClient}
           onChange={(v) => setC('additionalNeeds', v)}
+          {...mf('client.additionalNeeds')}
         />
+
+        <div>
+          <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Consents & payment
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {CLIENT_FLAGS.map((name) => {
+              const m = flagMachine(name);
+              return (
+                <label
+                  key={name}
+                  className="flex items-center gap-2 text-sm text-resend-ink"
+                >
+                  <input
+                    type="checkbox"
+                    checked={flags[name] ?? false}
+                    disabled={lockClient}
+                    onChange={(e) => setFlag(name, e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+                  />
+                  {CONSENT_LABELS[name]}
+                  {m.filled && (
+                    <span
+                      className={`rounded px-1 text-[10px] font-semibold ${
+                        m.low
+                          ? 'border border-status-amber text-resend-ink'
+                          : 'bg-resend-lilac text-white'
+                      }`}
+                    >
+                      {m.low ? 'AI · check' : 'AI'}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        </div>
       </Section>
 
       {/* CHILD */}
@@ -502,12 +709,14 @@ export function NewCasePage() {
             )
           }
           error={errors.childFullName}
+          {...mf('child.fullName')}
         />
         <FormField
           label="Preferred name"
           value={child.preferredName}
           disabled={lockChild}
           onChange={(v) => setCh('preferredName', v)}
+          {...mf('child.preferredName')}
         />
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -517,6 +726,7 @@ export function NewCasePage() {
             disabled={lockChild}
             onChange={(v) => setCh('dateOfBirth', v)}
             adornment={age !== null ? `age ${age}` : undefined}
+            {...mf('child.dateOfBirth')}
           />
           <FormField
             label="School year"
@@ -525,6 +735,7 @@ export function NewCasePage() {
             value={child.schoolYear}
             disabled={lockChild}
             onChange={(v) => setCh('schoolYear', v)}
+            {...mf('child.schoolYear')}
             suggestion={
               !lockChild &&
               yearSuggestion &&
@@ -542,12 +753,14 @@ export function NewCasePage() {
           value={child.currentSchoolName}
           disabled={lockChild}
           onChange={(v) => setCh('currentSchoolName', v)}
+          {...mf('child.currentSchoolName')}
         />
         <FormField
           label="Current school address"
           value={child.currentSchoolAddress}
           disabled={lockChild}
           onChange={(v) => setCh('currentSchoolAddress', v)}
+          {...mf('child.currentSchoolAddress')}
         />
         <FormField
           label="Desired school"
@@ -561,6 +774,7 @@ export function NewCasePage() {
           value={child.sendNeeds}
           disabled={lockChild}
           onChange={(v) => setCh('sendNeeds', v)}
+          {...mf('child.sendNeeds')}
         />
       </Section>
 
@@ -588,6 +802,7 @@ export function NewCasePage() {
               )
             }
             error={errors.currentWork}
+            {...mf('case.currentWork')}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -597,6 +812,7 @@ export function NewCasePage() {
             options={opts(QUERY_TYPE_VALUES)}
             value={caseFields.originalQuery}
             onChange={(v) => setF('originalQuery', v)}
+            {...mf('case.originalQuery')}
           />
           <FormField
             label="Method of enquiry"
@@ -604,6 +820,7 @@ export function NewCasePage() {
             options={opts(ENQUIRY_METHOD_VALUES)}
             value={caseFields.methodOfEnquiry}
             onChange={(v) => setF('methodOfEnquiry', v)}
+            {...mf('case.methodOfEnquiry')}
           />
         </div>
         <div>
@@ -662,6 +879,7 @@ export function NewCasePage() {
             label="Support level"
             value={caseFields.supportLevel}
             onChange={(v) => setF('supportLevel', v)}
+            {...mf('case.supportLevel')}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -681,12 +899,108 @@ export function NewCasePage() {
           />
         </div>
         <FormField
+          label="Aims"
+          type="textarea"
+          value={caseFields.aims}
+          onChange={(v) => setF('aims', v)}
+          placeholder="What the family wants to achieve"
+          {...mf('case.aims')}
+        />
+        <FormField
           label="First note (optional)"
           type="textarea"
           value={caseFields.firstNote}
           onChange={(v) => setF('firstNote', v)}
           placeholder="Anything worth recording from the enquiry"
         />
+      </Section>
+
+      {/* ENQUIRY DETAILS */}
+      <Section title="Enquiry details">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            label="Final plan issued date"
+            type="date"
+            value={caseFields.finalPlanIssuedDate}
+            onChange={(v) => setF('finalPlanIssuedDate', v)}
+            {...mf('case.finalPlanIssuedDate')}
+          />
+          <FormField
+            label="Mediation status"
+            value={caseFields.mediationStatus}
+            onChange={(v) => setF('mediationStatus', v)}
+            {...mf('case.mediationStatus')}
+          />
+        </div>
+        <div className="flex flex-wrap gap-6">
+          {(
+            [
+              ['finalPlanReceived', 'Final plan received'],
+              ['appealLodged', 'Appeal lodged'],
+              ['representationWanted', 'Representation at hearing wanted'],
+            ] as const
+          ).map(([name, label]) => {
+            const m = flagMachine(name);
+            return (
+              <label
+                key={name}
+                className="flex items-center gap-2 text-sm text-resend-ink"
+              >
+                <input
+                  type="checkbox"
+                  checked={flags[name] ?? false}
+                  onChange={(e) => setFlag(name, e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+                />
+                {label}
+                {m.filled && (
+                  <span
+                    className={`rounded px-1 text-[10px] font-semibold ${
+                      m.low
+                        ? 'border border-status-amber text-resend-ink'
+                        : 'bg-resend-lilac text-white'
+                    }`}
+                  >
+                    {m.low ? 'AI · check' : 'AI'}
+                  </span>
+                )}
+              </label>
+            );
+          })}
+        </div>
+
+        {keyDatesReview.length > 0 && (
+          <div>
+            <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500">
+              Key dates found — created with the case
+            </span>
+            <ul className="space-y-1">
+              {keyDatesReview.map((k, i) => (
+                <li
+                  key={`${k.date}:${k.title}:${i}`}
+                  className="flex items-center gap-3 rounded-md border border-resend-lilac px-3 py-1.5 text-sm"
+                >
+                  <span className="tabular-nums text-resend-ink">
+                    {formatCivilDate(k.date)}
+                  </span>
+                  <span className="text-resend-ink">{k.title}</span>
+                  <span className="text-xs text-gray-500">{k.type}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setKeyDatesReview((prev) =>
+                        prev.filter((_, j) => j !== i),
+                      )
+                    }
+                    className="ml-auto text-xs text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                  >
+                    remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Section>
 
       <div className="sticky bottom-0 mt-8 flex items-center justify-end gap-3 border-t border-gray-200 bg-white py-4">

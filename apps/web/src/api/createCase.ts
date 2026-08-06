@@ -1,4 +1,4 @@
-import type { CaseClientDetail } from '@re-send/shared';
+import type { CaseClientDetail, IntakeRef } from '@re-send/shared';
 import { request } from './client';
 
 export interface CreateCasePayload {
@@ -8,6 +8,13 @@ export interface CreateCasePayload {
   child?: Record<string, unknown>;
   case: Record<string, unknown>;
   firstNote?: string;
+  keyDates?: {
+    date: string;
+    title: string;
+    type: string;
+    confidence?: number;
+  }[];
+  intake?: IntakeRef;
 }
 
 export function createCase(

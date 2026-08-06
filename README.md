@@ -101,6 +101,32 @@ more than one set of conventions.
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
 
+## Smart fill (JotForm intake)
+
+The add-case form can be prefilled from a JotForm submission (PDF, DOCX, HTML,
+`.eml`) or a plain enquiry email, dropped, chosen, or pasted.
+
+- It is **not a second creation path**: it prefills the _same_ form, and the same
+  review, duplicate detection and Create logic apply. Nothing is written to the
+  database until the user presses Create.
+- The pipeline stores the upload through the storage provider (not as a text
+  blob), extracts text server-side (never page images — a labelled text form
+  gains nothing from them at ~10x the input tokens), reads it through the corpus
+  as a single-document selection, then runs the `extract_intake` AI job.
+- Every field comes back with a confidence, or null with a reason — never a
+  guess. Extracted values map onto the config vocabularies (service → type of
+  case, enquiry route → query type); school year, DSPL area and enquiry method
+  are derived, not extracted.
+- Prefilled fields are marked as machine-filled; low-confidence fields are
+  flagged and focused first, and editing a field clears its marking.
+- On Create, the original submission is attached to the new case as a document
+  and any implied key dates are recorded.
+- The model is **Claude Haiku 4.5**, configurable per job. An evaluation set of
+  ten anonymised submissions lives in `apps/api/src/ai/eval/intake` — run it with
+  `RUN_INTAKE_EVAL=1` and an API key to revisit the model choice on evidence.
+- `AI_ENABLED` (or the per-job flag) switches smart fill off cleanly; the manual
+  form stays fully usable.
+
 ### Render free tier
 
 **Render's free tier spins services down after inactivity.** A spun-down

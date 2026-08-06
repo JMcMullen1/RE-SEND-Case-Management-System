@@ -1,0 +1,82 @@
+{
+  "01-form.txt": {
+    "source": "form",
+    "client.fullName": "Amara Okafor",
+    "client.email": "amara.okafor@example.com",
+    "child.fullName": "Diallo Okafor",
+    "child.dateOfBirth": "2015-03-14",
+    "case.currentWork": "Annual Review",
+    "case.methodOfEnquiry": "Query Form"
+  },
+  "02-email.txt": {
+    "source": "email",
+    "client.fullName": "Ben Carter",
+    "child.fullName": "Theo Carter",
+    "child.dateOfBirth": "2016-09-05",
+    "case.currentWork": "Draft Review",
+    "case.methodOfEnquiry": "Email - Enquiries"
+  },
+  "03-form.txt": {
+    "source": "form",
+    "client.fullName": "Priya Sharma",
+    "client.email": "priya.sharma@example.com",
+    "child.fullName": "Rohan Sharma",
+    "child.dateOfBirth": "2012-11-22",
+    "case.currentWork": "Section Appeal",
+    "case.originalQuery": "New Application"
+  },
+  "04-email.txt": {
+    "source": "email",
+    "client.fullName": "Margaret Hughes",
+    "child.fullName": "Lily Hughes",
+    "child.dateOfBirth": "2018-07-01",
+    "case.currentWork": "DLA"
+  },
+  "05-form.txt": {
+    "source": "form",
+    "client.fullName": "David Nguyen",
+    "client.email": "dave.nguyen@example.com",
+    "child.fullName": "Mai Nguyen",
+    "child.dateOfBirth": "2014-09-30",
+    "case.currentWork": "Section B F & I"
+  },
+  "06-email.txt": {
+    "source": "email",
+    "client.fullName": "Sofia Rossi",
+    "child.fullName": "Luca Rossi",
+    "child.dateOfBirth": "2013-12-12",
+    "case.currentWork": "Annual Review"
+  },
+  "07-form.txt": {
+    "source": "form",
+    "client.fullName": "Grace Adeyemi",
+    "client.email": "grace.adeyemi@example.com",
+    "child.fullName": "Femi Adeyemi",
+    "child.dateOfBirth": "2011-03-03",
+    "case.currentWork": "Section Appeal",
+    "case.originalQuery": "Appeal - Section"
+  },
+  "08-email.txt": {
+    "source": "email",
+    "client.fullName": "Tom Baker",
+    "child.fullName": "Ivy Baker",
+    "child.dateOfBirth": "2007-02-18",
+    "case.originalQuery": "PIP"
+  },
+  "09-form.txt": {
+    "source": "form",
+    "client.fullName": "Hannah Cohen",
+    "client.email": "hannah.cohen@example.com",
+    "child.fullName": "Noah Cohen",
+    "child.dateOfBirth": "2016-08-08",
+    "case.currentWork": "CAP",
+    "case.originalQuery": "General Query"
+  },
+  "10-email.txt": {
+    "source": "email",
+    "client.fullName": "Rebecca Turner",
+    "child.fullName": "Jacob Turner",
+    "child.dateOfBirth": "2017-04-04",
+    "case.currentWork": "Draft Review"
+  }
+}

@@ -1,7 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
+import { createHash, randomUUID } from 'node:crypto';
 import { londonToday, type CaseClientDetail, type Team } from '@re-send/shared';
 import { getDb } from '../db/client';
+import { extractIntakeText } from '../ai/intake';
+import { getStorageProvider } from '../storage';
 import {
   caseNotes,
   caseTeams,
@@ -9,13 +12,31 @@ import {
   children,
   clientChildren,
   clients,
+  documents,
+  keyDates,
   teams,
+  users,
 } from '../db/schema';
 import { recordAudit } from './audit';
 
+export interface IntakeAttachment {
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  sha256: string;
+}
+
 export interface CreateCaseInput {
   existingClientId?: string;
-  client?: Partial<typeof clients.$inferInsert> & { fullName?: string };
+  client?: Partial<typeof clients.$inferInsert> & {
+    fullName?: string;
+    consentDataProcessing?: boolean;
+    consentInformationSharing?: boolean;
+    consentContact?: boolean;
+    consentPrivacyNotice?: boolean;
+    paymentPlanRequired?: boolean;
+  };
   existingChildId?: string;
   child?: Partial<typeof children.$inferInsert> & { fullName?: string };
   case: {
@@ -31,8 +52,34 @@ export interface CreateCaseInput {
     supportLevel?: string | null;
     paymentCode?: string | null;
     discountCode?: string | null;
+    aims?: string | null;
+    finalPlanIssuedDate?: string | null;
+    mediationStatus?: string | null;
+    appealLodged?: boolean;
+    representationWanted?: boolean;
   };
   firstNote?: string;
+  /** Key dates a smart-filled form implied — created with the case. */
+  keyDates?: {
+    date: string;
+    title: string;
+    type: string;
+    confidence?: number;
+  }[];
+  /** The original submission, already in storage — attached as a document. */
+  intake?: IntakeAttachment;
+}
+
+/** Timestamp a consent only when it was granted. */
+function consentAt(granted: boolean | undefined, at: Date) {
+  return granted ? at : null;
+}
+
+function confidenceBucket(c: number | undefined): string | null {
+  if (c === undefined) return null;
+  if (c >= 0.8) return 'high';
+  if (c >= 0.5) return 'medium';
+  return 'low';
 }
 
 /** "Nadia Rahman" -> "Rahman, Nadia"; single-word names pass through. */
@@ -63,6 +110,12 @@ export async function createCase(
 ): Promise<{ caseId: string; caseReference: string }> {
   const db = getDb();
   const today = londonToday(new Date());
+  const now = new Date();
+
+  // Resolve the intake submission before the transaction: fetch its bytes from
+  // storage, re-derive size and hash from the actual object (the client only
+  // hands back an opaque key), and re-extract text for the document's corpus.
+  const resolvedIntake = await resolveIntake(input.intake);
 
   return db.transaction(async (tx) => {
     // Client
@@ -75,6 +128,19 @@ export async function createCase(
           fullName: input.client.fullName,
           displayName:
             input.client.displayName ?? toDisplayName(input.client.fullName),
+          consentDataProcessingAt: consentAt(
+            input.client.consentDataProcessing,
+            now,
+          ),
+          consentInformationSharingAt: consentAt(
+            input.client.consentInformationSharing,
+            now,
+          ),
+          consentContactAt: consentAt(input.client.consentContact, now),
+          consentPrivacyNoticeAt: consentAt(
+            input.client.consentPrivacyNotice,
+            now,
+          ),
         })
         .returning({ id: clients.id });
       clientId = row!.id;
@@ -123,6 +189,11 @@ export async function createCase(
         supportLevel: c.supportLevel ?? null,
         paymentCode: (c.paymentCode ?? null) as never,
         discountCode: (c.discountCode ?? null) as never,
+        aims: c.aims ?? null,
+        finalPlanIssuedDate: c.finalPlanIssuedDate ?? null,
+        mediationStatus: c.mediationStatus ?? null,
+        appealLodged: c.appealLodged ?? false,
+        representationWanted: c.representationWanted ?? false,
       })
       .returning({ id: cases.id });
     const caseId = caseRow!.id;
@@ -148,6 +219,47 @@ export async function createCase(
       });
     }
 
+    // Key dates the smart-filled form implied.
+    let keyDatesCreated = 0;
+    if (input.keyDates && input.keyDates.length > 0) {
+      await tx.insert(keyDates).values(
+        input.keyDates.map((k) => ({
+          caseId,
+          date: k.date,
+          title: k.title,
+          type: k.type as never,
+          source: 'jotform' as const,
+          confidence: confidenceBucket(k.confidence),
+        })),
+      );
+      keyDatesCreated = input.keyDates.length;
+    }
+
+    // Attach the original submission as a document on the new case.
+    let documentId: string | null = null;
+    if (resolvedIntake) {
+      const uploader = actor ?? (await anyUserId(tx));
+      if (uploader) {
+        const [doc] = await tx
+          .insert(documents)
+          .values({
+            storageKey: resolvedIntake.storageKey,
+            originalFilename: resolvedIntake.filename,
+            mimeType: resolvedIntake.mimeType,
+            byteSize: resolvedIntake.byteSize,
+            sha256: resolvedIntake.sha256,
+            uploadedByUserId: uploader,
+            category: 'Correspondence',
+            caseId,
+            extractedText: resolvedIntake.extractedText,
+            documentGroupId: randomUUID(),
+            version: 1,
+          })
+          .returning({ id: documents.id });
+        documentId = doc!.id;
+      }
+    }
+
     await recordAudit(tx, {
       actorUserId: actor,
       action: 'case.create',
@@ -158,11 +270,52 @@ export async function createCase(
         clientId,
         childId,
         attachedToExistingClient: Boolean(input.existingClientId),
+        smartFilled: Boolean(resolvedIntake),
+        keyDatesCreated,
+        intakeDocumentAttached: Boolean(documentId),
       },
     });
 
     return { caseId, caseReference };
   });
+}
+
+interface ResolvedIntake {
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  sha256: string;
+  extractedText: string | null;
+}
+
+/** Fetch the stored submission and re-derive its metadata from the bytes. */
+async function resolveIntake(
+  intake: IntakeAttachment | undefined,
+): Promise<ResolvedIntake | null> {
+  if (!intake || !intake.storageKey.startsWith('intake/')) return null;
+  const object = await getStorageProvider().get(intake.storageKey);
+  if (!object) return null;
+  const extractedText = await extractIntakeText(
+    intake.mimeType,
+    object.body,
+    intake.filename,
+  );
+  return {
+    storageKey: intake.storageKey,
+    filename: intake.filename,
+    mimeType: intake.mimeType,
+    byteSize: object.body.byteLength,
+    sha256: createHash('sha256').update(object.body).digest('hex'),
+    extractedText: extractedText || null,
+  };
+}
+
+async function anyUserId(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
+): Promise<string | null> {
+  const [row] = await tx.select({ id: users.id }).from(users).limit(1);
+  return row?.id ?? null;
 }
 
 // --- Duplicate detection ----------------------------------------------------
