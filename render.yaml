@@ -1,7 +1,9 @@
-# Render blueprint for RE-SEND. Defines the API web service, the static front
-# end, and managed PostgreSQL. Everything runs on PAID, always-on instances:
-# Render's free tier spins services down after inactivity, which drops the
-# WebSocket connection and the Postgres LISTEN, breaking live updates.
+# Render blueprint for RE-SEND. Defines ONE web service (the API, which also
+# serves the built front end) and managed PostgreSQL. A single origin means the
+# session cookie and the live-updates WebSocket need no cross-origin handling —
+# the browser talks to exactly one host. Everything runs on PAID, always-on
+# instances: Render's free tier spins services down after inactivity, which drops
+# the WebSocket connection and the Postgres LISTEN, breaking live updates.
 #
 # This blueprint is configured for the DEMONSTRATION deployment (DEMO_MODE on,
 # so the system can be shown without a Microsoft tenant). DEMO_MODE must never
@@ -19,13 +21,14 @@ databases:
     region: frankfurt
 
 services:
-  # --- API ------------------------------------------------------------------
+  # --- API + front end (one service, one origin) ----------------------------
   - type: web
-    name: resend-api
+    name: resend
     runtime: node
     plan: starter # paid, always-on — required for WebSockets / live updates
     region: frankfurt
-    buildCommand: npm ci
+    # Build the front end into apps/web/dist; the API serves it at the root.
+    buildCommand: npm ci && npm run build -w @re-send/web
     startCommand: npm run start -w @re-send/api
     # Migrations run as a PRE-DEPLOY step, before the new version serves
     # traffic — never on application boot.
@@ -64,42 +67,5 @@ services:
         value: /var/uploads
       - key: LOG_LEVEL
         value: info
-
-  # --- Front end ------------------------------------------------------------
-  - type: web
-    name: resend-web
-    runtime: static
-    region: frankfurt
-    buildCommand: npm ci && npm run build -w @re-send/web
-    staticPublishPath: apps/web/dist
-    # Same-origin API: the browser talks only to this static domain; /api and
-    # the health checks (including the /api/ws WebSocket) are proxied to the API
-    # service, so session cookies and live updates work without CORS.
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://resend-api.onrender.com/api/*
-      - type: rewrite
-        source: /health/*
-        destination: https://resend-api.onrender.com/health/*
-      # SPA fallback: every other path serves the app shell.
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      # A Content Security Policy with no unsafe-inline for scripts — the XSS-
-      # critical directive. style-src keeps 'unsafe-inline' because the SPA sets
-      # dynamic layout values via the style attribute; inline styles cannot run
-      # JavaScript. HSTS is set here for the static origin too.
-      - path: /*
-        name: Content-Security-Policy
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://resend-api.onrender.com wss://resend-api.onrender.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
-      - path: /*
-        name: Strict-Transport-Security
-        value: max-age=15552000; includeSubDomains
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
+    # Security headers (Helmet) and the Content-Security-Policy are set by the
+    # API in apps/api/src/server.ts and apply to the served front end too.

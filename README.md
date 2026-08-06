@@ -195,10 +195,16 @@ Every case's key dates on one calendar (`/calendar`, `apps/web/src/features/cale
 
 ## Deployment and demo
 
-`render.yaml` is a Render blueprint defining the **API web service**, the
-**static front end**, and **managed PostgreSQL** — all on **paid, always-on**
-instances (the free tier spins down, which breaks WebSockets and live updates).
+`render.yaml` is a Render blueprint defining **one web service** and **managed
+PostgreSQL**, on **paid, always-on** instances (the free tier spins down, which
+breaks WebSockets and live updates).
 
+- **One origin.** The API also serves the built front end (`apps/web/dist`) from
+  its root (`@fastify/static`, with an `index.html` fallback for client-side
+  routes), so the browser talks to a single host — the session cookie and the
+  live-updates WebSocket need no cross-origin handling (no CORS, no hard-coded
+  API URL). In development Vite serves the front end instead (no `dist` present),
+  and the static handler is skipped.
 - **Migrations run pre-deploy**, never on boot (`preDeployCommand`), so a new
   version reaches a migrated database before it serves traffic.
 - **Readiness, not just liveness.** `GET /health/ready` checks the database is
@@ -206,10 +212,10 @@ instances (the free tier spins down, which breaks WebSockets and live updates).
   liveness.
 - **Secrets** are named — never valued — in `.env.example`: `ANTHROPIC_API_KEY`,
   `SESSION_SECRET`, `DATABASE_URL`, `ENCRYPTION_KEY` and the storage credentials.
-- **Security.** Helmet sets the security headers; the CSP has **`script-src
-'self'` with no `unsafe-inline`** (the XSS-critical directive), plus HSTS.
-  Rate limiting is applied to the auth, upload and AI endpoints. The static
-  front end carries a matching CSP via `render.yaml` headers.
+- **Security.** Helmet sets the security headers on every response, the served
+  front end included; the CSP has **`script-src 'self'` with no `unsafe-inline`**
+  (the XSS-critical directive), `connect-src 'self'`, and HSTS. Rate limiting is
+  applied to the auth, upload and AI endpoints.
 - **Structured JSON logging** with a request id on every line, through a
   **redaction layer** (`apps/api/src/logging`) that strips anything resembling
   an email, phone number, postcode or date of birth before a line is written —

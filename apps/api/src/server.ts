@@ -1,9 +1,13 @@
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import {
   serializerCompiler,
   validatorCompiler,
@@ -34,6 +38,12 @@ import {
   removeConnection,
 } from './realtime';
 
+/** The built front end, served by the API in a single-service deployment. */
+const WEB_DIST = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../web/dist',
+);
+
 /**
  * Build the Fastify app. Every HTTP route validates its input and output with
  * Zod. Requests carry a request id and are logged as structured JSON through a
@@ -41,6 +51,11 @@ import {
  * headers, a strict-script CSP, HSTS and per-route rate limiting are applied
  * before the routes. The `/api/ws` channel carries live query invalidations and
  * case presence.
+ *
+ * In a deployed (single-service) setup the API also serves the built SPA from
+ * `apps/web/dist`, so the browser talks to one origin — session cookies and the
+ * WebSocket need no cross-origin handling. In development the front end is served
+ * by Vite instead (no `dist` present), and this is skipped.
  */
 export async function buildServer() {
   const app = Fastify({
@@ -56,12 +71,13 @@ export async function buildServer() {
 
   await app.register(cookie);
 
-  // Security headers. script-src is 'self' with NO unsafe-inline — the XSS-
-  // critical directive — so injected scripts cannot execute. style-src keeps
-  // 'unsafe-inline' because the SPA sets dynamic layout values (grid tracks,
-  // virtualiser offsets) via the style attribute; inline styles cannot run
-  // JavaScript, so this carries no script-execution risk. HSTS is enabled for
-  // HTTPS deployments.
+  // Security headers, applied to the API responses and the served SPA alike.
+  // script-src is 'self' with NO unsafe-inline — the XSS-critical directive — so
+  // injected scripts cannot execute. style-src keeps 'unsafe-inline' because the
+  // SPA sets dynamic layout values (grid tracks, virtualiser offsets) via the
+  // style attribute; inline styles cannot run JavaScript, so this carries no
+  // script-execution risk. connect-src is 'self': the front end and the API
+  // (including the same-origin WebSocket) share one origin. HSTS is on.
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -69,7 +85,7 @@ export async function buildServer() {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'", 'ws:', 'wss:'],
+        connectSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"],
@@ -150,6 +166,23 @@ export async function buildServer() {
     socket.on('close', () => removeConnection(id));
     socket.on('error', () => removeConnection(id));
   });
+
+  // Serve the built SPA (single-service deployment). Registered last so /api and
+  // /health always win; any other GET falls back to index.html for client-side
+  // routing. Skipped in dev/tests where no build is present (Vite serves it).
+  if (existsSync(WEB_DIST)) {
+    await app.register(fastifyStatic, { root: WEB_DIST, wildcard: false });
+    app.setNotFoundHandler((request, reply) => {
+      if (
+        request.method === 'GET' &&
+        !request.url.startsWith('/api') &&
+        !request.url.startsWith('/health')
+      ) {
+        return reply.sendFile('index.html');
+      }
+      return reply.code(404).send({ message: 'Not found' });
+    });
+  }
 
   return app;
 }
