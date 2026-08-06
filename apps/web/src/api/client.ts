@@ -45,14 +45,21 @@ export function setActingUserId(id: string | null): void {
   else localStorage.removeItem(USER_KEY);
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('content-type', 'application/json');
   const acting = getActingUserId();
   if (acting) headers.set('x-user-id', acting);
   const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText}`);
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      /* non-JSON error */
+    }
+    throw new Error(message);
   }
   return (await res.json()) as T;
 }

@@ -27,12 +27,3 @@ export function NewCaseStub() {
     />
   );
 }
-
-export function CaseScreenStub() {
-  return (
-    <Placeholder
-      title="Case screen"
-      note="The case screen is built in a later prompt."
-    />
-  );
-}

@@ -11,6 +11,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url().optional(),
+  UPLOAD_DIR: z.string().default('.uploads'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

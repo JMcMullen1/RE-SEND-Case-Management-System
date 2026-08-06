@@ -13,6 +13,7 @@
     "fixtures:clear": "tsx src/fixtures/clear.ts"
   },
   "dependencies": {
+    "@fastify/multipart": "^8.3.0",
     "@fastify/websocket": "^10.0.1",
     "@re-send/shared": "*",
     "drizzle-orm": "^0.33.0",

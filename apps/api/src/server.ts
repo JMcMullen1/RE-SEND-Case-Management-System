@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
+import multipart from '@fastify/multipart';
 import {
   serializerCompiler,
   validatorCompiler,
@@ -8,6 +9,8 @@ import {
 import { z } from 'zod';
 import { PRODUCT_NAME } from '@re-send/shared';
 import { registerCaseRoutes } from './routes/cases';
+import { registerCaseScreenRoutes } from './routes/case-screen';
+import { registerDocumentRoutes } from './routes/documents';
 import { registerUserRoutes } from './routes/users';
 import { registerSavedViewRoutes } from './routes/saved-views';
 import { addClient } from './realtime';
@@ -25,6 +28,7 @@ export async function buildServer() {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(websocket);
+  await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
   app.route({
     method: 'GET',
@@ -39,6 +43,8 @@ export async function buildServer() {
 
   registerUserRoutes(app);
   registerCaseRoutes(app);
+  registerCaseScreenRoutes(app);
+  registerDocumentRoutes(app);
   registerSavedViewRoutes(app);
 
   app.get('/api/ws', { websocket: true }, (socket) => {
