@@ -263,5 +263,336 @@ export const ROW_STATUS_RULES = {
 } as const;
 export type RowStatusFlag = keyof typeof ROW_STATUS_RULES;
 
+// --- Case list: key date type priority --------------------------------------
+/**
+ * When a case has several key dates on the same day, the most consequential is
+ * shown. Lower rank = more consequential: hearing, then deadline, then meeting,
+ * then everything else.
+ */
+export const KEY_DATE_TYPE_PRIORITY: Record<KeyDateType, number> = {
+  hearing: 0,
+  evidence_deadline: 1,
+  working_document: 2,
+  annual_review: 3,
+  mediation: 4,
+  consultation: 5,
+  other: 6,
+};
+
+// --- Case list: quick-filter pills ------------------------------------------
+export const QUICK_FILTER_VALUES = [
+  'all',
+  'mine',
+  'toBeAssigned',
+  'active',
+  'tsa',
+  'isa',
+  'paymentsBilling',
+] as const;
+export type QuickFilterId = (typeof QUICK_FILTER_VALUES)[number];
+export const QUICK_FILTERS: { id: QuickFilterId; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'mine', label: 'Mine' },
+  { id: 'toBeAssigned', label: 'To be assigned' },
+  { id: 'active', label: 'Active' },
+  { id: 'tsa', label: 'TSA' },
+  { id: 'isa', label: 'ISA' },
+  { id: 'paymentsBilling', label: 'Payments & Billing' },
+];
+
+// --- Case list: sorts -------------------------------------------------------
+export const SORT_VALUES = [
+  'keyDateSoonest',
+  'clientName',
+  'childName',
+  'dateAddedNewest',
+  'dateAddedOldest',
+  'lastUpdatedNewest',
+  'lastUpdatedOldest',
+  'lastReviewedOldest',
+  'staffThenKeyDate',
+] as const;
+export type SortId = (typeof SORT_VALUES)[number];
+export const SortSchema = z.enum(SORT_VALUES);
+export const DEFAULT_SORT: SortId = 'keyDateSoonest';
+export const SORTS: { id: SortId; label: string }[] = [
+  { id: 'keyDateSoonest', label: 'Key date (soonest first)' },
+  { id: 'clientName', label: 'Client name (A–Z)' },
+  { id: 'childName', label: 'Child name (A–Z)' },
+  { id: 'dateAddedNewest', label: 'Date added (newest)' },
+  { id: 'dateAddedOldest', label: 'Date added (oldest)' },
+  { id: 'lastUpdatedNewest', label: 'Last updated (newest)' },
+  {
+    id: 'lastUpdatedOldest',
+    label: 'Last updated (oldest first — surfaces neglect)',
+  },
+  { id: 'lastReviewedOldest', label: 'Last reviewed (oldest)' },
+  { id: 'staffThenKeyDate', label: 'Staff, then key date' },
+];
+
+// --- Case list: optional advanced columns -----------------------------------
+// Status and Updated are shown by default in advanced view and are not
+// toggleable. These are the columns a user can switch on and persist.
+export const OPTIONAL_COLUMN_VALUES = [
+  'team',
+  'dateOfEnquiry',
+  'methodOfEnquiry',
+  'dealingShadow',
+  'schoolYear',
+  'dsplArea',
+  'paymentCode',
+  'discountCode',
+  'invoiceStatus',
+  'consultationState',
+  'lastReviewed',
+] as const;
+export type OptionalColumnId = (typeof OPTIONAL_COLUMN_VALUES)[number];
+export const OptionalColumnSchema = z.enum(OPTIONAL_COLUMN_VALUES);
+export const OPTIONAL_COLUMNS: { id: OptionalColumnId; label: string }[] = [
+  { id: 'team', label: 'Team' },
+  { id: 'dateOfEnquiry', label: 'Date of enquiry' },
+  { id: 'methodOfEnquiry', label: 'Method of enquiry' },
+  { id: 'dealingShadow', label: 'Dealing/Shadow' },
+  { id: 'schoolYear', label: 'School year' },
+  { id: 'dsplArea', label: 'DSPL area' },
+  { id: 'paymentCode', label: 'Payment code' },
+  { id: 'discountCode', label: 'Discount code' },
+  { id: 'invoiceStatus', label: 'Invoice status' },
+  { id: 'consultationState', label: 'Consultation state' },
+  { id: 'lastReviewed', label: 'Last reviewed' },
+];
+
+// --- Case list: filter facets -----------------------------------------------
+/**
+ * Every facet in the "More filters" popover. Each facet is multi-select and,
+ * in the UI, shows a live option count. AND across facets, OR within a facet.
+ *
+ * `source` tells the UI where a facet's options come from: a static vocabulary,
+ * the active users list, values discovered from the data (e.g. enquiry years),
+ * a numeric day threshold, or a plain boolean. `unspecified` marks the three
+ * facets that are wanted but not yet defined — the extension point below.
+ */
+export type FacetSource =
+  | { kind: 'vocab'; values: readonly string[] }
+  | { kind: 'users' }
+  | { kind: 'dynamic' }
+  | { kind: 'days' }
+  | { kind: 'boolean' }
+  | { kind: 'unspecified' };
+
+export interface FacetDef {
+  id: string;
+  label: string;
+  source: FacetSource;
+  /** Disabled facets are wired but hidden until switched on. */
+  enabled: boolean;
+}
+
+export const FACETS: FacetDef[] = [
+  { id: 'staff', label: 'Staff', source: { kind: 'users' }, enabled: true },
+  {
+    id: 'dealingShadow',
+    label: 'Dealing/Shadow',
+    source: { kind: 'users' },
+    enabled: true,
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    source: { kind: 'vocab', values: STATUS_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'team',
+    label: 'Team',
+    source: { kind: 'vocab', values: TEAM_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'workType',
+    label: 'Type of case',
+    source: { kind: 'vocab', values: WORK_TYPE_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'queryType',
+    label: 'Query type',
+    source: { kind: 'vocab', values: QUERY_TYPE_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'enquiryMethod',
+    label: 'Enquiry method',
+    source: { kind: 'vocab', values: ENQUIRY_METHOD_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'enquiryYear',
+    label: 'Enquiry year',
+    source: { kind: 'dynamic' },
+    enabled: true,
+  },
+  {
+    id: 'paymentCode',
+    label: 'Payment code',
+    source: { kind: 'vocab', values: PAYMENT_CODE_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'discountCode',
+    label: 'Discount code',
+    source: { kind: 'vocab', values: DISCOUNT_CODE_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'schoolYear',
+    label: 'School year',
+    source: { kind: 'vocab', values: SCHOOL_YEAR_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'dsplArea',
+    label: 'DSPL area',
+    source: { kind: 'vocab', values: DSPL_AREA_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'consultationState',
+    label: 'Consultation state',
+    source: { kind: 'vocab', values: CONSULTATION_STATE_VALUES },
+    enabled: true,
+  },
+  {
+    id: 'noNoteInDays',
+    label: 'No note in N days',
+    source: { kind: 'days' },
+    enabled: true,
+  },
+  {
+    id: 'notReviewedInDays',
+    label: 'Not reviewed in N days',
+    source: { kind: 'days' },
+    enabled: true,
+  },
+  {
+    id: 'keyDatePassed',
+    label: 'Key date passed',
+    source: { kind: 'boolean' },
+    enabled: true,
+  },
+  {
+    id: 'keyDateWithinDays',
+    label: 'Key date within N days',
+    source: { kind: 'days' },
+    enabled: true,
+  },
+  {
+    id: 'noKeyDate',
+    label: 'No key date set',
+    source: { kind: 'boolean' },
+    enabled: true,
+  },
+  {
+    id: 'missingConsent',
+    label: 'Missing consent',
+    source: { kind: 'boolean' },
+    enabled: true,
+  },
+
+  // --- Extension point --------------------------------------------------------
+  // These three facets are wanted but not yet defined. Their meaning and values
+  // are unknown; do NOT invent them. Set `enabled: true` and give each a proper
+  // `source` once the product defines it.
+  {
+    id: 'support',
+    label: 'Support',
+    source: { kind: 'unspecified' },
+    enabled: false,
+  },
+  {
+    id: 'noConsult',
+    label: 'No Consult',
+    source: { kind: 'unspecified' },
+    enabled: false,
+  },
+  {
+    id: 'inactive',
+    label: 'Inactive',
+    source: { kind: 'unspecified' },
+    enabled: false,
+  },
+];
+
+// --- Case list: default day thresholds for scalar facets --------------------
+export const FILTER_DAY_DEFAULTS = {
+  noNoteInDays: 30,
+  notReviewedInDays: 7,
+  keyDateWithinDays: 14,
+} as const;
+
+// --- Case list: seeded saved views ------------------------------------------
+/**
+ * Shared, read-only starting views. Each remembers whether it opens simple or
+ * advanced. `mine` resolves to the current user at query time.
+ */
+export interface SavedViewSeed {
+  id: string;
+  name: string;
+  mode: 'simple' | 'advanced';
+  sort: SortId;
+  filters: Record<string, unknown>;
+}
+export const SAVED_VIEW_SEEDS: SavedViewSeed[] = [
+  {
+    id: 'seed-my-active',
+    name: 'My active cases',
+    mode: 'simple',
+    sort: 'keyDateSoonest',
+    filters: { mine: true, status: ['Active'] },
+  },
+  {
+    id: 'seed-to-be-assigned',
+    name: 'To be assigned',
+    mode: 'simple',
+    sort: 'dateAddedNewest',
+    filters: { unassigned: true },
+  },
+  {
+    id: 'seed-awaiting-consultation',
+    name: 'Awaiting consultation',
+    mode: 'advanced',
+    sort: 'keyDateSoonest',
+    filters: { consultationState: ['referred', 'booked'] },
+  },
+  {
+    id: 'seed-payments-billing',
+    name: 'Payments & Billing',
+    mode: 'simple',
+    sort: 'keyDateSoonest',
+    filters: { status: ['Payment/Billing'] },
+  },
+  {
+    id: 'seed-no-note-30',
+    name: 'No note in 30 days',
+    mode: 'advanced',
+    sort: 'lastUpdatedOldest',
+    filters: { noNoteInDays: 30 },
+  },
+  {
+    id: 'seed-not-reviewed-week',
+    name: 'Not reviewed this week',
+    mode: 'advanced',
+    sort: 'lastReviewedOldest',
+    filters: { notReviewedInDays: 7 },
+  },
+  {
+    id: 'seed-no-key-date',
+    name: 'No key date set',
+    mode: 'advanced',
+    sort: 'dateAddedNewest',
+    filters: { noKeyDate: true },
+  },
+];
+
 // Keep the vocab helper referenced for future single-line vocabularies.
 export { vocab };

@@ -455,3 +455,22 @@ export const timeEntries = pgTable(
     userIdIdx: index('idx_time_entries_user_id').on(t.userId),
   }),
 );
+
+// --- saved_views ------------------------------------------------------------
+// A stored case-list view. `owner_user_id` null means a shared view; the seeded
+// starter views live in config and are served read-only alongside these.
+export const savedViews = pgTable(
+  'saved_views',
+  {
+    id: primaryId(),
+    ownerUserId: uuid('owner_user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
+    name: text('name').notNull(),
+    state: jsonb('state').notNull(),
+    ...timestamps,
+  },
+  (t) => ({
+    ownerUserIdIdx: index('idx_saved_views_owner_user_id').on(t.ownerUserId),
+  }),
+);

@@ -1,0 +1,86 @@
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+import { SAVED_VIEW_SEEDS } from '@re-send/shared';
+import {
+  createSavedView,
+  deleteSavedView,
+  listSavedViews,
+} from '../repositories/saved-views';
+import { resolveCurrentUser } from '../repositories/users';
+import {
+  SavedViewSchema,
+  SavedViewSeedSchema,
+  ViewStateSchema,
+} from './schemas';
+
+function headerUserId(headers: Record<string, unknown>): string | undefined {
+  const raw = headers['x-user-id'];
+  return typeof raw === 'string' ? raw : undefined;
+}
+
+export function registerSavedViewRoutes(fastify: FastifyInstance): void {
+  const app = fastify.withTypeProvider<ZodTypeProvider>();
+
+  app.get(
+    '/api/saved-views',
+    {
+      schema: {
+        response: {
+          200: z.object({
+            seeds: z.array(SavedViewSeedSchema),
+            views: z.array(SavedViewSchema),
+          }),
+        },
+      },
+    },
+    async (request) => {
+      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const views = await listSavedViews(current?.id ?? null);
+      return { seeds: SAVED_VIEW_SEEDS, views };
+    },
+  );
+
+  app.post(
+    '/api/saved-views',
+    {
+      schema: {
+        body: z.object({
+          name: z.string().min(1).max(120),
+          shared: z.boolean(),
+          state: ViewStateSchema,
+        }),
+        response: { 200: z.object({ view: SavedViewSchema }) },
+      },
+    },
+    async (request) => {
+      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const view = await createSavedView({
+        name: request.body.name,
+        shared: request.body.shared,
+        state: request.body.state,
+        currentUserId: current?.id ?? null,
+      });
+      return { view };
+    },
+  );
+
+  app.delete(
+    '/api/saved-views/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ ok: z.literal(true) }),
+          404: z.object({ message: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const ok = await deleteSavedView(request.params.id, current?.id ?? null);
+      if (!ok) return reply.code(404).send({ message: 'Saved view not found' });
+      return { ok: true as const };
+    },
+  );
+}

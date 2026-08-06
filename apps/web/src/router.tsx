@@ -4,7 +4,8 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router';
-import { HomePage } from './routes/home';
+import { CaseListPage } from './features/caselist/CaseListPage';
+import { CaseScreenStub, NewCaseStub } from './routes/stubs';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -13,10 +14,26 @@ const rootRoute = createRootRoute({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: HomePage,
+  component: CaseListPage,
 });
 
-const routeTree = rootRoute.addChildren([homeRoute]);
+const newCaseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/cases/new',
+  component: NewCaseStub,
+});
+
+const caseScreenRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/cases/$caseId',
+  component: CaseScreenStub,
+});
+
+const routeTree = rootRoute.addChildren([
+  homeRoute,
+  newCaseRoute,
+  caseScreenRoute,
+]);
 
 export const router = createRouter({ routeTree });
 
