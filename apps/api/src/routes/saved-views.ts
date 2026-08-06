@@ -7,17 +7,12 @@ import {
   deleteSavedView,
   listSavedViews,
 } from '../repositories/saved-views';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   SavedViewSchema,
   SavedViewSeedSchema,
   ViewStateSchema,
 } from './schemas';
-
-function headerUserId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 export function registerSavedViewRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
@@ -35,7 +30,7 @@ export function registerSavedViewRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
       const views = await listSavedViews(current?.id ?? null);
       return { seeds: SAVED_VIEW_SEEDS, views };
     },
@@ -54,7 +49,7 @@ export function registerSavedViewRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
       const view = await createSavedView({
         name: request.body.name,
         shared: request.body.shared,
@@ -77,7 +72,7 @@ export function registerSavedViewRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
       const ok = await deleteSavedView(request.params.id, current?.id ?? null);
       if (!ok) return reply.code(404).send({ message: 'Saved view not found' });
       return { ok: true as const };

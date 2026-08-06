@@ -18,18 +18,13 @@ import {
   searchCasesForCalendar,
   userForIcalToken,
 } from '../repositories/calendar';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   BankHolidaysResponseSchema,
   CalendarCaseMatchSchema,
   CalendarEventSchema,
   CalendarQuerySchema,
 } from './schemas';
-
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 /** Parse a comma-separated list, keeping only values in the allowed set. */
 function parseList<T extends string>(
@@ -62,7 +57,7 @@ export function registerCalendarRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const q = request.query;
       const filters: CalendarFilters = {
         scope: q.scope,
@@ -116,7 +111,7 @@ export function registerCalendarRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       if (!current) return { path: null };
       const token = await ensureIcalToken(current.id);
       return { path: token ? `/api/calendar/feed/${token}.ics` : null };
@@ -130,7 +125,7 @@ export function registerCalendarRoutes(fastify: FastifyInstance): void {
       schema: { response: { 200: z.object({ path: z.string().nullable() }) } },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       if (!current) return { path: null };
       const token = await rotateIcalToken(current.id);
       return { path: token ? `/api/calendar/feed/${token}.ics` : null };

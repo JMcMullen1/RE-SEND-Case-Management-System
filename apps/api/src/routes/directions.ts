@@ -9,17 +9,12 @@ import {
 import { AiJobDisabledError, AiJobRefusalError } from '../ai/errors';
 import { runDirectionsExtraction } from '../ai/directions';
 import { applyDirections } from '../repositories/directions';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   ApplyDirectionsRequestSchema,
   DirectionsApplyResultSchema,
   DirectionsResponseSchema,
 } from './schemas';
-
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 /**
  * Directions-order ingestion. The extract endpoint stores the order and returns
@@ -34,6 +29,8 @@ export function registerDirectionsRoutes(fastify: FastifyInstance): void {
   app.post(
     '/api/cases/:id/directions/extract',
     {
+      // AI + upload endpoint: rate-limited to bound model spend and file churn.
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: {
         params: z.object({ id: z.string().uuid() }),
         response: { 200: DirectionsResponseSchema },
@@ -47,7 +44,7 @@ export function registerDirectionsRoutes(fastify: FastifyInstance): void {
           message: 'No file uploaded',
         } satisfies DirectionsResponse);
       const bytes = await file.toBuffer();
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       try {
         const review = await runDirectionsExtraction(
           {
@@ -84,7 +81,7 @@ export function registerDirectionsRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request): Promise<DirectionsApplyResult> => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const { created, superseded, counts } = await applyDirections(
         {
           caseId: request.params.id,

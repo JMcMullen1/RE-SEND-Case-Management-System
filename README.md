@@ -193,6 +193,52 @@ Every case's key dates on one calendar (`/calendar`, `apps/web/src/features/cale
   so two-way Microsoft Graph sync can be added later as a separate id/etag
   mapping over the same projection — without unpicking the feed.
 
+## Deployment and demo
+
+`render.yaml` is a Render blueprint defining the **API web service**, the
+**static front end**, and **managed PostgreSQL** — all on **paid, always-on**
+instances (the free tier spins down, which breaks WebSockets and live updates).
+
+- **Migrations run pre-deploy**, never on boot (`preDeployCommand`), so a new
+  version reaches a migrated database before it serves traffic.
+- **Readiness, not just liveness.** `GET /health/ready` checks the database is
+  reachable (`SELECT 1`); it is Render's health check. `GET /health` is bare
+  liveness.
+- **Secrets** are named — never valued — in `.env.example`: `ANTHROPIC_API_KEY`,
+  `SESSION_SECRET`, `DATABASE_URL`, `ENCRYPTION_KEY` and the storage credentials.
+- **Security.** Helmet sets the security headers; the CSP has **`script-src
+'self'` with no `unsafe-inline`** (the XSS-critical directive), plus HSTS.
+  Rate limiting is applied to the auth, upload and AI endpoints. The static
+  front end carries a matching CSP via `render.yaml` headers.
+- **Structured JSON logging** with a request id on every line, through a
+  **redaction layer** (`apps/api/src/logging`) that strips anything resembling
+  an email, phone number, postcode or date of birth before a line is written —
+  tested with a fixture carrying all four.
+- **Backups & recovery.** Paid Render PostgreSQL takes a **daily backup** with
+  point-in-time recovery. The restore procedure — executed once against a
+  scratch database to prove it — is in `docs/disaster-recovery.md`.
+
+### Demo mode
+
+`DEMO_MODE=true` enables **local password login** for a small set of named
+accounts (`apps/api/src/auth/demo-accounts.ts`), so the system can be shown
+without a Microsoft tenant. It is refused under `NODE_ENV=production` (startup
+fails). The deployed system starts with an **empty case list** — nothing is
+seeded. `docs/demo/` holds a realistic JotForm PDF and an amended directions
+order so cases are created live during a walkthrough. **Reset demo** (or
+`npm run demo:reset -w @re-send/api`, DEMO_MODE only) empties every case-data
+table back to a blank list so the walkthrough can be run again.
+
+### End-to-end and accessibility
+
+`apps/web/playwright.e2e.config.ts` runs the full journey against a real API and
+a clean, empty database: sign in, see the empty state, add a case, create a
+second by dropping a JotForm, apply a directions order and confirm the diff, see
+the date on the calendar, run review mode, and reassign a case while a second
+browser session watches it update live. **axe-core** scans the key screens and
+the build fails on any serious or critical violation. Both run in CI
+(`.github/workflows/ci.yml`) against a PostgreSQL service.
+
 ### Render free tier
 
 **Render's free tier spins services down after inactivity.** A spun-down

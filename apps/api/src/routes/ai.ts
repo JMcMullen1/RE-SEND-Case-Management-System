@@ -9,13 +9,8 @@ import {
 } from '../repositories/ai-jobs';
 import { recordAudit } from '../repositories/audit';
 import { getDb } from '../db/client';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import { AiJobFlagSchema, AiSpendByJobSchema } from './schemas';
-
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 /**
  * Admin surface for the AI job layer: the global switch, per-job flags (toggled
@@ -55,7 +50,7 @@ export function registerAiRoutes(fastify: FastifyInstance): void {
         request.body.jobName,
         request.body.enabled,
       );
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       await recordAudit(getDb(), {
         actorUserId: current?.id ?? null,
         action: 'ai.flag.set',

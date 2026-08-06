@@ -8,6 +8,23 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resend_test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/resend_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,7 +32,60 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      # Prepare the integration-test database.
+      - name: Create, migrate and seed the test database
+        run: |
+          psql "postgres://postgres:postgres@localhost:5432/postgres" -c "CREATE DATABASE resend_test;"
+          npm run db:migrate -w @re-send/api
+          # The case-list integration tests assert against a seeded set.
+          npm run fixtures:load -w @re-send/api
+        env:
+          PGPASSWORD: postgres
+
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
       - run: npm run test
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # serve-api.ts prepares resend_e2e from this maintenance connection.
+      E2E_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      # The full demonstration journey (empty DB → sign in → cases → directions →
+      # calendar → review → live reassign) and the axe-core accessibility gate,
+      # which fails the build on any serious/critical violation.
+      - name: End-to-end journey + accessibility
+        run: npm run e2e:journey
+        working-directory: apps/web
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

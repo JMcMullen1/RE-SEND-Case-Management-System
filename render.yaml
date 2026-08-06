@@ -1,1 +1,105 @@
-# Render blueprint — service definitions are added in a later prompt.
+# Render blueprint for RE-SEND. Defines the API web service, the static front
+# end, and managed PostgreSQL. Everything runs on PAID, always-on instances:
+# Render's free tier spins services down after inactivity, which drops the
+# WebSocket connection and the Postgres LISTEN, breaking live updates.
+#
+# This blueprint is configured for the DEMONSTRATION deployment (DEMO_MODE on,
+# so the system can be shown without a Microsoft tenant). DEMO_MODE must never
+# run under NODE_ENV=production — the app fails startup if it does — so the demo
+# service runs with NODE_ENV=development. A real production deployment would set
+# NODE_ENV=production, DEMO_MODE=false, and wire single sign-on.
+
+databases:
+  - name: resend-db
+    # A paid plan: always-on, and includes automated DAILY backups plus
+    # point-in-time recovery. See docs/disaster-recovery.md for the restore.
+    plan: basic-256mb
+    databaseName: resend
+    postgresMajorVersion: '16'
+    region: frankfurt
+
+services:
+  # --- API ------------------------------------------------------------------
+  - type: web
+    name: resend-api
+    runtime: node
+    plan: starter # paid, always-on — required for WebSockets / live updates
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: npm run start -w @re-send/api
+    # Migrations run as a PRE-DEPLOY step, before the new version serves
+    # traffic — never on application boot.
+    preDeployCommand: npm run db:migrate -w @re-send/api
+    # Readiness, not just liveness: this endpoint checks the database is
+    # reachable, so a process that cannot reach Postgres is marked unhealthy.
+    healthCheckPath: /health/ready
+    # Document bytes are written under UPLOAD_DIR. A persistent disk keeps them
+    # across deploys (the container filesystem is otherwise ephemeral).
+    disk:
+      name: resend-uploads
+      mountPath: /var/uploads
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: development # demo deployment; see the note at the top of this file
+      - key: DATABASE_URL
+        fromDatabase:
+          name: resend-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: DEMO_MODE
+        value: 'true'
+      - key: DEMO_PASSWORD
+        sync: false # set in the Render dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false # set in the Render dashboard; never committed
+      - key: AI_ENABLED
+        value: 'true'
+      - key: STORAGE_PROVIDER
+        value: local
+      - key: UPLOAD_DIR
+        value: /var/uploads
+      - key: LOG_LEVEL
+        value: info
+
+  # --- Front end ------------------------------------------------------------
+  - type: web
+    name: resend-web
+    runtime: static
+    region: frankfurt
+    buildCommand: npm ci && npm run build -w @re-send/web
+    staticPublishPath: apps/web/dist
+    # Same-origin API: the browser talks only to this static domain; /api and
+    # the health checks (including the /api/ws WebSocket) are proxied to the API
+    # service, so session cookies and live updates work without CORS.
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://resend-api.onrender.com/api/*
+      - type: rewrite
+        source: /health/*
+        destination: https://resend-api.onrender.com/health/*
+      # SPA fallback: every other path serves the app shell.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # A Content Security Policy with no unsafe-inline for scripts — the XSS-
+      # critical directive. style-src keeps 'unsafe-inline' because the SPA sets
+      # dynamic layout values via the style attribute; inline styles cannot run
+      # JavaScript. HSTS is set here for the static origin too.
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://resend-api.onrender.com wss://resend-api.onrender.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=15552000; includeSubDomains
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

@@ -36,6 +36,7 @@ import { SavedViewsMenu } from './SavedViewsMenu';
 import { BulkBar } from './BulkBar';
 import { CaseTable } from './CaseTable';
 import { EmptyFirstRun, EmptyNoMatch } from './EmptyStates';
+import { SessionMenu } from '../auth/SessionMenu';
 
 type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 
@@ -145,6 +146,7 @@ export function CaseListPage() {
               qc.invalidateQueries();
             }}
           />
+          <SessionMenu />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">

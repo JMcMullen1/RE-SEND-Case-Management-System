@@ -45,12 +45,25 @@ export function setActingUserId(id: string | null): void {
   else localStorage.removeItem(USER_KEY);
 }
 
+/** An HTTP error carrying its status, so callers can branch on 401 vs. others. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('content-type', 'application/json');
   const acting = getActingUserId();
   if (acting) headers.set('x-user-id', acting);
-  const res = await fetch(url, { ...init, headers });
+  // Include the session cookie on every request (needed if the API is ever on
+  // a different origin than the static app).
+  const res = await fetch(url, { ...init, headers, credentials: 'include' });
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
     try {
@@ -59,7 +72,7 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
     } catch {
       /* non-JSON error */
     }
-    throw new Error(message);
+    throw new ApiError(res.status, message);
   }
   return (await res.json()) as T;
 }

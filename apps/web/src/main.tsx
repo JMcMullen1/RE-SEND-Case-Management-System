@@ -6,6 +6,7 @@ import { brandingCss } from '@re-send/shared';
 import { router } from './router';
 import { RealtimeProvider } from './realtime/RealtimeProvider';
 import { ConnectionBanner } from './realtime/ConnectionBanner';
+import { AuthGate } from './features/auth/AuthGate';
 import './index.css';
 
 // Brand colour values live only in branding.ts; inject them as :root custom
@@ -24,10 +25,12 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RealtimeProvider>
-        <ConnectionBanner />
-        <RouterProvider router={router} />
-      </RealtimeProvider>
+      <AuthGate>
+        <RealtimeProvider>
+          <ConnectionBanner />
+          <RouterProvider router={router} />
+        </RealtimeProvider>
+      </AuthGate>
     </QueryClientProvider>
   </StrictMode>,
 );

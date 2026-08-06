@@ -41,8 +41,57 @@ const EnvSchema = z.object({
     .transform((v) => v === 'true'),
   // Transient-failure retries (429/5xx/network). The SDK backs off exponentially.
   AI_MAX_RETRIES: z.coerce.number().int().min(0).default(2),
+
+  // --- Sessions & secrets --------------------------------------------------
+  // Signs the session cookie (HMAC). Required once auth is exercised; a random
+  // fallback is generated in non-production so local dev needs no setup.
+  SESSION_SECRET: z.string().optional(),
+  // Reserved for encrypting data at rest (future). Named here so it is a first
+  // class secret in .env.example and Render, not an afterthought.
+  ENCRYPTION_KEY: z.string().optional(),
+  LOG_LEVEL: z.string().default('info'),
+
+  // --- Demo mode -----------------------------------------------------------
+  // Local password login for a small set of named accounts, so the system can
+  // be demonstrated without a Microsoft tenant. NEVER valid in production — see
+  // assertRuntimeSafety. Also gates the demo-reset command and route.
+  DEMO_MODE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  // Shared password for the demo accounts. Only consulted when DEMO_MODE is on.
+  DEMO_PASSWORD: z.string().default('resend-demo'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
 
 export const env: Env = EnvSchema.parse(process.env);
+
+/**
+ * Fatal safety checks run once at startup (see index.ts) — never at import, so
+ * tests can construct the app freely. Demo login must never be reachable in a
+ * production deployment: fail loudly rather than expose password accounts.
+ */
+export function assertRuntimeSafety(e: Env = env): void {
+  if (e.DEMO_MODE && e.NODE_ENV === 'production') {
+    throw new Error(
+      'DEMO_MODE must not be enabled when NODE_ENV=production. Demo login ' +
+        'exposes shared password accounts and is for demonstration only.',
+    );
+  }
+  if (e.NODE_ENV === 'production' && !e.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET is required in production.');
+  }
+}
+
+/**
+ * The secret used to sign session cookies. In production this must be set; in
+ * development/test a stable per-process fallback keeps local sign-in working
+ * without configuration.
+ */
+let sessionSecretFallback: string | undefined;
+export function sessionSecret(): string {
+  if (env.SESSION_SECRET) return env.SESSION_SECRET;
+  sessionSecretFallback ??= `dev-only-${Math.random().toString(36).slice(2)}`;
+  return sessionSecretFallback;
+}

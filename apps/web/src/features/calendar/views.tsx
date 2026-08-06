@@ -49,7 +49,7 @@ function EventChip({
         event.superseded ? ' (superseded)' : ''
       }`}
       className={`flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
-        event.superseded ? 'text-gray-400 line-through' : 'text-resend-ink'
+        event.superseded ? 'text-gray-500 line-through' : 'text-resend-ink'
       } ${compact ? 'truncate' : ''}`}
     >
       <TypeDot type={event.type} />
@@ -86,7 +86,7 @@ export function AgendaView({
 
   if (days.length === 0) {
     return (
-      <p className="py-16 text-center text-sm text-gray-400">
+      <p className="py-16 text-center text-sm text-gray-500">
         No key dates in the next two months.
       </p>
     );
@@ -146,7 +146,7 @@ export function WeekView({
               type="button"
               onClick={() => onAddOn(day)}
               aria-label={`Add key date on ${formatDayHeading(day)}`}
-              className="rounded px-1 text-sm text-gray-400 hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              className="rounded px-1 text-sm text-gray-500 hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
             >
               +
             </button>
@@ -211,7 +211,7 @@ export function MonthView({
                   <div className="mb-0.5 flex items-baseline justify-between">
                     <span
                       className={`text-xs ${
-                        outside ? 'text-gray-300' : 'text-gray-500'
+                        outside ? 'text-gray-500' : 'text-gray-500'
                       }`}
                     >
                       {dayNumber(day)}
@@ -220,7 +220,7 @@ export function MonthView({
                       type="button"
                       onClick={() => onAddOn(day)}
                       aria-label={`Add key date on ${formatDayHeading(day)}`}
-                      className="rounded px-1 text-xs text-gray-300 hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                      className="rounded px-1 text-xs text-gray-500 hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
                     >
                       +
                     </button>
@@ -232,7 +232,7 @@ export function MonthView({
                       </li>
                     ))}
                     {dayEvents.length > MAX && (
-                      <li className="px-1.5 text-xs text-gray-400">
+                      <li className="px-1.5 text-xs text-gray-500">
                         +{dayEvents.length - MAX} more
                       </li>
                     )}

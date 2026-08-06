@@ -23,6 +23,8 @@ export function registerIntakeRoutes(fastify: FastifyInstance): void {
   app.post(
     '/api/intake/extract',
     {
+      // AI + upload endpoint: rate-limited so a burst can't run up model spend.
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: {
         querystring: SourceQuery,
         response: { 200: IntakeResponseSchema },
@@ -49,6 +51,7 @@ export function registerIntakeRoutes(fastify: FastifyInstance): void {
   app.post(
     '/api/intake/extract-text',
     {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
       schema: {
         body: z.object({
           text: z.string().min(1),

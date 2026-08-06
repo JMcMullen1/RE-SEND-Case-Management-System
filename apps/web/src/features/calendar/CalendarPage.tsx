@@ -214,7 +214,7 @@ export function CalendarPage() {
 
       <main className="min-h-0 flex-1 overflow-auto px-6 py-4">
         {query.isLoading ? (
-          <p className="py-16 text-center text-sm text-gray-400">
+          <p className="py-16 text-center text-sm text-gray-500">
             Loading key dates…
           </p>
         ) : view === 'agenda' ? (

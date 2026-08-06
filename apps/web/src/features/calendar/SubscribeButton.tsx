@@ -57,7 +57,7 @@ export function SubscribeButton() {
             the link private — it grants read access to your calendar.
           </p>
           {busy && !absolute ? (
-            <p className="mt-2 text-sm text-gray-400">Preparing feed…</p>
+            <p className="mt-2 text-sm text-gray-500">Preparing feed…</p>
           ) : absolute ? (
             <>
               <input
@@ -86,7 +86,7 @@ export function SubscribeButton() {
               </div>
             </>
           ) : (
-            <p className="mt-2 text-sm text-gray-400">
+            <p className="mt-2 text-sm text-gray-500">
               No feed available for the current user.
             </p>
           )}

@@ -9,12 +9,16 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "demo:reset": "tsx src/demo/reset.ts",
     "fixtures:load": "tsx src/fixtures/load.ts",
     "fixtures:clear": "tsx src/fixtures/clear.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
+    "@fastify/cookie": "^9.4.0",
+    "@fastify/helmet": "^11.1.1",
     "@fastify/multipart": "^8.3.0",
+    "@fastify/rate-limit": "^9.1.0",
     "@fastify/websocket": "^10.0.1",
     "@re-send/shared": "*",
     "drizzle-orm": "^0.33.0",

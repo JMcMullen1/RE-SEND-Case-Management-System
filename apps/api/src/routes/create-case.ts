@@ -7,17 +7,12 @@ import {
   getClientDetail,
   type CreateCaseInput,
 } from '../repositories/create-case';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   CaseClientDetailSchema,
   CreateCaseSchema,
   MatchResultSchema,
 } from './schemas';
-
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 export function registerCreateCaseRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
@@ -33,7 +28,7 @@ export function registerCreateCaseRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const result = await createCase(
         request.body as CreateCaseInput,
         current?.id ?? null,

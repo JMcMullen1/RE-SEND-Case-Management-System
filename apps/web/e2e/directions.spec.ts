@@ -113,6 +113,18 @@ function json(route: Route, body: unknown) {
   });
 }
 
+// Let the auth gate through: the smoke stubs a signed-in session.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/session', (r) =>
+    json(r, {
+      id: 'u1',
+      displayName: 'Case Worker',
+      role: 'caseworker',
+      active: true,
+    }),
+  );
+});
+
 test('directions review renders the diff and applies it', async ({ page }) => {
   let applied: unknown = null;
 

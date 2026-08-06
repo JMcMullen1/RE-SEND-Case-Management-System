@@ -1,13 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { listActiveUsers, resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
+import { listActiveUsers } from '../repositories/users';
 import { UserSummarySchema } from './schemas';
-
-function headerUserId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 export function registerUserRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
@@ -28,13 +24,13 @@ export function registerUserRoutes(fastify: FastifyInstance): void {
       schema: {
         response: {
           200: UserSummarySchema,
-          404: z.object({ message: z.string() }),
+          401: z.object({ message: z.string() }),
         },
       },
     },
     async (request, reply) => {
-      const user = await resolveCurrentUser(headerUserId(request.headers));
-      if (!user) return reply.code(404).send({ message: 'No active users' });
+      const user = await resolveActingUser(request);
+      if (!user) return reply.code(401).send({ message: 'Not signed in' });
       return user;
     },
   );

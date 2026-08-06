@@ -11,3 +11,5 @@ playwright-report/
 test-results/
 .vite/
 .uploads/
+.uploads-e2e/
+**/.uploads-e2e/

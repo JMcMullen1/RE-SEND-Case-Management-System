@@ -14,18 +14,13 @@ import {
   reassignOwner,
   type OwnerTarget,
 } from '../repositories/cases';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   CaseListQuerystringSchema,
   CaseListResponseSchema,
   CaseListRowSchema,
   OwnerTargetSchema,
 } from './schemas';
-
-function headerUserId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 function targetFrom(body: {
   ownerUserId?: string;
@@ -54,7 +49,7 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
         if (typeof value === 'string') params.set(key, value);
       }
       const view = decodeViewState(params);
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
 
       const caseQuery = {
         filters: view.filters,
@@ -110,7 +105,7 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
       const row = await reassignOwner(
         request.params.id,
         targetFrom(request.body),
@@ -139,7 +134,7 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(headerUserId(request.headers));
+      const current = await resolveActingUser(request);
       const updated = await reassignMany(
         request.body.caseIds,
         targetFrom(request.body),

@@ -7,16 +7,11 @@ import {
   getDocumentContent,
   listDocumentVersions,
 } from '../repositories/documents';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   DocumentUploadResultSchema,
   DocumentVersionInfoSchema,
 } from './schemas';
-
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
 
 export function registerDocumentRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
@@ -31,6 +26,8 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
   app.post(
     '/api/cases/:id/documents',
     {
+      // Upload endpoint: rate-limited to bound storage churn and extraction.
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
       schema: {
         params: z.object({ id: z.string().uuid() }),
         querystring: z.object({ category: DocumentCategorySchema }),
@@ -44,7 +41,7 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
       const file = await request.file();
       if (!file) return reply.code(400).send({ message: 'No file uploaded' });
       const bytes = await file.toBuffer();
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const result = await createDocument(
         request.params.id,
         {
@@ -86,7 +83,7 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const content = await getDocumentContent(
         request.params.id,
         current?.id ?? null,

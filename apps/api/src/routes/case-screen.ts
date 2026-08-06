@@ -18,7 +18,7 @@ import {
 } from '../repositories/key-dates';
 import { addNote, editNote, NoteForbidden } from '../repositories/notes';
 import { recordReview } from '../repositories/reviews';
-import { resolveCurrentUser } from '../repositories/users';
+import { resolveActingUser } from '../auth/context';
 import {
   CaseDetailSchema,
   CaseFieldsPatchSchema,
@@ -36,11 +36,6 @@ import {
 
 const IdParam = z.object({ id: z.string().uuid() });
 
-function actorId(headers: Record<string, unknown>): string | undefined {
-  const raw = headers['x-user-id'];
-  return typeof raw === 'string' ? raw : undefined;
-}
-
 export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -57,7 +52,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       if (!current) return reply.code(400).send({ message: 'No acting user' });
       return recordReview(
         request.params.id,
@@ -95,7 +90,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const ok = await updateCaseFields(
         request.params.id,
         request.body,
@@ -115,7 +110,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const ok = await updateClientFields(
         request.params.id,
         request.body,
@@ -135,7 +130,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const ok = await updateChildFields(
         request.params.id,
         request.body,
@@ -155,7 +150,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const ok = await setCaseTeams(
         request.params.id,
         request.body.team,
@@ -188,7 +183,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const keyDate = await createKeyDate(
         request.params.id,
         request.body,
@@ -211,7 +206,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const result = await updateKeyDate(
         request.params.id,
         request.body,
@@ -235,7 +230,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const result = await deleteKeyDate(
         request.params.id,
         current?.id ?? null,
@@ -274,7 +269,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       const items = await listTimeline(
         request.params.id,
         {
@@ -299,7 +294,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       if (!current)
         return reply.code(400).send({ message: 'No acting user' } as never);
       const item = await addNote(
@@ -330,7 +325,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      const current = await resolveCurrentUser(actorId(request.headers));
+      const current = await resolveActingUser(request);
       if (!current) return reply.code(403).send({ message: 'No acting user' });
       try {
         const result = await editNote(request.params.id, request.body.body, {

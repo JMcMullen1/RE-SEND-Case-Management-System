@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { users } from '../db/schema';
 
@@ -7,6 +7,23 @@ export interface UserSummary {
   displayName: string;
   role: string;
   active: boolean;
+}
+
+/** Resolve one active user by id, or null. Used to validate a session. */
+export async function getActiveUserById(
+  id: string,
+): Promise<UserSummary | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      role: users.role,
+      active: users.active,
+    })
+    .from(users)
+    .where(and(eq(users.id, id), eq(users.active, true)));
+  return row ?? null;
 }
 
 /** Active users only — the source of every staff-picking control. */

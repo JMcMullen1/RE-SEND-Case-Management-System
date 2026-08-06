@@ -50,6 +50,21 @@ function json(route: Route, body: unknown) {
   });
 }
 
+// Let the auth gate through: every smoke stubs a signed-in session.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/session', (r) =>
+    json(r, {
+      id: 'u1',
+      displayName: 'Case Worker',
+      role: 'caseworker',
+      active: true,
+    }),
+  );
+  await page.route('**/api/auth/accounts', (r) =>
+    json(r, { demoMode: false, accounts: [] }),
+  );
+});
+
 test('calendar shows the agenda by default and opens an entry', async ({
   page,
 }) => {

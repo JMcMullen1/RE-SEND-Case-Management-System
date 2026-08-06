@@ -267,7 +267,7 @@ function CasePicker({
               setQ('');
               onClear();
             }}
-            className="text-xs text-gray-400 underline hover:text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            className="text-xs text-gray-500 underline hover:text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >
             change
           </button>
