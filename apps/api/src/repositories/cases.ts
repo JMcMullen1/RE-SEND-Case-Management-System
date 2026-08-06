@@ -70,16 +70,16 @@ function buildConditions(
   }
 
   if (typeof f.noNoteInDays === 'number') {
-    c.noNoteInDays = sql`NOT EXISTS (SELECT 1 FROM case_notes n WHERE n.case_id = c.id AND n.deleted_at IS NULL AND n.entry_date > ${TODAY} - ${f.noNoteInDays})`;
+    c.noNoteInDays = sql`NOT EXISTS (SELECT 1 FROM case_notes n WHERE n.case_id = c.id AND n.deleted_at IS NULL AND n.entry_date > ${TODAY} - ${f.noNoteInDays}::int)`;
   }
   if (typeof f.notReviewedInDays === 'number') {
-    c.notReviewedInDays = sql`NOT EXISTS (SELECT 1 FROM case_reviews r WHERE r.case_id = c.id AND r.deleted_at IS NULL AND r.reviewed_at::date > ${TODAY} - ${f.notReviewedInDays})`;
+    c.notReviewedInDays = sql`NOT EXISTS (SELECT 1 FROM case_reviews r WHERE r.case_id = c.id AND r.deleted_at IS NULL AND r.reviewed_at::date > ${TODAY} - ${f.notReviewedInDays}::int)`;
   }
   if (f.keyDatePassed) {
     c.keyDatePassed = sql`(NOT EXISTS (SELECT 1 FROM key_dates k WHERE k.case_id = c.id AND k.deleted_at IS NULL AND k.superseded_at IS NULL AND k.date >= ${TODAY}) AND EXISTS (SELECT 1 FROM key_dates k WHERE k.case_id = c.id AND k.deleted_at IS NULL AND k.superseded_at IS NULL AND k.date < ${TODAY}))`;
   }
   if (typeof f.keyDateWithinDays === 'number') {
-    c.keyDateWithinDays = sql`EXISTS (SELECT 1 FROM key_dates k WHERE k.case_id = c.id AND k.deleted_at IS NULL AND k.superseded_at IS NULL AND k.date >= ${TODAY} AND k.date <= ${TODAY} + ${f.keyDateWithinDays})`;
+    c.keyDateWithinDays = sql`EXISTS (SELECT 1 FROM key_dates k WHERE k.case_id = c.id AND k.deleted_at IS NULL AND k.superseded_at IS NULL AND k.date >= ${TODAY} AND k.date <= ${TODAY} + ${f.keyDateWithinDays}::int)`;
   }
   if (f.noKeyDate) {
     c.noKeyDate = sql`NOT EXISTS (SELECT 1 FROM key_dates k WHERE k.case_id = c.id AND k.deleted_at IS NULL AND k.superseded_at IS NULL)`;
