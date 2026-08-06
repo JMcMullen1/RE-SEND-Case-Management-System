@@ -4,12 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { uploadDocument } from '../../api/caseScreen';
 import { useToday } from '../../hooks/useToday';
 import { useUsers } from '../../hooks/useCaseData';
-import {
-  useCaseDetail,
-  useCaseMutations,
-  useCaseRealtime,
-} from '../../hooks/useCaseScreen';
+import { useCaseDetail, useCaseMutations } from '../../hooks/useCaseScreen';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { usePresence } from '../../realtime/RealtimeProvider';
+import { PresenceIndicator } from './PresenceIndicator';
 import { CaseHeader } from './CaseHeader';
 import { DetailPanel } from './DetailPanel';
 import { DocumentsRegion } from './DocumentsRegion';
@@ -30,7 +28,7 @@ export function CaseScreenPage() {
   const { caseId } = useParams({ from: '/cases/$caseId' });
   const today = useToday();
   const qc = useQueryClient();
-  useCaseRealtime(caseId);
+  const others = usePresence(caseId);
 
   const detailQuery = useCaseDetail(caseId);
   const users = useUsers().data?.users ?? [];
@@ -135,6 +133,11 @@ export function CaseScreenPage() {
           mutations={mutations}
           onUploadDirections={uploadDirections}
         />
+        {others.length > 0 && (
+          <div className="mt-2">
+            <PresenceIndicator users={others} />
+          </div>
+        )}
       </header>
 
       {wide ? (

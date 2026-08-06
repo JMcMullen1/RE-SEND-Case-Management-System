@@ -15,6 +15,13 @@
       "when": 1785977385779,
       "tag": "0001_saved_views",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786008558870,
+      "tag": "0002_live_updates",
+      "breakpoints": true
     }
   ]
 }

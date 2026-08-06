@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { brandingCss } from '@re-send/shared';
 import { router } from './router';
+import { RealtimeProvider } from './realtime/RealtimeProvider';
+import { ConnectionBanner } from './realtime/ConnectionBanner';
 import './index.css';
 
 // Brand colour values live only in branding.ts; inject them as :root custom
@@ -22,7 +24,10 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <RealtimeProvider>
+        <ConnectionBanner />
+        <RouterProvider router={router} />
+      </RealtimeProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

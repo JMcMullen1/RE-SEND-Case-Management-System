@@ -8,7 +8,6 @@ import {
   type CreateCaseInput,
 } from '../repositories/create-case';
 import { resolveCurrentUser } from '../repositories/users';
-import { broadcast } from '../realtime';
 import {
   CaseClientDetailSchema,
   CreateCaseSchema,
@@ -39,7 +38,6 @@ export function registerCreateCaseRoutes(fastify: FastifyInstance): void {
         request.body as CreateCaseInput,
         current?.id ?? null,
       );
-      broadcast({ type: 'caseChanged', caseId: result.caseId });
       return result;
     },
   );

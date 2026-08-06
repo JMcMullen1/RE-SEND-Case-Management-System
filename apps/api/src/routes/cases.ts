@@ -15,7 +15,6 @@ import {
   type OwnerTarget,
 } from '../repositories/cases';
 import { resolveCurrentUser } from '../repositories/users';
-import { broadcast } from '../realtime';
 import {
   CaseListQuerystringSchema,
   CaseListResponseSchema,
@@ -118,7 +117,6 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
         current?.id ?? null,
       );
       if (!row) return reply.code(404).send({ message: 'Case not found' });
-      broadcast({ type: 'caseChanged', caseId: row.id });
       return { row };
     },
   );
@@ -147,9 +145,6 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
         targetFrom(request.body),
         current?.id ?? null,
       );
-      for (const id of request.body.caseIds) {
-        broadcast({ type: 'caseChanged', caseId: id });
-      }
       return { updated };
     },
   );

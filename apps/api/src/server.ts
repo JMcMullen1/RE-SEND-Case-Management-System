@@ -14,13 +14,17 @@ import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerUserRoutes } from './routes/users';
 import { registerSavedViewRoutes } from './routes/saved-views';
-import { addClient } from './realtime';
+import {
+  addConnection,
+  handleClientMessage,
+  removeConnection,
+} from './realtime';
 
 /**
  * Build the Fastify app. Every HTTP route validates its input and output with
- * Zod via the Zod type provider. The `/api/ws` channel carries live case and
- * key-date change notifications; its outbound messages are validated in
- * `realtime.ts`.
+ * Zod via the Zod type provider. The `/api/ws` channel carries live query
+ * invalidations (driven by Postgres NOTIFY, see entity-listener.ts) and case
+ * presence; the fan-out and registry live in `realtime.ts`.
  */
 export async function buildServer() {
   const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
@@ -50,9 +54,12 @@ export async function buildServer() {
   registerSavedViewRoutes(app);
 
   app.get('/api/ws', { websocket: true }, (socket) => {
-    const off = addClient({ send: (data) => socket.send(data) });
-    socket.on('close', off);
-    socket.on('error', off);
+    const id = addConnection((data) => socket.send(data));
+    socket.on('message', (raw: Buffer) =>
+      handleClientMessage(id, raw.toString()),
+    );
+    socket.on('close', () => removeConnection(id));
+    socket.on('error', () => removeConnection(id));
   });
 
   return app;

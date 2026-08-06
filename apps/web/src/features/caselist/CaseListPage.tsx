@@ -16,7 +16,6 @@ import {
   useCases,
   useDeleteView,
   useReassign,
-  useRealtime,
   useSavedViews,
   useSaveView,
   useUsers,
@@ -42,7 +41,6 @@ type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 export function CaseListPage() {
   const [state, update] = useViewState();
   const today = useToday();
-  useRealtime();
 
   const qc = useQueryClient();
   const usersQuery = useUsers();

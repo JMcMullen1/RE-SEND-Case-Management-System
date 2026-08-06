@@ -1,5 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CaseDetail } from '@re-send/shared';
 import { reassignCase, type UserSummary } from '../api/client';
 import {
   addNote,
@@ -56,6 +57,7 @@ function useCaseInvalidation(id: string) {
 }
 
 export function useCaseMutations(id: string) {
+  const qc = useQueryClient();
   const invalidate = useCaseInvalidation(id);
   const opts = { onSuccess: invalidate };
 
@@ -100,42 +102,43 @@ export function useCaseMutations(id: string) {
       mutationFn: (v: { id: string; body: string }) => editNote(v.id, v.body),
       ...opts,
     }),
+    // Optimistic owner reassignment with rollback on error.
     reassign: useMutation({
       mutationFn: (target: OwnerTarget) => reassignCase(id, target),
-      ...opts,
+      onMutate: async (target: OwnerTarget) => {
+        await qc.cancelQueries({ queryKey: ['case-detail', id] });
+        const previous = qc.getQueryData<CaseDetail>(['case-detail', id]);
+        const users =
+          qc.getQueryData<{ users: UserSummary[] }>(['users'])?.users ?? [];
+        qc.setQueryData<CaseDetail>(['case-detail', id], (old) =>
+          old ? { ...old, owner: ownerDetail(target, users) } : old,
+        );
+        return { previous };
+      },
+      onError: (_error, _target, ctx) => {
+        if (ctx?.previous) qc.setQueryData(['case-detail', id], ctx.previous);
+      },
+      onSettled: invalidate,
     }),
   };
 }
 
-/** Refetch this case's data when the live channel reports a change to it. */
-export function useCaseRealtime(id: string): void {
-  const invalidate = useCaseInvalidation(id);
-  useEffect(() => {
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    let socket: WebSocket | null = null;
-    let retry: number | undefined;
-    const connect = () => {
-      try {
-        socket = new WebSocket(`${proto}://${window.location.host}/api/ws`);
-        socket.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data as string) as { caseId?: string };
-            if (msg.caseId === id) invalidate();
-          } catch {
-            /* ignore malformed */
-          }
-        };
-        socket.onclose = () => {
-          retry = window.setTimeout(connect, 3000);
-        };
-      } catch {
-        retry = window.setTimeout(connect, 3000);
+function ownerDetail(
+  target: OwnerTarget,
+  users: UserSummary[],
+): CaseDetail['owner'] {
+  return 'ownerUserId' in target
+    ? {
+        kind: 'user',
+        userId: target.ownerUserId,
+        displayName:
+          users.find((u) => u.id === target.ownerUserId)?.displayName ?? '',
+        queue: null,
       }
-    };
-    connect();
-    return () => {
-      if (retry) window.clearTimeout(retry);
-      socket?.close();
-    };
-  }, [id, invalidate]);
+    : {
+        kind: 'queue',
+        userId: null,
+        displayName: null,
+        queue: target.ownerQueue,
+      };
 }

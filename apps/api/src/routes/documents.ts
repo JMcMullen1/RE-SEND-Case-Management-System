@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { DocumentCategorySchema, isPreviewable } from '@re-send/shared';
 import { createDocument, getDocumentContent } from '../repositories/documents';
 import { resolveCurrentUser } from '../repositories/users';
-import { broadcast } from '../realtime';
 import { DocumentInfoSchema } from './schemas';
 
 function actorId(headers: Record<string, unknown>): string | undefined {
@@ -43,7 +42,6 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
         },
         current?.id ?? null,
       );
-      broadcast({ type: 'caseChanged', caseId: request.params.id });
       return { document };
     },
   );

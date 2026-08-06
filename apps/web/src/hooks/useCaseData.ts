@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
@@ -7,6 +6,8 @@ import {
 } from '@tanstack/react-query';
 import {
   encodeViewState,
+  type CaseListRow,
+  type CaseOwner,
   type OwnerQueue,
   type ViewState,
 } from '@re-send/shared';
@@ -21,6 +22,7 @@ import {
   reassignCase,
   reassignManyCases,
   type CaseListResponse,
+  type UserSummary,
 } from '../api/client';
 
 const PAGE = 50;
@@ -64,12 +66,53 @@ export function useExpansion(id: string, enabled: boolean) {
 
 type OwnerTarget = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 
+type CasesPage = { pages: CaseListResponse[]; pageParams: unknown[] };
+
+export function ownerFromTarget(
+  target: OwnerTarget,
+  users: UserSummary[],
+): CaseOwner {
+  return 'ownerUserId' in target
+    ? {
+        kind: 'user',
+        userId: target.ownerUserId,
+        displayName:
+          users.find((u) => u.id === target.ownerUserId)?.displayName ?? '',
+      }
+    : { kind: 'queue', queue: target.ownerQueue };
+}
+
+/** Inline owner reassignment with an optimistic update and rollback on error. */
 export function useReassign() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, target }: { id: string; target: OwnerTarget }) =>
       reassignCase(id, target),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cases'] }),
+    onMutate: async ({ id, target }) => {
+      await qc.cancelQueries({ queryKey: ['cases'] });
+      const snapshots = qc.getQueriesData<CasesPage>({ queryKey: ['cases'] });
+      const users =
+        qc.getQueryData<{ users: UserSummary[] }>(['users'])?.users ?? [];
+      const owner = ownerFromTarget(target, users);
+      qc.setQueriesData<CasesPage>({ queryKey: ['cases'] }, (old) =>
+        old
+          ? {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                rows: page.rows.map((row: CaseListRow) =>
+                  row.id === id ? { ...row, owner } : row,
+                ),
+              })),
+            }
+          : old,
+      );
+      return { snapshots };
+    },
+    onError: (_error, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['cases'] }),
   });
 }
 
@@ -96,30 +139,4 @@ export function useDeleteView() {
     mutationFn: deleteSavedView,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['saved-views'] }),
   });
-}
-
-/** Subscribe to the live channel; refetch the list on any case/key-date change. */
-export function useRealtime(): void {
-  const qc = useQueryClient();
-  useEffect(() => {
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    let socket: WebSocket | null = null;
-    let retry: number | undefined;
-    const connect = () => {
-      try {
-        socket = new WebSocket(`${proto}://${window.location.host}/api/ws`);
-        socket.onmessage = () => qc.invalidateQueries({ queryKey: ['cases'] });
-        socket.onclose = () => {
-          retry = window.setTimeout(connect, 3000);
-        };
-      } catch {
-        retry = window.setTimeout(connect, 3000);
-      }
-    };
-    connect();
-    return () => {
-      if (retry) window.clearTimeout(retry);
-      socket?.close();
-    };
-  }, [qc]);
 }

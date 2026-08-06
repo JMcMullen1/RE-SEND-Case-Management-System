@@ -8,8 +8,6 @@ import {
   listTimeline,
 } from '../repositories/case-detail';
 import {
-  caseIdForChild,
-  caseIdForClient,
   setCaseTeams,
   updateCaseFields,
   updateChildFields,
@@ -23,7 +21,6 @@ import {
 } from '../repositories/key-dates';
 import { addNote, editNote, NoteForbidden } from '../repositories/notes';
 import { resolveCurrentUser } from '../repositories/users';
-import { broadcast } from '../realtime';
 import {
   CaseDetailSchema,
   CaseFieldsPatchSchema,
@@ -83,7 +80,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         request.body,
         current?.id ?? null,
       );
-      if (ok) broadcast({ type: 'caseChanged', caseId: request.params.id });
       return { ok };
     },
   );
@@ -104,8 +100,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         request.body,
         current?.id ?? null,
       );
-      const caseId = await caseIdForClient(request.params.id);
-      if (ok && caseId) broadcast({ type: 'caseChanged', caseId });
       return { ok };
     },
   );
@@ -126,8 +120,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         request.body,
         current?.id ?? null,
       );
-      const caseId = await caseIdForChild(request.params.id);
-      if (ok && caseId) broadcast({ type: 'caseChanged', caseId });
       return { ok };
     },
   );
@@ -148,7 +140,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         request.body.team,
         current?.id ?? null,
       );
-      if (ok) broadcast({ type: 'caseChanged', caseId: request.params.id });
       return { ok };
     },
   );
@@ -182,8 +173,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         request.body,
         current?.id ?? null,
       );
-      broadcast({ type: 'keyDatesChanged', caseId: request.params.id });
-      broadcast({ type: 'caseChanged', caseId: request.params.id });
       return { keyDate };
     },
   );
@@ -209,8 +198,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       );
       if (!result)
         return reply.code(404).send({ message: 'Key date not found' });
-      broadcast({ type: 'keyDatesChanged', caseId: result.caseId });
-      broadcast({ type: 'caseChanged', caseId: result.caseId });
       return { keyDate: result.keyDate };
     },
   );
@@ -234,8 +221,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       );
       if (!result)
         return reply.code(404).send({ message: 'Key date not found' });
-      broadcast({ type: 'keyDatesChanged', caseId: result.caseId });
-      broadcast({ type: 'caseChanged', caseId: result.caseId });
       return { ok: true as const };
     },
   );
@@ -306,7 +291,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
           role: current.role,
         },
       );
-      broadcast({ type: 'caseChanged', caseId: request.params.id });
       return { item };
     },
   );
@@ -334,7 +318,6 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
           role: current.role,
         });
         if (!result) return reply.code(404).send({ message: 'Note not found' });
-        broadcast({ type: 'caseChanged', caseId: result.caseId });
         return { item: result.item };
       } catch (error) {
         if (error instanceof NoteForbidden) {
