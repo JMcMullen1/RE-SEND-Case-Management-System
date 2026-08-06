@@ -19,13 +19,16 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // The account actually shown in the dropdown: the user's choice once made,
+  // otherwise the first account. `email` stays '' until the select fires, so the
+  // request must send this, not the raw state, or the default account posts an
+  // empty email.
+  const selectedEmail = email || accounts[0]?.email || '';
+
   const signIn = useMutation({
-    mutationFn: () => login(email, password),
+    mutationFn: () => login(selectedEmail, password),
     onSuccess: onSignedIn,
   });
-
-  // Default the account selection once the list loads.
-  const selectedEmail = email || accounts[0]?.email || '';
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
