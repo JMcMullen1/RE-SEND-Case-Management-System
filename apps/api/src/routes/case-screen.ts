@@ -2,11 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { londonToday } from '@re-send/shared';
-import {
-  getCaseDetail,
-  listDocuments,
-  listTimeline,
-} from '../repositories/case-detail';
+import { getCaseDetail, listTimeline } from '../repositories/case-detail';
+import { listDocuments } from '../repositories/documents';
 import {
   setCaseTeams,
   updateCaseFields,

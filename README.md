@@ -28,8 +28,8 @@ view.
   `NOTIFY` on the `entity_change` channel carrying the table name, row id and,
   for rows that belong to a case, the owning case id. Adding a table to live
   updates is **one `CREATE TRIGGER` line** in a migration — the function is
-  never duplicated. It is applied to `cases`, `case_notes`, `key_dates` and
-  `case_reviews`; `documents`, `emails` and `time_entries` are registered as
+  never duplicated. It is applied to `cases`, `case_notes`, `key_dates`,
+  `case_reviews` and `documents`; `emails` and `time_entries` are registered as
   inert entries in the API registry.
 - The API holds a **single `LISTEN` connection** and fans each notification out
   over WebSockets, mapping entity type to the affected TanStack Query keys
@@ -42,6 +42,39 @@ view.
   told about, reconnects with **exponential backoff**, and on reconnect
   **refetches** rather than trusting the cache. A small banner shows while the
   channel is down so users know the live guarantee is suspended.
+
+## Documents and storage
+
+Document bytes go through a `StorageProvider` (`apps/api/src/storage`) — nothing
+outside that module knows where they live.
+
+- `STORAGE_PROVIDER=local` (default) writes under `UPLOAD_DIR`; `STORAGE_PROVIDER=s3`
+  talks to any S3-compatible endpoint (`S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
+  `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`), signing with
+  SigV4 and no SDK dependency. Validate the S3 provider against the target
+  endpoint before trusting it in production.
+- Object keys are **UUID-based and carry no personal data**; the real filename
+  lives only in the database. Downloads and previews are proxied through the
+  **audited** API content route, so storage URLs never reach the browser.
+- On upload the bytes are SHA-256'd (a byte-identical re-file on the same case is
+  reported as a **duplicate**, not stored twice), same-filename changes create a
+  **new version** with full history, and text is extracted (PDF, DOCX, plain
+  text) into `extracted_text` for the corpus and full-text search.
+- Uploads are multipart to the API for now. The one swap point for
+  direct-to-storage **pre-signed** uploads is marked `PRESIGNED-UPLOAD SWAP
+POINT` in `apps/web/src/api/documents.ts` and the S3 provider.
+
+## Case corpus
+
+`caseCorpus(caseId, options)` (`apps/api/src/corpus`) is the single reading
+surface for AI features — even one that needs a single document reads through it.
+It returns an ordered set of text items (`case_record`, `document`, `note` today;
+`email` and `time_entry` registered-empty), each with a stable id a model can
+cite. Superseded document versions and soft-deleted rows are excluded
+**explicitly** (reported in `excluded`, not dropped silently). It serialises to a
+delimited string carrying item ids, reports an estimated token count, takes a
+`select` option, and is cached per case — invalidated whenever a constituent row
+changes, driven by the same Postgres `NOTIFY` as live updates.
 
 ### Render free tier
 

@@ -187,6 +187,27 @@ export const DOCUMENT_CATEGORY_VALUES = [
 export type DocumentCategory = (typeof DOCUMENT_CATEGORY_VALUES)[number];
 export const DocumentCategorySchema = z.enum(DOCUMENT_CATEGORY_VALUES);
 
+// --- Corpus item types ------------------------------------------------------
+// The kinds of thing the case corpus assembles for AI features. `case_record`,
+// `document` and `note` carry text today; `email` and `time_entry` are
+// registered so adding them later is additive, never a rewrite.
+export const CORPUS_ITEM_TYPE_VALUES = [
+  'case_record',
+  'document',
+  'note',
+  'email',
+  'time_entry',
+] as const;
+export type CorpusItemType = (typeof CORPUS_ITEM_TYPE_VALUES)[number];
+export const CorpusItemTypeSchema = z.enum(CORPUS_ITEM_TYPE_VALUES);
+
+/** Corpus item types that produce text today. The rest are registered-empty. */
+export const CORPUS_ACTIVE_ITEM_TYPES = [
+  'case_record',
+  'document',
+  'note',
+] as const satisfies readonly CorpusItemType[];
+
 // --- Consultation states ----------------------------------------------------
 export const CONSULTATION_STATE_VALUES = [
   'not_required',

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { PRODUCT_NAME } from '@re-send/shared';
 import { registerCaseRoutes } from './routes/cases';
 import { registerCaseScreenRoutes } from './routes/case-screen';
+import { registerCorpusRoutes } from './routes/corpus';
 import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerUserRoutes } from './routes/users';
@@ -51,6 +52,7 @@ export async function buildServer() {
   registerCaseRoutes(app);
   registerCaseScreenRoutes(app);
   registerDocumentRoutes(app);
+  registerCorpusRoutes(app);
   registerSavedViewRoutes(app);
 
   app.get('/api/ws', { websocket: true }, (socket) => {

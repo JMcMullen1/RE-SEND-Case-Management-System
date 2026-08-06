@@ -99,7 +99,25 @@ export interface DocumentInfo {
   category: DocumentCategory;
   uploadedByName: string | null;
   uploadedAt: string;
+  /** Version number of this document within its filename group (1-based). */
+  version: number;
+  /** Total live versions filed under this document's group, including this one. */
+  versionCount: number;
 }
+
+/** One row of a document's version history, newest first. */
+export interface DocumentVersionInfo {
+  id: string;
+  version: number;
+  byteSize: number;
+  uploadedByName: string | null;
+  uploadedAt: string;
+  /** True for the version currently in force (not superseded). */
+  isCurrent: boolean;
+}
+
+/** The outcome of filing a document: brand new, a new version, or a duplicate. */
+export type DocumentUploadOutcome = 'created' | 'version' | 'duplicate';
 
 // --- Pure helpers -----------------------------------------------------------
 

@@ -11,7 +11,12 @@
  * NOTIFY channel or a cache.
  */
 
+import { invalidateCorpus } from './corpus/cache';
+
 type QueryKey = (string | number)[];
+
+/** Entities whose changes must drop the cached corpus for their case. */
+const CORPUS_ENTITIES = new Set(['cases', 'case_notes', 'documents']);
 
 interface EntityMapping {
   /** Query keys to invalidate, given the row id and its scope (case) id. */
@@ -41,8 +46,13 @@ const REGISTRY: Record<string, EntityMapping> = {
     keys: (_id, scopeId) =>
       scopeId ? [['cases'], ['case-detail', scopeId]] : [['cases']],
   },
+  documents: {
+    keys: (_id, scopeId) =>
+      scopeId
+        ? [['cases'], ['case-detail', scopeId], ['documents', scopeId]]
+        : [],
+  },
   // Inert registry entries — wire a trigger and query keys to switch them on.
-  documents: { keys: () => [] },
   emails: { keys: () => [] },
   time_entries: { keys: () => [] },
 };
@@ -130,6 +140,13 @@ export function dispatchEntityChange(
   id: string | null,
   scopeId: string | null,
 ): void {
+  // Keep the case corpus honest: any change to a case, its notes or its
+  // documents drops the cached corpus for that case.
+  const corpusCaseId = entity === 'cases' ? id : scopeId;
+  if (corpusCaseId && CORPUS_ENTITIES.has(entity)) {
+    invalidateCorpus(corpusCaseId);
+  }
+
   const mapping = REGISTRY[entity];
   if (!mapping) return;
   const queryKeys = mapping.keys(id, scopeId);

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ConsultationStateSchema,
+  CorpusItemTypeSchema,
   DiscountCodeSchema,
   DocumentCategorySchema,
   DsplAreaSchema,
@@ -230,6 +231,45 @@ export const DocumentInfoSchema = z.object({
   category: DocumentCategorySchema,
   uploadedByName: z.string().nullable(),
   uploadedAt: z.string(),
+  version: z.number(),
+  versionCount: z.number(),
+});
+
+export const DocumentVersionInfoSchema = z.object({
+  id: z.string(),
+  version: z.number(),
+  byteSize: z.number(),
+  uploadedByName: z.string().nullable(),
+  uploadedAt: z.string(),
+  isCurrent: z.boolean(),
+});
+
+export const DocumentUploadResultSchema = z.object({
+  document: DocumentInfoSchema,
+  outcome: z.enum(['created', 'version', 'duplicate']),
+});
+
+export const CorpusItemSchema = z.object({
+  id: z.string(),
+  type: CorpusItemTypeSchema,
+  title: z.string(),
+  date: z.string().nullable(),
+  text: z.string(),
+});
+
+export const CorpusResultSchema = z.object({
+  caseId: z.string(),
+  items: z.array(CorpusItemSchema),
+  excluded: z.array(
+    z.object({
+      id: z.string(),
+      type: CorpusItemTypeSchema,
+      reason: z.enum(['superseded', 'deleted', 'no-text']),
+    }),
+  ),
+  registeredEmpty: z.array(CorpusItemTypeSchema),
+  serialised: z.string(),
+  tokenCount: z.number(),
 });
 
 const TimelineBase = {

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { uploadDocument } from '../../api/caseScreen';
+import { uploadDocument } from '../../api/documents';
 import { useToday } from '../../hooks/useToday';
 import { useUsers } from '../../hooks/useCaseData';
 import { useCaseDetail, useCaseMutations } from '../../hooks/useCaseScreen';

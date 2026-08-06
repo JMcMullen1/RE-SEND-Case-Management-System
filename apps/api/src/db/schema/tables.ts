@@ -348,6 +348,10 @@ export const documents = pgTable(
     caseId: uuid('case_id')
       .notNull()
       .references(() => cases.id, { onDelete: 'restrict' }),
+    // Text pulled out of the file on upload (PDF, DOCX, plain text), fed to the
+    // case corpus and Postgres full-text search. Null when extraction is not
+    // possible for the type or failed; the raw file is always the source of truth.
+    extractedText: text('extracted_text'),
     documentGroupId: uuid('document_group_id'),
     version: integer('version').notNull().default(1),
     supersededById: uuid('superseded_by_id').references(

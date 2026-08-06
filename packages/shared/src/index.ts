@@ -4,3 +4,4 @@ export * from './case-list';
 export * from './view-state';
 export * from './timeline';
 export * from './case-detail';
+export * from './corpus';

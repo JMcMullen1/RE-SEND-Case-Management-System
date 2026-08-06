@@ -5,7 +5,7 @@ import type {
   Team,
   TimelineItem,
 } from '@re-send/shared';
-import { getActingUserId, request } from './client';
+import { request } from './client';
 
 export function fetchCaseDetail(id: string): Promise<CaseDetail> {
   return request<CaseDetail>(`/api/cases/${id}/detail`);
@@ -112,26 +112,4 @@ export function fetchDocuments(
   caseId: string,
 ): Promise<{ documents: DocumentInfo[] }> {
   return request(`/api/cases/${caseId}/documents`);
-}
-
-export async function uploadDocument(
-  caseId: string,
-  file: File,
-  category: string,
-): Promise<{ document: DocumentInfo }> {
-  const form = new FormData();
-  form.append('file', file);
-  const headers: HeadersInit = {};
-  const acting = getActingUserId();
-  if (acting) headers['x-user-id'] = acting;
-  const res = await fetch(
-    `/api/cases/${caseId}/documents?category=${encodeURIComponent(category)}`,
-    { method: 'POST', body: form, headers },
-  );
-  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-  return (await res.json()) as { document: DocumentInfo };
-}
-
-export function documentContentUrl(id: string, download = false): string {
-  return `/api/documents/${id}/content${download ? '?download=1' : ''}`;
 }

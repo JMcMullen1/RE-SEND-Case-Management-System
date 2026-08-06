@@ -2,7 +2,6 @@ import { and, asc, desc, eq, gte, ilike, isNull, lte } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type {
   CaseDetail,
-  DocumentInfo,
   NoteTimelineItem,
   TimelineItem,
 } from '@re-send/shared';
@@ -13,7 +12,6 @@ import {
   cases,
   children,
   clients,
-  documents,
   keyDates,
   teams,
   users,
@@ -158,28 +156,6 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
       sourceReference: k.sourceReference,
     })),
   };
-}
-
-export async function listDocuments(caseId: string): Promise<DocumentInfo[]> {
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: documents.id,
-      originalFilename: documents.originalFilename,
-      mimeType: documents.mimeType,
-      byteSize: documents.byteSize,
-      category: documents.category,
-      uploadedByName: users.displayName,
-      uploadedAt: documents.uploadedAt,
-    })
-    .from(documents)
-    .leftJoin(users, eq(users.id, documents.uploadedByUserId))
-    .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt)))
-    .orderBy(desc(documents.uploadedAt));
-  return rows.map((r) => ({
-    ...r,
-    uploadedAt: r.uploadedAt.toISOString(),
-  }));
 }
 
 export interface TimelineFilters {
