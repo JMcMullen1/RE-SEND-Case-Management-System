@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * The :root brand custom properties are injected at runtime from
+ * packages/shared/src/branding.ts (see main.tsx), so colour values live in
+ * exactly one place. Styles here reference the properties, never raw values.
+ */
+body {
+  color: var(--resend-ink);
+}
