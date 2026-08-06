@@ -9,3 +9,4 @@ export * from './intake';
 export * from './bank-holidays-snapshot';
 export * from './working-days';
 export * from './directions';
+export * from './calendar';

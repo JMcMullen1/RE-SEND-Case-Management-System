@@ -42,6 +42,7 @@ const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
 interface Cache {
   at: number;
+  events: readonly BankHolidayEvent[];
   holidays: Holidays;
   source: 'feed' | 'snapshot';
 }
@@ -54,17 +55,19 @@ export interface LoadOptions {
 }
 
 /**
- * Load England & Wales bank holidays, preferring the live GOV.UK feed and
+ * Load England & Wales bank-holiday events, preferring the live GOV.UK feed and
  * caching the result. On any failure it falls back to the checked-in snapshot,
- * so deadline calculation keeps working through a feed outage.
+ * so deadline calculation keeps working through a feed outage. Returns the raw
+ * events (for a client-side lookup or a bank-holiday list) alongside the source.
  */
-export async function loadBankHolidays(
-  opts: LoadOptions = {},
-): Promise<{ holidays: Holidays; source: 'feed' | 'snapshot' }> {
+export async function loadBankHolidayEvents(opts: LoadOptions = {}): Promise<{
+  events: readonly BankHolidayEvent[];
+  source: 'feed' | 'snapshot';
+}> {
   const now = opts.now ? opts.now() : Date.now();
   const ttl = opts.ttlMs ?? DEFAULT_TTL_MS;
   if (cache && now - cache.at < ttl) {
-    return { holidays: cache.holidays, source: cache.source };
+    return { events: cache.events, source: cache.source };
   }
   try {
     const doFetch = opts.fetchImpl ?? fetch;
@@ -77,15 +80,32 @@ export async function loadBankHolidays(
       date: e.date,
       title: e.title,
     }));
-    const holidays = bankHolidays(events);
-    cache = { at: now, holidays, source: 'feed' };
-    return { holidays, source: 'feed' };
+    cache = { at: now, events, holidays: bankHolidays(events), source: 'feed' };
+    return { events, source: 'feed' };
   } catch {
-    const holidays = snapshotHolidays();
     // Cache the snapshot briefly so an outage doesn't hammer the feed.
-    cache = { at: now, holidays, source: 'snapshot' };
-    return { holidays, source: 'snapshot' };
+    cache = {
+      at: now,
+      events: BANK_HOLIDAYS_SNAPSHOT,
+      holidays: snapshotHolidays(),
+      source: 'snapshot',
+    };
+    return { events: BANK_HOLIDAYS_SNAPSHOT, source: 'snapshot' };
   }
+}
+
+/**
+ * Load England & Wales bank holidays as a `Holidays` lookup (feed → cache →
+ * snapshot). Thin wrapper over {@link loadBankHolidayEvents}.
+ */
+export async function loadBankHolidays(
+  opts: LoadOptions = {},
+): Promise<{ holidays: Holidays; source: 'feed' | 'snapshot' }> {
+  const { events, source } = await loadBankHolidayEvents(opts);
+  // Reuse the cached lookup when it matches, else build one.
+  const holidays =
+    cache && cache.events === events ? cache.holidays : bankHolidays(events);
+  return { holidays, source };
 }
 
 export function resetBankHolidayCache(): void {

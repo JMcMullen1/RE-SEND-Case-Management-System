@@ -8,6 +8,7 @@ import { CaseListPage } from './features/caselist/CaseListPage';
 import { CaseScreenPage } from './features/casescreen/CaseScreenPage';
 import { NewCasePage } from './features/newcase/NewCasePage';
 import { ReviewModePage } from './features/review/ReviewModePage';
+import { CalendarPage } from './features/calendar/CalendarPage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -37,11 +38,18 @@ const reviewRoute = createRoute({
   component: ReviewModePage,
 });
 
+const calendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/calendar',
+  component: CalendarPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   newCaseRoute,
   caseScreenRoute,
   reviewRoute,
+  calendarRoute,
 ]);
 
 export const router = createRouter({ routeTree });

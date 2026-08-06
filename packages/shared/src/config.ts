@@ -169,6 +169,33 @@ export const KEY_DATE_TYPE_VALUES = [
 export type KeyDateType = (typeof KEY_DATE_TYPE_VALUES)[number];
 export const KeyDateTypeSchema = z.enum(KEY_DATE_TYPE_VALUES);
 
+/** Human label for each key-date type, shared by every control that lists them. */
+export const KEY_DATE_TYPE_LABELS: Record<KeyDateType, string> = {
+  hearing: 'Hearing',
+  evidence_deadline: 'Evidence deadline',
+  annual_review: 'Annual review',
+  working_document: 'Working document',
+  mediation: 'Mediation',
+  consultation: 'Consultation',
+  other: 'Other',
+};
+
+/**
+ * The colour each key-date type is shown in on the calendar, as a CSS `var()`
+ * reference to the custom property emitted by branding.ts. The colour values
+ * themselves live only in branding.ts; this map is the single place that binds
+ * a type to its colour.
+ */
+export const KEY_DATE_TYPE_COLOR_VAR: Record<KeyDateType, string> = {
+  hearing: 'var(--kd-hearing)',
+  evidence_deadline: 'var(--kd-evidence-deadline)',
+  annual_review: 'var(--kd-annual-review)',
+  working_document: 'var(--kd-working-document)',
+  mediation: 'var(--kd-mediation)',
+  consultation: 'var(--kd-consultation)',
+  other: 'var(--kd-other)',
+};
+
 // --- Document categories ----------------------------------------------------
 export const DOCUMENT_CATEGORY_VALUES = [
   'EHCP Draft',

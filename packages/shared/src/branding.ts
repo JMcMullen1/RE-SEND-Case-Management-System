@@ -49,12 +49,43 @@ export const BRAND_COLOR_ROLES = {
 } as const satisfies Record<BrandColorKey, string>;
 
 /**
- * Emit the brand palette as a CSS `:root` block of custom properties. Injected
- * once at the top of the web app's global stylesheet.
+ * Categorical palette for key-date types on the shared calendar. These are not
+ * brand colours and carry no status meaning; they are a fixed, distinguishable
+ * hue per key-date type so the calendar can colour-code at a glance. They live
+ * here because this file is the only home permitted for hex literals — the
+ * type→colour *mapping* lives in `config.ts`, which references the CSS custom
+ * properties emitted below (`--kd-<type>`), never the raw values.
+ */
+export const KEY_DATE_TYPE_COLORS = {
+  hearing: '#67248C',
+  evidence_deadline: '#C77700',
+  annual_review: '#008037',
+  working_document: '#0F766E',
+  mediation: '#1D4ED8',
+  consultation: '#8D678F',
+  other: '#475569',
+} as const;
+
+export type KeyDateTypeColorKey = keyof typeof KEY_DATE_TYPE_COLORS;
+
+/** CSS custom property name for each key-date-type colour. */
+export function keyDateTypeCssVarName(type: KeyDateTypeColorKey): string {
+  return `--kd-${type.replace(/_/g, '-')}`;
+}
+
+/**
+ * Emit the brand palette and the calendar key-date-type palette as a CSS
+ * `:root` block of custom properties. Injected once at the top of the web app's
+ * global stylesheet.
  */
 export function brandingCss(): string {
-  const declarations = (Object.keys(BRAND_COLORS) as BrandColorKey[])
+  const brand = (Object.keys(BRAND_COLORS) as BrandColorKey[])
     .map((key) => `  ${CSS_VAR_NAMES[key]}: ${BRAND_COLORS[key]};`)
     .join('\n');
-  return `:root {\n${declarations}\n}\n`;
+  const keyDate = (Object.keys(KEY_DATE_TYPE_COLORS) as KeyDateTypeColorKey[])
+    .map(
+      (key) => `  ${keyDateTypeCssVarName(key)}: ${KEY_DATE_TYPE_COLORS[key]};`,
+    )
+    .join('\n');
+  return `:root {\n${brand}\n${keyDate}\n}\n`;
 }

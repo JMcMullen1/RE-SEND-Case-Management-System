@@ -371,6 +371,53 @@ export const DirectionsApplyResultSchema = z.object({
   summary: z.string(),
 });
 
+// --- Calendar ---------------------------------------------------------------
+
+export const CalendarEventSchema = z.object({
+  keyDateId: z.string(),
+  caseId: z.string(),
+  caseReference: z.string(),
+  childName: z.string().nullable(),
+  title: z.string(),
+  type: KeyDateTypeSchema,
+  date: z.string(),
+  time: z.string().nullable(),
+  status: StatusSchema,
+  ownerUserId: z.string().nullable(),
+  ownerName: z.string().nullable(),
+  teamCodes: z.array(TeamSchema),
+  superseded: z.boolean(),
+  sourceReference: z.string().nullable(),
+});
+
+export const CalendarQuerySchema = z.object({
+  scope: z.enum(['mine', 'all', 'user']).default('all'),
+  userId: z.string().optional(),
+  team: TeamSchema.optional(),
+  /** Comma-separated key-date types. */
+  types: z.string().optional(),
+  /** Comma-separated case statuses. */
+  statuses: z.string().optional(),
+  includeSuperseded: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export const CalendarCaseMatchSchema = z.object({
+  id: z.string(),
+  caseReference: z.string(),
+  childName: z.string().nullable(),
+  clientName: z.string().nullable(),
+});
+
+export const BankHolidaysResponseSchema = z.object({
+  source: z.enum(['feed', 'snapshot']),
+  events: z.array(z.object({ date: z.string(), title: z.string() })),
+});
+
 export const AiSpendByJobSchema = z.object({
   jobName: z.string(),
   model: z.string(),

@@ -40,7 +40,9 @@ const REGISTRY: Record<string, EntityMapping> = {
   },
   key_dates: {
     keys: (_id, scopeId) =>
-      scopeId ? [['cases'], ['case-detail', scopeId]] : [['cases']],
+      scopeId
+        ? [['cases'], ['case-detail', scopeId], ['calendar']]
+        : [['cases'], ['calendar']],
   },
   case_reviews: {
     keys: (_id, scopeId) =>

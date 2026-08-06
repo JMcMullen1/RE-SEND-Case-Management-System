@@ -161,6 +161,38 @@ reviewed set of calendar changes. The human confirmation step is the feature.
 - `AI_ENABLED` (or the per-job flag) switches extraction off cleanly; the order
   is still filed as a document and key dates can be entered by hand.
 
+## Shared calendar
+
+Every case's key dates on one calendar (`/calendar`, `apps/web/src/features/calendar`).
+
+- **Views.** Agenda (the default — deadline work is a list before it is a grid),
+  week and month. The pure date maths (week/month bounds, the Monday–Sunday
+  month grid, day grouping) lives in `packages/shared/calendar.ts` and is tested
+  directly.
+- **Colour-coded by type.** Each key-date type has a fixed colour. The values
+  live only in `branding.ts` (emitted as `--kd-*` custom properties); the
+  type→colour binding is `KEY_DATE_TYPE_COLOR_VAR` in `config.ts`. Entries show
+  the case reference and the child's preferred name.
+- **Filters.** My dates, all staff, a named person, team, key-date type and case
+  status. Superseded entries are hidden by default, with a “show timetable
+  history” toggle.
+- **Live.** The calendar refreshes on the same Postgres `NOTIFY` → WebSocket
+  channel as the case list — the `key_dates` registry entry invalidates
+  `['calendar']`.
+- **Edit in place.** Click an entry to open its case, or edit/delete it; add key
+  dates against any case (a typeahead picks the case). Date fields are
+  working-day aware — they flag weekends and England & Wales bank holidays and
+  offer to nudge to the next working day, using the utility from directions
+  ingestion. Bank holidays are served at `GET /api/bank-holidays` (feed, snapshot
+  fallback).
+- **iCal feed.** Each user has a token-authenticated read-only feed
+  (`GET /api/calendar/feed/:token.ics`) so key dates reach a phone with no
+  Microsoft integration. The token lives on `users.ical_token`, is issued lazily
+  and can be reset to revoke the old URL. The feed is a pure projection
+  (`buildICalendar`) with stable per-key-date UIDs (`keydate-<id>@resend-cms`),
+  so two-way Microsoft Graph sync can be added later as a separate id/etag
+  mapping over the same projection — without unpicking the feed.
+
 ### Render free tier
 
 **Render's free tier spins services down after inactivity.** A spun-down

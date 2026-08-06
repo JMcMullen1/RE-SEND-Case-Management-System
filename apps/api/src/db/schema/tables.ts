@@ -47,6 +47,11 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   role: userRoleEnum('role').notNull(),
   active: boolean('active').notNull().default(true),
+  // Opaque token authenticating this user's read-only iCal feed. Set lazily the
+  // first time the user asks for their subscribe URL; rotating it revokes the
+  // old feed. Two-way Graph sync, when added, lives in a separate mapping and
+  // does not touch this column.
+  icalToken: text('ical_token').unique(),
   ...timestamps,
 });
 

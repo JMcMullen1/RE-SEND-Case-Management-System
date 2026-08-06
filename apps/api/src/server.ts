@@ -16,6 +16,7 @@ import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
+import { registerCalendarRoutes } from './routes/calendar';
 import { registerUserRoutes } from './routes/users';
 import { registerSavedViewRoutes } from './routes/saved-views';
 import {
@@ -59,6 +60,7 @@ export async function buildServer() {
   registerAiRoutes(app);
   registerIntakeRoutes(app);
   registerDirectionsRoutes(app);
+  registerCalendarRoutes(app);
   registerSavedViewRoutes(app);
 
   app.get('/api/ws', { websocket: true }, (socket) => {
