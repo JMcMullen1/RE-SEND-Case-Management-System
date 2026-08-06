@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { uploadDocument } from '../../api/documents';
+import type { DirectionsReview as Review } from '@re-send/shared';
+import { applyDirections, extractDirections } from '../../api/directions';
 import { useToday } from '../../hooks/useToday';
 import { useUsers } from '../../hooks/useCaseData';
 import { useCaseDetail, useCaseMutations } from '../../hooks/useCaseScreen';
@@ -10,6 +11,7 @@ import { usePresence } from '../../realtime/RealtimeProvider';
 import { PresenceIndicator } from './PresenceIndicator';
 import { CaseHeader } from './CaseHeader';
 import { DetailPanel } from './DetailPanel';
+import { DirectionsReview } from './DirectionsReview';
 import { DocumentsRegion } from './DocumentsRegion';
 import { EmailsRegion } from './EmailsRegion';
 import { TimelineRegion } from './TimelineRegion';
@@ -39,10 +41,48 @@ export function CaseScreenPage() {
     () => new URLSearchParams(window.location.search).get('created') === '1',
   );
 
+  // Directions ingestion: upload → review → apply. Nothing touches the calendar
+  // until the review is applied.
+  const [review, setReview] = useState<Review | null>(null);
+  const [directionsBusy, setDirectionsBusy] = useState(false);
+  const [directionsNote, setDirectionsNote] = useState<string | null>(null);
+
   const uploadDirections = (file: File) => {
-    void uploadDocument(caseId, file, 'Tribunal Order').then(() =>
-      qc.invalidateQueries({ queryKey: ['documents', caseId] }),
-    );
+    setDirectionsNote(null);
+    setDirectionsBusy(true);
+    void extractDirections(caseId, file)
+      .then((res) => {
+        if (res.status === 'ok') setReview(res.review);
+        else if (res.status === 'disabled')
+          setDirectionsNote(
+            'Smart reading is switched off — the order was filed as a document.',
+          );
+        else if (res.status === 'refused')
+          setDirectionsNote('The order could not be read automatically.');
+        else setDirectionsNote(res.message);
+      })
+      .finally(() => setDirectionsBusy(false));
+  };
+
+  const applyReview: Parameters<typeof DirectionsReview>[0]['onApply'] = (
+    rows,
+  ) => {
+    if (!review) return;
+    setDirectionsBusy(true);
+    void applyDirections(caseId, review.documentId, rows)
+      .then((result) => {
+        setReview(null);
+        setDirectionsNote(`Calendar updated: ${result.summary}.`);
+        qc.invalidateQueries({ queryKey: ['case-detail', caseId] });
+        qc.invalidateQueries({ queryKey: ['documents', caseId] });
+        qc.invalidateQueries({ queryKey: ['cases'] });
+      })
+      .catch((err: unknown) =>
+        setDirectionsNote(
+          err instanceof Error ? err.message : 'Could not apply the changes.',
+        ),
+      )
+      .finally(() => setDirectionsBusy(false));
   };
 
   if (detailQuery.isLoading) {
@@ -132,7 +172,21 @@ export function CaseScreenPage() {
           today={today}
           mutations={mutations}
           onUploadDirections={uploadDirections}
+          directionsBusy={directionsBusy && !review}
         />
+        {directionsNote && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
+            <span>{directionsNote}</span>
+            <button
+              type="button"
+              onClick={() => setDirectionsNote(null)}
+              aria-label="Dismiss"
+              className="text-gray-400 hover:text-resend-ink"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {others.length > 0 && (
           <div className="mt-2">
             <PresenceIndicator users={others} />
@@ -185,6 +239,15 @@ export function CaseScreenPage() {
             </div>
           </div>
         </main>
+      )}
+
+      {review && (
+        <DirectionsReview
+          review={review}
+          onApply={applyReview}
+          onCancel={() => setReview(null)}
+          applying={directionsBusy}
+        />
       )}
     </div>
   );

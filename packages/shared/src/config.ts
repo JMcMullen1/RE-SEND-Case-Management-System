@@ -230,6 +230,12 @@ export const EXTRACT_INTAKE_JOB = 'extract_intake';
 /** Enquiry method used when a smart-filled submission arrived as an email. */
 export const INTAKE_EMAIL_METHOD = 'Email - Enquiries' as const;
 
+// --- Directions-order ingestion ---------------------------------------------
+/** The AI job name for directions extraction, shared by accounting and flags. */
+export const EXTRACT_DIRECTIONS_JOB = 'extract_directions';
+/** Confidence at or below this flags an extracted direction for a closer look. */
+export const DIRECTIONS_LOW_CONFIDENCE = 0.6;
+
 // --- Consultation states ----------------------------------------------------
 export const CONSULTATION_STATE_VALUES = [
   'not_required',

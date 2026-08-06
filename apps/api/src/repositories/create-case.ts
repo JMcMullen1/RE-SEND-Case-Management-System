@@ -95,6 +95,13 @@ async function nextReference(
   tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
   year: string,
 ): Promise<string> {
+  // Serialise reference allocation across concurrent case creations: the max+1
+  // read is not atomic, so without this two simultaneous inserts could compute
+  // the same reference and one would fail the unique constraint. The lock is
+  // held to the end of this transaction.
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtext('case_reference'))`,
+  );
   const result = await tx.execute(sql`
     SELECT coalesce(max((split_part(case_reference, '-', 3))::int), 1000) + 1 AS next
     FROM cases

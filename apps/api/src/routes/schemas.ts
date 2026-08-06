@@ -17,6 +17,7 @@ import {
   TeamSchema,
   WorkTypeSchema,
   KeyDateTypeSchema,
+  DirectionPartySchema,
 } from '@re-send/shared';
 
 /** Mirrors the shared CaseFilters type; validates every facet value. */
@@ -295,6 +296,79 @@ export const IntakeResponseSchema = z.discriminatedUnion('status', [
 export const AiJobFlagSchema = z.object({
   jobName: z.string(),
   enabled: z.boolean(),
+});
+
+// --- Directions ingestion ---------------------------------------------------
+
+const DiffClassSchema = z.enum(['new', 'moved', 'superseded', 'unchanged']);
+
+const DirectionValueSchema = z.object({
+  date: z.string(),
+  time: z.string().nullable(),
+  title: z.string(),
+});
+
+export const DirectionDiffRowSchema = z.object({
+  class: DiffClassSchema,
+  existingKeyDateId: z.string().nullable(),
+  oldValue: DirectionValueSchema.nullable(),
+  newValue: DirectionValueSchema.nullable(),
+  type: KeyDateTypeSchema,
+  party: DirectionPartySchema,
+  obligation: z.string(),
+  rawDateText: z.string(),
+  workingDays: z.boolean(),
+  explanation: z.string().nullable(),
+  paragraph: z.number().nullable(),
+  confidence: z.number(),
+  include: z.boolean(),
+});
+
+const DiffCountsSchema = z.object({
+  new: z.number(),
+  moved: z.number(),
+  superseded: z.number(),
+  unchanged: z.number(),
+});
+
+export const DirectionsReviewSchema = z.object({
+  documentId: z.string(),
+  filename: z.string(),
+  orderDate: z.string().nullable(),
+  summary: z.string(),
+  counts: DiffCountsSchema,
+  rows: z.array(DirectionDiffRowSchema),
+});
+
+export const DirectionsResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('ok'), review: DirectionsReviewSchema }),
+  z.object({ status: z.literal('disabled') }),
+  z.object({ status: z.literal('refused') }),
+  z.object({ status: z.literal('error'), message: z.string() }),
+]);
+
+export const DirectionApplyRowSchema = z.object({
+  class: DiffClassSchema,
+  include: z.boolean(),
+  existingKeyDateId: z.string().nullable(),
+  date: z.string().nullable(),
+  time: z.string().nullable(),
+  title: z.string(),
+  type: KeyDateTypeSchema,
+  obligation: z.string(),
+  sourceReference: z.string().nullable(),
+  confidence: z.number().optional(),
+});
+
+export const ApplyDirectionsRequestSchema = z.object({
+  documentId: z.string().uuid().nullable(),
+  rows: z.array(DirectionApplyRowSchema),
+});
+
+export const DirectionsApplyResultSchema = z.object({
+  created: z.number(),
+  superseded: z.number(),
+  summary: z.string(),
 });
 
 export const AiSpendByJobSchema = z.object({

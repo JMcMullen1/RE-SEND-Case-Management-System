@@ -6,3 +6,6 @@ export * from './timeline';
 export * from './case-detail';
 export * from './corpus';
 export * from './intake';
+export * from './bank-holidays-snapshot';
+export * from './working-days';
+export * from './directions';

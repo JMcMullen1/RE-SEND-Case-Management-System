@@ -127,6 +127,40 @@ The add-case form can be prefilled from a JotForm submission (PDF, DOCX, HTML,
 - `AI_ENABLED` (or the per-job flag) switches smart fill off cleanly; the manual
   form stays fully usable.
 
+## Directions-order ingestion
+
+A tribunal directions order (PDF or DOCX) dropped on a case is turned into a
+reviewed set of calendar changes. The human confirmation step is the feature.
+
+- **Working days.** `packages/shared/working-days.ts` does England & Wales
+  working-day arithmetic — days between, add/subtract, and resolving written
+  deadlines ("within 14 days of the date of this order", "no later than 4pm 10
+  working days before the hearing"). Every function returns a human-readable
+  explanation alongside its result so a caseworker can check the arithmetic.
+  Bank holidays come from the GOV.UK feed, cached, with a **checked-in snapshot**
+  (`bank-holidays-snapshot.ts`) as a fallback so a feed outage cannot break a
+  deadline calculation.
+- **Extraction.** The order is stored as a `Tribunal Order` document, its text is
+  extracted (paragraph numbering preserved — directions are cited by number),
+  and the `extract_directions` job (**Claude Sonnet 5**) returns one entry per
+  obligation: who it falls on, the deadline, the raw date text as written,
+  whether it was expressed in working days, the source paragraph, and a
+  confidence. Relative deadlines are then **recomputed** with the working-day
+  utility rather than trusted from the model, carrying the explanation through.
+- **Diff, not duplicate.** The resolved dates are diffed against the case's live
+  key dates and classified `new`, `moved`, `superseded` or `unchanged`
+  (`diffDirections`). The review screen shows old and new side by side, quotes
+  the source paragraph, and lets every row be edited and individually included,
+  under a plain summary ("3 new dates, 2 dates moved, 1 removed").
+- **Apply once.** Nothing touches the calendar until _Apply changes_. On apply,
+  the changes are written in one transaction under **one** audit entry; each key
+  date is stamped with its `source_document_id` and `source_reference`. A moved
+  or vacated date is marked **superseded, never deleted**, so the case file shows
+  how the timetable evolved. An amended order therefore updates the timetable in
+  place — it never lays a second parallel set of dates beside the first.
+- `AI_ENABLED` (or the per-job flag) switches extraction off cleanly; the order
+  is still filed as a document and key dates can be entered by hand.
+
 ### Render free tier
 
 **Render's free tier spins services down after inactivity.** A spun-down
