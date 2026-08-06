@@ -141,21 +141,6 @@ export const SCHOOL_YEAR_VALUES = [
 export type SchoolYear = (typeof SCHOOL_YEAR_VALUES)[number];
 export const SchoolYearSchema = z.enum(SCHOOL_YEAR_VALUES);
 
-// --- DSPL areas -------------------------------------------------------------
-export const DSPL_AREA_VALUES = [
-  'DSPL1',
-  'DSPL2',
-  'DSPL3',
-  'DSPL4',
-  'DSPL5',
-  'DSPL6',
-  'DSPL7',
-  'DSPL8',
-  'DSPL9',
-] as const;
-export type DsplArea = (typeof DSPL_AREA_VALUES)[number];
-export const DsplAreaSchema = z.enum(DSPL_AREA_VALUES);
-
 // --- Key date types ---------------------------------------------------------
 export const KEY_DATE_TYPE_VALUES = [
   'hearing',
@@ -339,38 +324,6 @@ export const ROW_STATUS_RULES = {
 } as const;
 export type RowStatusFlag = keyof typeof ROW_STATUS_RULES;
 
-// --- Postcode → DSPL area suggestion ----------------------------------------
-/**
- * A configurable starting mapping from postcode area (the leading letters) to a
- * DSPL area, for suggesting a value on the case form. RE-SEND operates across
- * Hertfordshire and its borders; this is a first-pass mapping to be corrected
- * by the charity, and the suggestion it produces is always overridable.
- */
-export const POSTCODE_DSPL_MAP: Record<string, DsplArea> = {
-  AL: 'DSPL1',
-  HP: 'DSPL2',
-  SG: 'DSPL3',
-  WD: 'DSPL4',
-  EN: 'DSPL5',
-  HA: 'DSPL6',
-  LU: 'DSPL7',
-  CM: 'DSPL8',
-  NW: 'DSPL9',
-};
-
-/** Suggest a DSPL area from a postcode's area letters, or null if unmapped. */
-export function suggestDsplArea(
-  postcode: string | null | undefined,
-): DsplArea | null {
-  if (!postcode) return null;
-  const area = postcode
-    .trim()
-    .toUpperCase()
-    .match(/^[A-Z]+/);
-  if (!area) return null;
-  return POSTCODE_DSPL_MAP[area[0]] ?? null;
-}
-
 /**
  * Suggest a National Curriculum school year from a date of birth, using the
  * child's age on 31 August of the current academic year. Overridable.
@@ -468,7 +421,6 @@ export const OPTIONAL_COLUMN_VALUES = [
   'methodOfEnquiry',
   'dealingShadow',
   'schoolYear',
-  'dsplArea',
   'paymentCode',
   'discountCode',
   'invoiceStatus',
@@ -483,7 +435,6 @@ export const OPTIONAL_COLUMNS: { id: OptionalColumnId; label: string }[] = [
   { id: 'methodOfEnquiry', label: 'Method of enquiry' },
   { id: 'dealingShadow', label: 'Dealing/Shadow' },
   { id: 'schoolYear', label: 'School year' },
-  { id: 'dsplArea', label: 'DSPL area' },
   { id: 'paymentCode', label: 'Payment code' },
   { id: 'discountCode', label: 'Discount code' },
   { id: 'invoiceStatus', label: 'Invoice status' },
@@ -577,12 +528,6 @@ export const FACETS: FacetDef[] = [
     id: 'schoolYear',
     label: 'School year',
     source: { kind: 'vocab', values: SCHOOL_YEAR_VALUES },
-    enabled: true,
-  },
-  {
-    id: 'dsplArea',
-    label: 'DSPL area',
-    source: { kind: 'vocab', values: DSPL_AREA_VALUES },
     enabled: true,
   },
   {

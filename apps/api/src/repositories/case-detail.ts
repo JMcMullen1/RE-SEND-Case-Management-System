@@ -122,7 +122,6 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
           city: client.city,
           county: client.county,
           postcode: client.postcode,
-          dsplArea: client.dsplArea,
           additionalNeeds: client.additionalNeeds,
           consentDataProcessing: client.consentDataProcessing,
           consentInformationSharing: client.consentInformationSharing,

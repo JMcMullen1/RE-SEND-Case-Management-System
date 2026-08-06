@@ -47,17 +47,6 @@ function dateStr(offsetDays: number): string {
 }
 
 const YEAR = BASE.getUTCFullYear();
-const DSPL_AREAS = [
-  'DSPL1',
-  'DSPL2',
-  'DSPL3',
-  'DSPL4',
-  'DSPL5',
-  'DSPL6',
-  'DSPL7',
-  'DSPL8',
-  'DSPL9',
-] as const;
 const SCHOOL_YEARS = [
   'Reception',
   'Yr1',
@@ -130,7 +119,6 @@ async function main(): Promise<void> {
             city: 'Fictionton',
             county: 'Exampleshire',
             postcode: `EX${(i % 9) + 1} ${(i % 9) + 1}FX`,
-            dsplArea: DSPL_AREAS[i % DSPL_AREAS.length]!,
             additionalNeeds: SEND_NEEDS[i % SEND_NEEDS.length]!,
             consentDataProcessing: true,
             consentDataProcessingAt: BASE,

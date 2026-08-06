@@ -46,7 +46,6 @@ export interface CaseListRow {
   dateOfEnquiry: string | null;
   methodOfEnquiry: EnquiryMethod | null;
   schoolYear: string | null;
-  dsplArea: string | null;
   paymentCode: string | null;
   discountCode: string | null;
   invoiceStatusText: string | null;

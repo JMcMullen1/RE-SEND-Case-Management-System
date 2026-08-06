@@ -39,8 +39,8 @@ These are enforced by tooling or review. Do not break them.
 
 4. **Vocabularies only in `config.ts`.** `packages/shared/src/config.ts` holds
    every controlled vocabulary (statuses, teams, query and work types, codes,
-   school years, DSPL areas, key date and document categories, consultation
-   states) and every rule and threshold. Nothing else redeclares these lists.
+   school years, key date and document categories, consultation states) and
+   every rule and threshold. Nothing else redeclares these lists.
 
 5. **The staff list comes from the users table, never from config.** Joiners and
    leavers are an admin action, not a deploy. Any control that lists staff

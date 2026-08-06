@@ -18,13 +18,11 @@ import {
   PAYMENT_CODE_VALUES,
   DISCOUNT_CODE_VALUES,
   SCHOOL_YEAR_VALUES,
-  DSPL_AREA_VALUES,
   CONSULTATION_STATE_VALUES,
 } from './config';
 import type {
   ConsultationState,
   DiscountCode,
-  DsplArea,
   EnquiryMethod,
   OptionalColumnId,
   PaymentCode,
@@ -53,7 +51,6 @@ export interface CaseFilters {
   paymentCode?: PaymentCode[];
   discountCode?: DiscountCode[];
   schoolYear?: SchoolYear[];
-  dsplArea?: DsplArea[];
   consultationState?: ConsultationState[];
   noNoteInDays?: number;
   notReviewedInDays?: number;
@@ -92,7 +89,6 @@ const VOCAB_FACETS = {
   paymentCode: PAYMENT_CODE_VALUES,
   discountCode: DISCOUNT_CODE_VALUES,
   schoolYear: SCHOOL_YEAR_VALUES,
-  dsplArea: DSPL_AREA_VALUES,
   consultationState: CONSULTATION_STATE_VALUES,
 } as const;
 
@@ -247,7 +243,6 @@ const FACET_PREFIX: Record<string, string> = {
   paymentCode: 'Payment',
   discountCode: 'Discount',
   schoolYear: 'Year',
-  dsplArea: 'DSPL',
   consultationState: 'Consult',
   staff: 'Staff',
   dealingShadow: 'Dealing/Shadow',

@@ -75,7 +75,7 @@ describe('mapExtraction', () => {
     sha256: 'abc',
   };
 
-  it('maps fields, derives method/year/dspl, and collects misses', () => {
+  it('maps fields, derives method/year, and collects misses', () => {
     const raw = {
       ...baseExtraction(),
       parentFullName: val('Alex Morgan'),
@@ -116,9 +116,6 @@ describe('mapExtraction', () => {
     // School year derived from DOB (carrying DOB confidence).
     expect(result.child.schoolYear?.value).toBeTruthy();
     expect(result.child.schoolYear?.confidence).toBe(0.8);
-    // DSPL derived from postcode (carrying postcode confidence).
-    if (result.client.dsplArea)
-      expect(result.client.dsplArea.confidence).toBe(0.7);
     // Consent boolean carried as a string.
     expect(result.client.consentContact?.value).toBe('true');
     // Invalid key date dropped; valid one kept.

@@ -91,7 +91,6 @@ export interface CaseRecordInput {
   consultStatus: string | null;
   client: {
     displayName: string;
-    dsplArea: string | null;
     additionalNeeds: string | null;
   } | null;
   child: {
@@ -126,7 +125,6 @@ export function renderCaseRecordText(record: CaseRecordInput): string {
   if (record.client) {
     lines.push('', 'Client:');
     add('  Name', record.client.displayName);
-    add('  DSPL area', record.client.dsplArea);
     add('  Additional needs', record.client.additionalNeeds);
   }
   if (record.child) {

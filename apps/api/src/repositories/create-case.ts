@@ -436,7 +436,6 @@ export async function getClientDetail(
     city: c.city,
     county: c.county,
     postcode: c.postcode,
-    dsplArea: c.dsplArea,
     additionalNeeds: c.additionalNeeds,
     consentDataProcessing: c.consentDataProcessing,
     consentInformationSharing: c.consentInformationSharing,

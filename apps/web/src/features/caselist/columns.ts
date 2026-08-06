@@ -32,7 +32,6 @@ export const COLUMN_META: Record<ColumnId, ColumnMeta> = {
   methodOfEnquiry: { header: 'Method', width: '150px' },
   dealingShadow: { header: 'Dealing/Shadow', width: '150px' },
   schoolYear: { header: 'School year', width: '110px' },
-  dsplArea: { header: 'DSPL area', width: '110px' },
   paymentCode: { header: 'Payment', width: '110px' },
   discountCode: { header: 'Discount', width: '110px' },
   invoiceStatus: { header: 'Invoice', width: '160px' },

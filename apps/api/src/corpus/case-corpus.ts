@@ -129,7 +129,6 @@ async function buildCaseRecord(caseId: string): Promise<CorpusItem | null> {
     client: detail.client
       ? {
           displayName: detail.client.displayName,
-          dsplArea: detail.client.dsplArea,
           additionalNeeds: detail.client.additionalNeeds,
         }
       : null,

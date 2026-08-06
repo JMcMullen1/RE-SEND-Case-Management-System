@@ -115,8 +115,8 @@ The add-case form can be prefilled from a JotForm submission (PDF, DOCX, HTML,
   as a single-document selection, then runs the `extract_intake` AI job.
 - Every field comes back with a confidence, or null with a reason — never a
   guess. Extracted values map onto the config vocabularies (service → type of
-  case, enquiry route → query type); school year, DSPL area and enquiry method
-  are derived, not extracted.
+  case, enquiry route → query type); school year and enquiry method are
+  derived, not extracted.
 - Prefilled fields are marked as machine-filled; low-confidence fields are
   flagged and focused first, and editing a field clears its marking.
 - On Create, the original submission is attached to the new case as a document

@@ -43,6 +43,13 @@
       "when": 1786032723987,
       "tag": "0005_calendar_ical_token",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786057438126,
+      "tag": "0006_smart_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

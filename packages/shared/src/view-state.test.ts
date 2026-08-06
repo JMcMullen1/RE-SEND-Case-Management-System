@@ -16,7 +16,7 @@ describe('view-state URL codec', () => {
       sort: 'lastUpdatedOldest',
       density: 'compact',
       search: 'hearing bundle',
-      columns: ['team', 'dsplArea'],
+      columns: ['team', 'schoolYear'],
       filters: {
         mine: true,
         status: ['Active', 'Enquiry'],

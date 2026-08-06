@@ -2,7 +2,6 @@ import { useState, type ReactNode } from 'react';
 import {
   calculateAge,
   CONSULTATION_STATE_VALUES,
-  DSPL_AREA_VALUES,
   ENQUIRY_METHOD_VALUES,
   formatCivilDate,
   SCHOOL_YEAR_VALUES,
@@ -230,15 +229,6 @@ export function DetailPanel({
           </div>
           <Field label="County">
             {clientField('County', 'county', client?.county ?? null)}
-          </Field>
-          <Field label="DSPL area">
-            {clientField(
-              'DSPL area',
-              'dsplArea',
-              client?.dsplArea ?? null,
-              'select',
-              opts(DSPL_AREA_VALUES),
-            )}
           </Field>
           <Field label="Team">
             <TeamToggle

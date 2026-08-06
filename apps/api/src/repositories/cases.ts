@@ -60,8 +60,6 @@ function buildConditions(
     c.discountCode = inList(sql`c.discount_code::text`, f.discountCode);
   if (f.schoolYear?.length)
     c.schoolYear = inList(sql`ch.school_year::text`, f.schoolYear);
-  if (f.dsplArea?.length)
-    c.dsplArea = inList(sql`cl.dspl_area::text`, f.dsplArea);
   if (f.consultationState?.length) {
     c.consultationState = inList(
       sql`c.consult_status::text`,
@@ -130,7 +128,6 @@ interface RawRow {
   date_of_enquiry: string | null;
   method_of_enquiry: string | null;
   school_year: string | null;
-  dspl_area: string | null;
   payment_code: string | null;
   discount_code: string | null;
   invoice_status_text: string | null;
@@ -158,7 +155,6 @@ function mapRow(r: RawRow): CaseListRow {
     dateOfEnquiry: r.date_of_enquiry,
     methodOfEnquiry: r.method_of_enquiry as CaseListRow['methodOfEnquiry'],
     schoolYear: r.school_year,
-    dsplArea: r.dspl_area,
     paymentCode: r.payment_code,
     discountCode: r.discount_code,
     invoiceStatusText: r.invoice_status_text,
@@ -194,7 +190,6 @@ const SELECT_ROW = sql`
   c.date_of_enquiry,
   c.method_of_enquiry::text AS method_of_enquiry,
   ch.school_year::text AS school_year,
-  cl.dspl_area::text AS dspl_area,
   c.payment_code::text AS payment_code,
   c.discount_code::text AS discount_code,
   c.invoice_status_text,
@@ -348,7 +343,6 @@ const SIMPLE_FACET_EXPR: Record<string, SQL> = {
   paymentCode: sql`c.payment_code::text`,
   discountCode: sql`c.discount_code::text`,
   schoolYear: sql`ch.school_year::text`,
-  dsplArea: sql`cl.dspl_area::text`,
   consultationState: sql`c.consult_status::text`,
 };
 

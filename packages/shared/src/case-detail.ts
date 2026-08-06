@@ -42,7 +42,6 @@ export interface CaseClientDetail {
   city: string | null;
   county: string | null;
   postcode: string | null;
-  dsplArea: string | null;
   additionalNeeds: string | null;
   consentDataProcessing: boolean;
   consentInformationSharing: boolean;

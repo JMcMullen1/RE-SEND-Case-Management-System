@@ -133,10 +133,6 @@ export function CaseRow({
             {row.schoolYear ?? '—'}
           </span>
         );
-      case 'dsplArea':
-        return (
-          <span className="text-sm text-resend-ink">{row.dsplArea ?? '—'}</span>
-        );
       case 'paymentCode':
         return (
           <span className="text-sm text-resend-ink">

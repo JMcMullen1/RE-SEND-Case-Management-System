@@ -4,7 +4,6 @@ import {
   calculateAge,
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
-  DSPL_AREA_VALUES,
   ENQUIRY_METHOD_VALUES,
   formatCivilDate,
   INTAKE_LOW_CONFIDENCE,
@@ -14,7 +13,6 @@ import {
   QUERY_TYPE_VALUES,
   SCHOOL_YEAR_VALUES,
   STATUS_VALUES,
-  suggestDsplArea,
   suggestSchoolYear,
   TEAM_VALUES,
   WORK_TYPE_VALUES,
@@ -53,7 +51,6 @@ const EMPTY_CLIENT: Dict = {
   city: '',
   county: '',
   postcode: '',
-  dsplArea: '',
   additionalNeeds: '',
 };
 const EMPTY_CHILD: Dict = {
@@ -255,7 +252,6 @@ export function NewCasePage() {
       city: c.city ?? '',
       county: c.county ?? '',
       postcode: c.postcode ?? '',
-      dsplArea: c.dsplArea ?? '',
       additionalNeeds: c.additionalNeeds ?? '',
     });
     setExistingClientId(c.id);
@@ -373,7 +369,6 @@ export function NewCasePage() {
   // --- Suggestions ----------------------------------------------------------
   const age = calculateAge(child.dateOfBirth || null, today);
   const yearSuggestion = suggestSchoolYear(child.dateOfBirth || null, today);
-  const dsplSuggestion = suggestDsplArea(client.postcode || null);
 
   // --- Validation -----------------------------------------------------------
   const validateField = (
@@ -626,23 +621,6 @@ export function NewCasePage() {
             {...mf('client.postcode')}
           />
         </div>
-        <FormField
-          label="DSPL area"
-          type="select"
-          options={opts(DSPL_AREA_VALUES)}
-          value={client.dsplArea}
-          disabled={lockClient}
-          onChange={(v) => setC('dsplArea', v)}
-          {...mf('client.dsplArea')}
-          suggestion={
-            !lockClient && dsplSuggestion && dsplSuggestion !== client.dsplArea
-              ? applyLink(
-                  () => setC('dsplArea', dsplSuggestion),
-                  `Suggested from postcode: ${dsplSuggestion} — apply`,
-                )
-              : undefined
-          }
-        />
         <FormField
           label="Additional needs"
           type="textarea"

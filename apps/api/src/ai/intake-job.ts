@@ -4,7 +4,6 @@ import {
   INTAKE_EMAIL_METHOD,
   KeyDateTypeSchema,
   QueryTypeSchema,
-  suggestDsplArea,
   suggestSchoolYear,
   WorkTypeSchema,
   type IntakeFieldValue,
@@ -113,8 +112,8 @@ type ExtractedField = {
 
 /**
  * Map the raw extraction onto the add-case form's fields: config vocabularies
- * for the coded fields, and school year / DSPL area / enquiry method derived
- * rather than extracted. Pure — no I/O — so it is straightforward to test.
+ * for the coded fields, and school year / enquiry method derived rather than
+ * extracted. Pure — no I/O — so it is straightforward to test.
  */
 export function mapExtraction(
   raw: IntakeExtraction,
@@ -221,14 +220,8 @@ export function mapExtraction(
     confidence: 1,
   };
 
-  // Derived: DSPL area from postcode, school year from date of birth. Carry the
-  // source field's confidence — a derivation is only as sure as its input.
-  const postcode = client.postcode;
-  if (postcode) {
-    const dspl = suggestDsplArea(postcode.value);
-    if (dspl)
-      client.dsplArea = { value: dspl, confidence: postcode.confidence };
-  }
+  // Derived: school year from date of birth. Carry the source field's
+  // confidence — a derivation is only as sure as its input.
   const dob = child.dateOfBirth;
   if (dob) {
     const year = suggestSchoolYear(dob.value, opts.today);

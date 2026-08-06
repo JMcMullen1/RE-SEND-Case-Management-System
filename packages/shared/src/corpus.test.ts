@@ -61,7 +61,6 @@ describe('renderCaseRecordText', () => {
       consultStatus: 'not_required',
       client: {
         displayName: 'Fairbanks, Farrah',
-        dsplArea: null,
         additionalNeeds: null,
       },
       child: {

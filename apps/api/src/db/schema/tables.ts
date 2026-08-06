@@ -23,7 +23,6 @@ import {
   consultationStateEnum,
   discountCodeEnum,
   documentCategoryEnum,
-  dsplAreaEnum,
   emailDirectionEnum,
   enquiryMethodEnum,
   externalSyncStatusEnum,
@@ -85,53 +84,46 @@ export const caseTeams = pgTable(
 );
 
 // --- clients ----------------------------------------------------------------
-export const clients = pgTable(
-  'clients',
-  {
-    id: primaryId(),
-    fullName: text('full_name').notNull(),
-    displayName: text('display_name').notNull(),
-    preferredName: text('preferred_name'),
-    email: text('email'),
-    phone: text('phone'),
-    mobile: text('mobile'),
-    otherContact: text('other_contact'),
-    streetAddress: text('street_address'),
-    city: text('city'),
-    county: text('county'),
-    postcode: text('postcode'),
-    dsplArea: dsplAreaEnum('dspl_area'),
-    additionalNeeds: text('additional_needs'),
-    consentDataProcessing: boolean('consent_data_processing')
-      .notNull()
-      .default(false),
-    consentDataProcessingAt: timestamp('consent_data_processing_at', {
-      withTimezone: true,
-    }),
-    consentInformationSharing: boolean('consent_information_sharing')
-      .notNull()
-      .default(false),
-    consentInformationSharingAt: timestamp('consent_information_sharing_at', {
-      withTimezone: true,
-    }),
-    consentContact: boolean('consent_contact').notNull().default(false),
-    consentContactAt: timestamp('consent_contact_at', { withTimezone: true }),
-    consentPrivacyNotice: boolean('consent_privacy_notice')
-      .notNull()
-      .default(false),
-    consentPrivacyNoticeAt: timestamp('consent_privacy_notice_at', {
-      withTimezone: true,
-    }),
-    paymentPlanRequired: boolean('payment_plan_required')
-      .notNull()
-      .default(false),
-    ...timestamps,
-    ...softDelete,
-  },
-  (t) => ({
-    dsplAreaIdx: index('idx_clients_dspl_area').on(t.dsplArea),
+export const clients = pgTable('clients', {
+  id: primaryId(),
+  fullName: text('full_name').notNull(),
+  displayName: text('display_name').notNull(),
+  preferredName: text('preferred_name'),
+  email: text('email'),
+  phone: text('phone'),
+  mobile: text('mobile'),
+  otherContact: text('other_contact'),
+  streetAddress: text('street_address'),
+  city: text('city'),
+  county: text('county'),
+  postcode: text('postcode'),
+  additionalNeeds: text('additional_needs'),
+  consentDataProcessing: boolean('consent_data_processing')
+    .notNull()
+    .default(false),
+  consentDataProcessingAt: timestamp('consent_data_processing_at', {
+    withTimezone: true,
   }),
-);
+  consentInformationSharing: boolean('consent_information_sharing')
+    .notNull()
+    .default(false),
+  consentInformationSharingAt: timestamp('consent_information_sharing_at', {
+    withTimezone: true,
+  }),
+  consentContact: boolean('consent_contact').notNull().default(false),
+  consentContactAt: timestamp('consent_contact_at', { withTimezone: true }),
+  consentPrivacyNotice: boolean('consent_privacy_notice')
+    .notNull()
+    .default(false),
+  consentPrivacyNoticeAt: timestamp('consent_privacy_notice_at', {
+    withTimezone: true,
+  }),
+  paymentPlanRequired: boolean('payment_plan_required')
+    .notNull()
+    .default(false),
+  ...timestamps,
+  ...softDelete,
+});
 
 // --- children ---------------------------------------------------------------
 export const children = pgTable('children', {

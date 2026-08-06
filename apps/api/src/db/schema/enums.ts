@@ -4,7 +4,6 @@ import {
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
   DOCUMENT_CATEGORY_VALUES,
-  DSPL_AREA_VALUES,
   EMAIL_DIRECTION_VALUES,
   ENQUIRY_METHOD_VALUES,
   EXTERNAL_SYNC_STATUS_VALUES,
@@ -36,7 +35,6 @@ export const enquiryMethodEnum = pgEnum(
 export const paymentCodeEnum = pgEnum('payment_code', PAYMENT_CODE_VALUES);
 export const discountCodeEnum = pgEnum('discount_code', DISCOUNT_CODE_VALUES);
 export const schoolYearEnum = pgEnum('school_year', SCHOOL_YEAR_VALUES);
-export const dsplAreaEnum = pgEnum('dspl_area', DSPL_AREA_VALUES);
 export const keyDateTypeEnum = pgEnum('key_date_type', KEY_DATE_TYPE_VALUES);
 export const keyDateSourceEnum = pgEnum(
   'key_date_source',

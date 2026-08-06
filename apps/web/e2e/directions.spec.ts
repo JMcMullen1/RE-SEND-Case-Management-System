@@ -30,7 +30,6 @@ const caseDetail = {
     otherContact: null,
     streetAddress: null,
     postcode: null,
-    dsplArea: null,
     additionalNeeds: null,
     consentDataProcessingAt: null,
     consentInformationSharingAt: null,
