@@ -197,6 +197,43 @@ export const CONSULTATION_STATE_VALUES = [
 export type ConsultationState = (typeof CONSULTATION_STATE_VALUES)[number];
 export const ConsultationStateSchema = z.enum(CONSULTATION_STATE_VALUES);
 
+// --- User roles -------------------------------------------------------------
+export const USER_ROLE_VALUES = [
+  'admin',
+  'caseworker',
+  'finance',
+  'read_only',
+] as const;
+export type UserRole = (typeof USER_ROLE_VALUES)[number];
+export const UserRoleSchema = z.enum(USER_ROLE_VALUES);
+
+// --- Key date sources -------------------------------------------------------
+/** Where a key date came from: hand-entered, parsed from a directions order,
+ * or captured from a Jotform submission. */
+export const KEY_DATE_SOURCE_VALUES = [
+  'manual',
+  'directions_order',
+  'jotform',
+] as const;
+export type KeyDateSource = (typeof KEY_DATE_SOURCE_VALUES)[number];
+export const KeyDateSourceSchema = z.enum(KEY_DATE_SOURCE_VALUES);
+
+// --- Email direction --------------------------------------------------------
+export const EMAIL_DIRECTION_VALUES = ['inbound', 'outbound'] as const;
+export type EmailDirection = (typeof EMAIL_DIRECTION_VALUES)[number];
+export const EmailDirectionSchema = z.enum(EMAIL_DIRECTION_VALUES);
+
+// --- External sync status ---------------------------------------------------
+/** Sync state of a time entry against the external accounting system. */
+export const EXTERNAL_SYNC_STATUS_VALUES = [
+  'not_synced',
+  'pending',
+  'synced',
+  'failed',
+] as const;
+export type ExternalSyncStatus = (typeof EXTERNAL_SYNC_STATUS_VALUES)[number];
+export const ExternalSyncStatusSchema = z.enum(EXTERNAL_SYNC_STATUS_VALUES);
+
 // --- Thresholds -------------------------------------------------------------
 /** Tunable day-count thresholds that drive row status rules. */
 export const THRESHOLDS = {
