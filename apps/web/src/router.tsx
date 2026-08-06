@@ -7,6 +7,7 @@ import {
 import { CaseListPage } from './features/caselist/CaseListPage';
 import { CaseScreenPage } from './features/casescreen/CaseScreenPage';
 import { NewCasePage } from './features/newcase/NewCasePage';
+import { ReviewModePage } from './features/review/ReviewModePage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -30,10 +31,17 @@ const caseScreenRoute = createRoute({
   component: CaseScreenPage,
 });
 
+const reviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/review',
+  component: ReviewModePage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   newCaseRoute,
   caseScreenRoute,
+  reviewRoute,
 ]);
 
 export const router = createRouter({ routeTree });

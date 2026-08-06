@@ -20,6 +20,7 @@ import {
   updateKeyDate,
 } from '../repositories/key-dates';
 import { addNote, editNote, NoteForbidden } from '../repositories/notes';
+import { recordReview } from '../repositories/reviews';
 import { resolveCurrentUser } from '../repositories/users';
 import {
   CaseDetailSchema,
@@ -45,6 +46,29 @@ function actorId(headers: Record<string, unknown>): string | undefined {
 
 export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
+
+  app.post(
+    '/api/cases/:id/review',
+    {
+      schema: {
+        params: IdParam,
+        body: z.object({ note: z.string().optional() }),
+        response: {
+          200: z.object({ reviewedAt: z.string() }),
+          400: z.object({ message: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const current = await resolveCurrentUser(actorId(request.headers));
+      if (!current) return reply.code(400).send({ message: 'No acting user' });
+      return recordReview(
+        request.params.id,
+        current.id,
+        request.body.note?.trim() || null,
+      );
+    },
+  );
 
   app.get(
     '/api/cases/:id/detail',

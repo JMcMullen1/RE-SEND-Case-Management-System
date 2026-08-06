@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  encodeViewStateToString,
   hasActiveFilters,
   PRODUCT_NAME,
   STRAPLINE,
@@ -119,6 +120,12 @@ export function CaseListPage() {
             onSave={(name, shared) => saveView.mutate({ name, shared, state })}
             onDelete={(id) => deleteView.mutate(id)}
           />
+          <a
+            href={`/review${encodeViewStateToString(state)}`}
+            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            Review
+          </a>
           <a
             href="/cases/new"
             className="rounded-lg bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
