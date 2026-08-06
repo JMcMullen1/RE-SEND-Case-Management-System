@@ -8,6 +8,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { PRODUCT_NAME } from '@re-send/shared';
+import { registerAiRoutes } from './routes/ai';
 import { registerCaseRoutes } from './routes/cases';
 import { registerCaseScreenRoutes } from './routes/case-screen';
 import { registerCorpusRoutes } from './routes/corpus';
@@ -53,6 +54,7 @@ export async function buildServer() {
   registerCaseScreenRoutes(app);
   registerDocumentRoutes(app);
   registerCorpusRoutes(app);
+  registerAiRoutes(app);
   registerSavedViewRoutes(app);
 
   app.get('/api/ws', { websocket: true }, (socket) => {

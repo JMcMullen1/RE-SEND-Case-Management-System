@@ -1,5 +1,6 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 import {
+  AI_JOB_OUTCOME_VALUES,
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
   DOCUMENT_CATEGORY_VALUES,
@@ -57,3 +58,4 @@ export const externalSyncStatusEnum = pgEnum(
   'external_sync_status',
   EXTERNAL_SYNC_STATUS_VALUES,
 );
+export const aiJobOutcomeEnum = pgEnum('ai_job_outcome', AI_JOB_OUTCOME_VALUES);

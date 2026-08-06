@@ -29,6 +29,13 @@
       "when": 1786020211074,
       "tag": "0003_documents_corpus",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786023143211,
+      "tag": "0004_ai_job_layer",
+      "breakpoints": true
     }
   ]
 }

@@ -68,7 +68,7 @@ run('case list API', () => {
     const caseId = list.json().rows[0].id as string;
 
     const before = await getDb().execute(
-      sql`SELECT count(*)::int AS n FROM audit_log WHERE entity_id = ${caseId}`,
+      sql`SELECT count(*)::int AS n FROM audit_log WHERE entity_id = ${caseId} AND action = 'case.reassign_owner'`,
     );
     const res = await app.inject({
       method: 'PATCH',

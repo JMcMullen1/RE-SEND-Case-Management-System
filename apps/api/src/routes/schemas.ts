@@ -257,6 +257,26 @@ export const CorpusItemSchema = z.object({
   text: z.string(),
 });
 
+export const AiJobFlagSchema = z.object({
+  jobName: z.string(),
+  enabled: z.boolean(),
+});
+
+export const AiSpendByJobSchema = z.object({
+  jobName: z.string(),
+  model: z.string(),
+  runs: z.number(),
+  successes: z.number(),
+  refusals: z.number(),
+  errors: z.number(),
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadTokens: z.number(),
+  cacheWriteTokens: z.number(),
+  costUsd: z.string(),
+  lastRunAt: z.string(),
+});
+
 export const CorpusResultSchema = z.object({
   caseId: z.string(),
   items: z.array(CorpusItemSchema),

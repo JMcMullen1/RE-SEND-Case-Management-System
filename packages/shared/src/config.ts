@@ -208,6 +208,20 @@ export const CORPUS_ACTIVE_ITEM_TYPES = [
   'note',
 ] as const satisfies readonly CorpusItemType[];
 
+// --- AI job outcomes --------------------------------------------------------
+// The result recorded for every AI job run in the cost-accounting table.
+// `success` produced validated output; `refusal` was declined by the model's
+// safety classifiers; `error` failed (transport or invalid output) after
+// retries; `disabled` means the job was switched off and never called.
+export const AI_JOB_OUTCOME_VALUES = [
+  'success',
+  'refusal',
+  'error',
+  'disabled',
+] as const;
+export type AiJobOutcome = (typeof AI_JOB_OUTCOME_VALUES)[number];
+export const AiJobOutcomeSchema = z.enum(AI_JOB_OUTCOME_VALUES);
+
 // --- Consultation states ----------------------------------------------------
 export const CONSULTATION_STATE_VALUES = [
   'not_required',

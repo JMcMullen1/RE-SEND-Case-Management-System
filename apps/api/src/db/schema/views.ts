@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { date, pgView, text, uuid } from 'drizzle-orm/pg-core';
+import { bigint, date, numeric, pgView, text, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * case_list_view — the row shape behind the case list.
@@ -56,5 +56,42 @@ export const caseListView = pgView('case_list_view', {
       WHERE cn.case_id = c.id AND cn.deleted_at IS NULL
     ) mrn ON true
     WHERE c.deleted_at IS NULL
+  `,
+);
+
+/**
+ * ai_spend_by_job — cost and usage rolled up per job type and model, so spend
+ * is visible over time. Reads from the append-only ai_job_runs log.
+ */
+export const aiSpendByJob = pgView('ai_spend_by_job', {
+  jobName: text('job_name'),
+  model: text('model'),
+  runs: bigint('runs', { mode: 'number' }),
+  successes: bigint('successes', { mode: 'number' }),
+  refusals: bigint('refusals', { mode: 'number' }),
+  errors: bigint('errors', { mode: 'number' }),
+  inputTokens: bigint('input_tokens', { mode: 'number' }),
+  outputTokens: bigint('output_tokens', { mode: 'number' }),
+  cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
+  cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
+  costUsd: numeric('cost_usd'),
+  lastRunAt: text('last_run_at'),
+}).as(
+  sql`
+    SELECT
+      job_name,
+      model,
+      count(*) AS runs,
+      count(*) FILTER (WHERE outcome = 'success') AS successes,
+      count(*) FILTER (WHERE outcome = 'refusal') AS refusals,
+      count(*) FILTER (WHERE outcome = 'error') AS errors,
+      sum(input_tokens) AS input_tokens,
+      sum(output_tokens) AS output_tokens,
+      sum(cache_read_tokens) AS cache_read_tokens,
+      sum(cache_write_tokens) AS cache_write_tokens,
+      sum(cost_usd) AS cost_usd,
+      max(created_at) AS last_run_at
+    FROM ai_job_runs
+    GROUP BY job_name, model
   `,
 );

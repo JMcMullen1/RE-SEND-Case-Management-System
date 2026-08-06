@@ -28,6 +28,19 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+
+  // --- AI job layer --------------------------------------------------------
+  // The Claude API key. Server-side only — it never reaches the browser. Every
+  // AI call in the system goes through apps/api/src/ai.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  // Global kill switch. `false` turns every AI feature off without a deploy;
+  // per-job flags live in the ai_job_flags table for finer control.
+  AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  // Transient-failure retries (429/5xx/network). The SDK backs off exponentially.
+  AI_MAX_RETRIES: z.coerce.number().int().min(0).default(2),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

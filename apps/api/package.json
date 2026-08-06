@@ -13,6 +13,7 @@
     "fixtures:clear": "tsx src/fixtures/clear.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@fastify/multipart": "^8.3.0",
     "@fastify/websocket": "^10.0.1",
     "@re-send/shared": "*",
@@ -22,7 +23,8 @@
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
     "postgres": "^3.4.4",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { primaryId, retention, softDelete, timestamps } from './columns';
 import {
+  aiJobOutcomeEnum,
   caseStatusEnum,
   consultationStateEnum,
   discountCodeEnum,
@@ -459,6 +460,46 @@ export const timeEntries = pgTable(
     userIdIdx: index('idx_time_entries_user_id').on(t.userId),
   }),
 );
+
+// --- ai_job_runs ------------------------------------------------------------
+// Append-only cost-accounting log: one row per AI job invocation. Records what
+// ran and what it cost — job name, model, token counts, latency and outcome —
+// and NEVER the prompt or the response, both of which carry special category
+// data about a child. Spend per job type over time reads from the
+// ai_spend_by_job view built on this table.
+export const aiJobRuns = pgTable(
+  'ai_job_runs',
+  {
+    id: primaryId(),
+    jobName: text('job_name').notNull(),
+    model: text('model').notNull(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    latencyMs: integer('latency_ms').notNull(),
+    outcome: aiJobOutcomeEnum('outcome').notNull(),
+    costUsd: numeric('cost_usd', { precision: 12, scale: 6 })
+      .notNull()
+      .default('0'),
+    ...timestamps,
+  },
+  (t) => ({
+    jobNameIdx: index('idx_ai_job_runs_job_name').on(t.jobName),
+    createdAtIdx: index('idx_ai_job_runs_created_at').on(t.createdAt),
+  }),
+);
+
+// --- ai_job_flags -----------------------------------------------------------
+// Per-job on/off switch, toggled at runtime so an AI feature can be turned off
+// without a deploy. Absence of a row means "use the job definition's default";
+// the global AI_ENABLED env var overrides everything.
+export const aiJobFlags = pgTable('ai_job_flags', {
+  id: primaryId(),
+  jobName: text('job_name').notNull().unique(),
+  enabled: boolean('enabled').notNull().default(true),
+  ...timestamps,
+});
 
 // --- saved_views ------------------------------------------------------------
 // A stored case-list view. `owner_user_id` null means a shared view; the seeded

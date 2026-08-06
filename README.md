@@ -76,6 +76,31 @@ delimited string carrying item ids, reports an estimated token count, takes a
 `select` option, and is cached per case — invalidated whenever a constituent row
 changes, driven by the same Postgres `NOTIFY` as live updates.
 
+## AI job layer
+
+Every Claude API call goes through one module, `apps/api/src/ai` — there is never
+more than one set of conventions.
+
+- **Server-side only.** The `ANTHROPIC_API_KEY` lives in the environment and
+  never reaches the browser.
+- **`runAiJob(definition, input)`.** A definition names the job, its model, a Zod
+  output schema, the system prompt, whether to use prompt caching (and at what
+  TTL), and a token budget. Moving a job between models is a config change, not a
+  code change.
+- **Structured by construction.** The output schema becomes a tool the model is
+  forced to call, so the result is structurally guaranteed rather than parsed out
+  of prose.
+- **Accounted.** Every run writes to `ai_job_runs` — job, model, input/output and
+  cache token counts, latency, outcome, estimated cost — and **never** the prompt
+  or the response, both of which carry special category data about a child. Spend
+  per job type over time reads from the `ai_spend_by_job` view (`GET /api/ai/spend`).
+- **Resilient.** Transient failures (429/5xx/network) retry with exponential
+  backoff; a hard failure throws (never returns empty), and a refusal surfaces
+  as an error rather than a silent blank.
+- **Switchable without a deploy.** `AI_ENABLED` is a global kill switch; per-job
+  flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
+- **Prompt caching** is wired with a selectable TTL but off by default.
+
 ### Render free tier
 
 **Render's free tier spins services down after inactivity.** A spun-down
