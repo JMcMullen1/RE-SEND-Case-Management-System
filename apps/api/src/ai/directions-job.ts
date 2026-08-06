@@ -36,5 +36,10 @@ export const extractDirectionsJob = defineAiJob({
   systemPrompt: SYSTEM_PROMPT,
   toolDescription:
     'Record the directions extracted from the order: the order date and one entry per dated obligation.',
-  maxTokens: 4096,
+  // A real directions order can carry dozens of numbered obligations, each
+  // returned in full — the structured result routinely exceeds a 4k output
+  // budget and would be truncated mid-JSON (surfacing as an unreadable order).
+  // Output is billed per token actually generated, so a higher ceiling only
+  // prevents truncation; it does not raise the cost of a short order.
+  maxTokens: 16384,
 });

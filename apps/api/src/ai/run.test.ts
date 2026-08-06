@@ -151,6 +151,22 @@ describe('runAiJob', () => {
     expect(records[0]!.outcome).toBe('refusal');
   });
 
+  it('errors clearly when the output is truncated at max_tokens', async () => {
+    // A partial tool call from a max_tokens stop must fail with a clear reason,
+    // not fall through to an opaque schema-validation error.
+    const client = clientReturning(
+      message({
+        stop_reason: 'max_tokens',
+        content: [
+          { type: 'tool_use', id: 't1', name: TOOL, input: { label: 'a' } },
+        ],
+      }),
+    );
+    const { records, deps } = harness(client);
+    await expect(runAiJob(job, 'x', deps)).rejects.toThrow(/max_tokens/);
+    expect(records[0]!.outcome).toBe('error');
+  });
+
   it('errors when the model does not call the output tool', async () => {
     const client = clientReturning(
       message({

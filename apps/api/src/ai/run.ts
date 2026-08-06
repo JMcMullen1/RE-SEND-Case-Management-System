@@ -123,6 +123,17 @@ export async function runAiJob<TSchema extends z.ZodTypeAny>(
       );
     }
 
+    // Truncation: the model hit max_tokens before completing the tool call, so
+    // the structured output is incomplete. Fail with a clear reason rather than
+    // letting the partial JSON surface as an opaque schema-validation error.
+    if (response.stop_reason === 'max_tokens') {
+      await record('error', usage, latencyMs);
+      throw new AiJobError(
+        name,
+        'output was truncated at max_tokens before completion',
+      );
+    }
+
     const block = response.content.find(
       (b): b is Anthropic.ToolUseBlock =>
         b.type === 'tool_use' && b.name === toolName,
