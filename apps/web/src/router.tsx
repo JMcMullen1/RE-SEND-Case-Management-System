@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { CaseListPage } from './features/caselist/CaseListPage';
 import { CaseScreenPage } from './features/casescreen/CaseScreenPage';
-import { NewCaseStub } from './routes/stubs';
+import { NewCasePage } from './features/newcase/NewCasePage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -21,7 +21,7 @@ const homeRoute = createRoute({
 const newCaseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cases/new',
-  component: NewCaseStub,
+  component: NewCasePage,
 });
 
 const caseScreenRoute = createRoute({

@@ -37,6 +37,9 @@ export function CaseScreenPage() {
   const mutations = useCaseMutations(caseId);
   const wide = useMediaQuery('(min-width: 1400px)');
   const [tab, setTab] = useState<Tab>('timeline');
+  const [justCreated, setJustCreated] = useState(
+    () => new URLSearchParams(window.location.search).get('created') === '1',
+  );
 
   const uploadDirections = (file: File) => {
     void uploadDocument(caseId, file, 'Tribunal Order').then(() =>
@@ -99,6 +102,31 @@ export function CaseScreenPage() {
 
   return (
     <div className="flex h-screen flex-col bg-white text-resend-ink">
+      {justCreated && (
+        <div className="flex items-center justify-between gap-3 border-l-4 border-resend-green bg-gray-50 px-6 py-2 text-sm">
+          <span className="text-resend-ink">
+            Case created. It opens here, not back on the list.
+          </span>
+          <span className="flex items-center gap-4">
+            {detail.client && (
+              <a
+                href={`/cases/new?fromClient=${detail.client.id}`}
+                className="font-medium text-resend-purple hover:underline"
+              >
+                Add another for this client
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => setJustCreated(false)}
+              aria-label="Dismiss"
+              className="text-gray-500 hover:text-resend-ink"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
       <header className="border-b border-gray-200 px-6 py-3">
         <CaseHeader
           detail={detail}

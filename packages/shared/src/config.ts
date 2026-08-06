@@ -263,6 +263,59 @@ export const ROW_STATUS_RULES = {
 } as const;
 export type RowStatusFlag = keyof typeof ROW_STATUS_RULES;
 
+// --- Postcode → DSPL area suggestion ----------------------------------------
+/**
+ * A configurable starting mapping from postcode area (the leading letters) to a
+ * DSPL area, for suggesting a value on the case form. RE-SEND operates across
+ * Hertfordshire and its borders; this is a first-pass mapping to be corrected
+ * by the charity, and the suggestion it produces is always overridable.
+ */
+export const POSTCODE_DSPL_MAP: Record<string, DsplArea> = {
+  AL: 'DSPL1',
+  HP: 'DSPL2',
+  SG: 'DSPL3',
+  WD: 'DSPL4',
+  EN: 'DSPL5',
+  HA: 'DSPL6',
+  LU: 'DSPL7',
+  CM: 'DSPL8',
+  NW: 'DSPL9',
+};
+
+/** Suggest a DSPL area from a postcode's area letters, or null if unmapped. */
+export function suggestDsplArea(
+  postcode: string | null | undefined,
+): DsplArea | null {
+  if (!postcode) return null;
+  const area = postcode
+    .trim()
+    .toUpperCase()
+    .match(/^[A-Z]+/);
+  if (!area) return null;
+  return POSTCODE_DSPL_MAP[area[0]] ?? null;
+}
+
+/**
+ * Suggest a National Curriculum school year from a date of birth, using the
+ * child's age on 31 August of the current academic year. Overridable.
+ */
+export function suggestSchoolYear(
+  dobISO: string | null | undefined,
+  today: string,
+): SchoolYear | null {
+  if (!dobISO) return null;
+  const [by, bm] = dobISO.split('-').map(Number);
+  const [ty, tm] = today.split('-').map(Number);
+  if (!by || !bm || !ty || !tm) return null;
+  const referenceYear = tm >= 9 ? ty : ty - 1;
+  const ageAt31Aug = referenceYear - by - (bm >= 9 ? 1 : 0);
+  if (ageAt31Aug < 4) return 'Nursery/Pre-school';
+  if (ageAt31Aug === 4) return 'Reception';
+  if (ageAt31Aug >= 5 && ageAt31Aug <= 18)
+    return `Yr${ageAt31Aug - 4}` as SchoolYear;
+  return 'Post19';
+}
+
 // --- Case list: key date type priority --------------------------------------
 /**
  * When a case has several key dates on the same day, the most consequential is

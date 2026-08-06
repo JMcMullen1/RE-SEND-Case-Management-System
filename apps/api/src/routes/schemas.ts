@@ -343,3 +343,99 @@ export const KeyDatePatchSchema = KeyDateCreateSchema.partial();
 export const NoteCreateSchema = z.object({ body: z.string().min(1) });
 export const NoteEditSchema = z.object({ body: z.string().min(1) });
 export const SetTeamsSchema = z.object({ team: z.array(TeamSchema) });
+
+// --- Create case ------------------------------------------------------------
+
+const CreateClientSchema = z
+  .object({
+    fullName: z.string().min(1),
+    displayName: z.string().optional(),
+    preferredName: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    mobile: z.string().nullable().optional(),
+    otherContact: z.string().nullable().optional(),
+    streetAddress: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    county: z.string().nullable().optional(),
+    postcode: z.string().nullable().optional(),
+    dsplArea: DsplAreaSchema.nullable().optional(),
+    additionalNeeds: z.string().nullable().optional(),
+  })
+  .strict();
+
+const CreateChildSchema = z
+  .object({
+    fullName: z.string().min(1),
+    preferredName: z.string().nullable().optional(),
+    dateOfBirth: z.string().nullable().optional(),
+    schoolYear: SchoolYearSchema.nullable().optional(),
+    currentSchoolName: z.string().nullable().optional(),
+    currentSchoolAddress: z.string().nullable().optional(),
+    desiredSchool: z.string().nullable().optional(),
+    sendNeeds: z.string().nullable().optional(),
+  })
+  .strict();
+
+export const CreateCaseSchema = z
+  .object({
+    existingClientId: z.string().uuid().optional(),
+    client: CreateClientSchema.optional(),
+    existingChildId: z.string().uuid().optional(),
+    child: CreateChildSchema.optional(),
+    case: z
+      .object({
+        dateOfEnquiry: z.string().optional(),
+        currentWork: WorkTypeSchema,
+        originalQuery: QueryTypeSchema.nullable().optional(),
+        methodOfEnquiry: EnquiryMethodSchema.nullable().optional(),
+        team: z.array(TeamSchema).optional(),
+        ownerUserId: z.string().uuid().nullable().optional(),
+        ownerQueue: OwnerQueueSchema.nullable().optional(),
+        status: StatusSchema.optional(),
+        consultStatus: ConsultationStateSchema.optional(),
+        supportLevel: z.string().nullable().optional(),
+        paymentCode: PaymentCodeSchema.nullable().optional(),
+        discountCode: DiscountCodeSchema.nullable().optional(),
+      })
+      .strict(),
+    firstNote: z.string().optional(),
+  })
+  .refine((v) => Boolean(v.existingClientId) || Boolean(v.client), {
+    message: 'Provide a client or an existing client id.',
+  })
+  .refine((v) => Boolean(v.existingChildId) || Boolean(v.child), {
+    message: 'Provide a child or an existing child id.',
+  });
+
+const CaseRefSchema = z.object({
+  caseId: z.string(),
+  caseReference: z.string(),
+});
+
+export const MatchResultSchema = z.object({
+  clientMatches: z.array(
+    z.object({
+      clientId: z.string(),
+      displayName: z.string(),
+      email: z.string().nullable(),
+      cases: z.array(
+        CaseRefSchema.pick({ caseReference: true }).extend({
+          caseId: z.string(),
+        }),
+      ),
+    }),
+  ),
+  childMatches: z.array(
+    z.object({
+      childId: z.string(),
+      fullName: z.string(),
+      dateOfBirth: z.string().nullable(),
+      clientId: z.string().nullable(),
+      clientDisplayName: z.string().nullable(),
+      cases: z.array(
+        z.object({ caseId: z.string(), caseReference: z.string() }),
+      ),
+    }),
+  ),
+});

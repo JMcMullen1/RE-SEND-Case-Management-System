@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { PRODUCT_NAME } from '@re-send/shared';
 import { registerCaseRoutes } from './routes/cases';
 import { registerCaseScreenRoutes } from './routes/case-screen';
+import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerUserRoutes } from './routes/users';
 import { registerSavedViewRoutes } from './routes/saved-views';
@@ -42,6 +43,7 @@ export async function buildServer() {
   });
 
   registerUserRoutes(app);
+  registerCreateCaseRoutes(app);
   registerCaseRoutes(app);
   registerCaseScreenRoutes(app);
   registerDocumentRoutes(app);
