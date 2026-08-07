@@ -145,7 +145,7 @@ export function registerCalendarRoutes(fastify: FastifyInstance): void {
         user.id,
       );
       const body = buildICalendar(events, {
-        calName: `RE-SEND — ${user.displayName}`,
+        calName: `reSEND — ${user.displayName}`,
         now: new Date(),
         typeLabels: KEY_DATE_TYPE_LABELS,
       });

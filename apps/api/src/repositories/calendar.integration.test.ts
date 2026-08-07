@@ -139,7 +139,7 @@ run('calendar repository', () => {
       actor,
     );
     const ics = buildICalendar(events, {
-      calName: 'RE-SEND',
+      calName: 'reSEND',
       now: new Date('2026-06-01T00:00:00Z'),
       typeLabels: KEY_DATE_TYPE_LABELS,
     });

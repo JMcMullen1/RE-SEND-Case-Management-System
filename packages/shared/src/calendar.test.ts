@@ -145,7 +145,7 @@ describe('iCal escaping and folding', () => {
 
 describe('buildICalendar', () => {
   const opts = {
-    calName: 'RE-SEND — Case Worker',
+    calName: 'reSEND — Case Worker',
     now: new Date('2026-06-01T09:00:00Z'),
     typeLabels: KEY_DATE_TYPE_LABELS,
   };

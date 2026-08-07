@@ -251,7 +251,7 @@ export function buildICalendar(
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//RE-SEND//Case Management//EN',
+    'PRODID:-//reSEND//Case Management//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeICalText(opts.calName)}`,
