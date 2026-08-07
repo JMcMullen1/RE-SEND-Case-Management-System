@@ -62,19 +62,20 @@ export const ExtractedDirectionSchema = z.object({
     .default('other'),
   deadlineDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .describe(
-      'The deadline as an absolute YYYY-MM-DD date, or null if the obligation ' +
-        'vacates/removes a date rather than setting one.',
+      'The deadline as an absolute date exactly as written (prefer YYYY-MM-DD; ' +
+        'UK day/month/year like 27/03/2026 is accepted), or null if the ' +
+        'obligation vacates/removes a date rather than setting one.',
     )
     .catch(null)
     .default(null),
   deadlineTime: z
     .string()
-    .regex(/^\d{2}:\d{2}$/)
     .nullable()
-    .describe('Time of day if the order gives one (e.g. "16:00"), else null.')
+    .describe(
+      'Time of day if given (e.g. "16:00", "12 noon", "4pm"), else null.',
+    )
     .catch(null)
     .default(null),
   rawDateText: z
@@ -130,9 +131,11 @@ const EMPTY_DIRECTION: ExtractedDirection = {
 export const ExtractDirectionsOutputSchema = z.object({
   orderDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
-    .describe('The date the order itself was made, as YYYY-MM-DD, or null.')
+    .describe(
+      'The date the order itself was made, exactly as written (any format), ' +
+        'or null.',
+    )
     .catch(null)
     .default(null),
   directions: z
@@ -202,21 +205,115 @@ function titleFor(d: ExtractedDirection): string {
  * the extracted order date; the hearing anchor is any extracted hearing date.
  * Absolute deadlines the model read directly are kept as written.
  */
+const MONTHS: Record<string, string> = {
+  january: '01',
+  jan: '01',
+  february: '02',
+  feb: '02',
+  march: '03',
+  mar: '03',
+  april: '04',
+  apr: '04',
+  may: '05',
+  june: '06',
+  jun: '06',
+  july: '07',
+  jul: '07',
+  august: '08',
+  aug: '08',
+  september: '09',
+  sep: '09',
+  sept: '09',
+  october: '10',
+  oct: '10',
+  november: '11',
+  nov: '11',
+  december: '12',
+  dec: '12',
+};
+
+/**
+ * Normalise a date as the model read it into ISO YYYY-MM-DD, or null. These are
+ * English SEND tribunal orders, so an ambiguous numeric date is read as UK
+ * day/month/year (27/03/2026 → 2026-03-27). Handles ISO, DD/MM/YYYY (with / . or
+ * - separators) and "27 March 2026" / "27th March 2026". Returns null when no
+ * date can be read, so the caller can fall back to the raw text.
+ */
+export function normaliseIsoDate(
+  input: string | null | undefined,
+): string | null {
+  if (!input) return null;
+  const s = input.trim();
+  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const dmy = s.match(/(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${dmy[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+  const named = s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?\s+(\d{4})/);
+  if (named) {
+    const month = MONTHS[named[2]!.toLowerCase()];
+    if (month) {
+      return `${named[3]}-${month}-${String(Number(named[1])).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Normalise a time as the model read it into HH:MM, or null. Handles HH:MM,
+ * "12 noon"/"noon", "midnight" and am/pm ("4pm" → "16:00").
+ */
+export function normaliseTime(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const s = input.trim().toLowerCase();
+  const hm = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (hm) return `${hm[1]!.padStart(2, '0')}:${hm[2]}`;
+  if (s.includes('noon')) return '12:00';
+  if (s.includes('midnight')) return '00:00';
+  const ampm = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    if (ampm[3] === 'pm' && h < 12) h += 12;
+    if (ampm[3] === 'am' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${ampm[2] ?? '00'}`;
+  }
+  const embedded = s.match(/(\d{1,2}):(\d{2})/);
+  if (embedded) return `${embedded[1]!.padStart(2, '0')}:${embedded[2]}`;
+  return null;
+}
+
 export function resolveDirections(
   output: ExtractDirectionsOutput,
   holidays: Holidays,
 ): ResolvedDirection[] {
+  const orderDate = normaliseIsoDate(output.orderDate);
   const hearingDate =
-    output.directions.find((d) => d.type === 'hearing' && d.deadlineDate)
-      ?.deadlineDate ?? null;
-  const anchors = { order_date: output.orderDate, hearing: hearingDate };
+    output.directions
+      .map((d) =>
+        d.type === 'hearing'
+          ? (normaliseIsoDate(d.deadlineDate) ??
+            normaliseIsoDate(d.rawDateText))
+          : null,
+      )
+      .find((d) => d !== null) ?? null;
+  const anchors = { order_date: orderDate, hearing: hearingDate };
 
   return output.directions.map((d) => {
-    let date = d.deadlineDate;
-    let time = d.deadlineTime;
+    // The absolute date the model read, normalised from UK/other formats, with
+    // a fallback to a date embedded in the raw text ("12 noon on 27/03/2026").
+    let date =
+      normaliseIsoDate(d.deadlineDate) ?? normaliseIsoDate(d.rawDateText);
+    let time = normaliseTime(d.deadlineTime);
     let explanation: string | null = null;
 
-    if (!d.vacated && d.deadlineDate !== null) {
+    if (!d.vacated) {
+      // A relative deadline ("within 14 days of the order") is recomputed
+      // authoritatively; an absolute date is kept as normalised above.
       const spec = parseDeadlineExpression(d.rawDateText);
       if (spec) {
         const resolved = resolveDeadline(

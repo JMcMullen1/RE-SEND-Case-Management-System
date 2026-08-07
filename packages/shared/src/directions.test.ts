@@ -4,6 +4,8 @@ import {
   diffDirections,
   diffRowToApplyRow,
   ExtractDirectionsOutputSchema,
+  normaliseIsoDate,
+  normaliseTime,
   resolveDirections,
   summariseDiff,
   type ExtractDirectionsOutput,
@@ -343,10 +345,55 @@ describe('ExtractDirectionsOutputSchema resilience', () => {
       expect(bad.obligation).toBe('Attend the hearing');
       expect(bad.party).toBe('respondent'); // invalid 'Appellant' -> fallback
       expect(bad.type).toBe('other'); // invalid 'court-hearing' -> fallback
-      expect(bad.deadlineDate).toBeNull(); // non-ISO -> null
-      expect(bad.deadlineTime).toBeNull(); // "4pm" -> null
+      expect(bad.deadlineDate).toBe('2026-6-8'); // kept; normalised downstream
+      expect(bad.deadlineTime).toBe('4pm'); // kept; normalised downstream
       expect(bad.workingDays).toBe(false); // "no" -> false
       expect(bad.confidence).toBe(0.5); // out of range -> 0.5
     }
+  });
+});
+
+describe('normaliseIsoDate / normaliseTime', () => {
+  it('reads UK day/month/year and named dates as ISO', () => {
+    expect(normaliseIsoDate('27/03/2026')).toBe('2026-03-27');
+    expect(normaliseIsoDate('6/5/2026')).toBe('2026-05-06');
+    expect(normaliseIsoDate('12 noon on 17/04/2026')).toBe('2026-04-17');
+    expect(normaliseIsoDate('2026-05-06')).toBe('2026-05-06');
+    expect(normaliseIsoDate('27th March 2026')).toBe('2026-03-27');
+    expect(normaliseIsoDate('to be confirmed')).toBeNull();
+    expect(normaliseIsoDate(null)).toBeNull();
+  });
+
+  it('reads times, including "12 noon" and am/pm', () => {
+    expect(normaliseTime('12 noon')).toBe('12:00');
+    expect(normaliseTime('4pm')).toBe('16:00');
+    expect(normaliseTime('16:00')).toBe('16:00');
+    expect(normaliseTime('9am')).toBe('09:00');
+    expect(normaliseTime(null)).toBeNull();
+  });
+});
+
+describe('resolveDirections date normalisation', () => {
+  it('normalises a UK-format absolute deadline to ISO', () => {
+    const output: ExtractDirectionsOutput = {
+      orderDate: '13/02/2026',
+      directions: [
+        {
+          obligation: 'The LA must send the final documents',
+          party: 'respondent',
+          type: 'evidence_deadline',
+          deadlineDate: '17/04/2026',
+          deadlineTime: '12 noon',
+          rawDateText: 'By 12 noon on the 17/04/2026',
+          workingDays: false,
+          vacated: false,
+          paragraph: 5,
+          confidence: 0.9,
+        },
+      ],
+    };
+    const [d] = resolveDirections(output, snapshotHolidays());
+    expect(d!.date).toBe('2026-04-17');
+    expect(d!.time).toBe('12:00');
   });
 });
