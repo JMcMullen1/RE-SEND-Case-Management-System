@@ -19,18 +19,28 @@ import { defineAiJob } from './definition';
  * Never a guess — the contract is that `value` is non-null only when the field
  * was actually present in the submission.
  */
+/** A field the model did not return, or returned in an unusable shape. */
+const ABSENT = { value: null, confidence: null, reason: null };
+
 function field<T extends z.ZodTypeAny>(value: T) {
-  // Every part is `.catch`-guarded: if the model returns a malformed value for
-  // one field — a near-miss vocabulary code, or "yes" where a boolean is
-  // expected — that field falls back to null (treated as absent, filled in by
-  // hand) instead of failing the whole extraction. One bad field must never
-  // lose the rest of the form. The allowed enum values are still advertised to
-  // the model via the tool schema, so this only rescues the exceptions.
-  return z.object({
-    value: value.nullable().catch(null),
-    confidence: z.number().min(0).max(1).nullable().catch(null),
-    reason: z.string().nullable().catch(null),
-  });
+  // Fully tolerant of an imperfect model response so that ONE bad or missing
+  // field can never fail the whole extraction (the rest of the form still
+  // fills; the odd field is left blank to complete by hand):
+  //   - a malformed value (a near-miss vocabulary code, or "yes" where a
+  //     boolean is expected) falls back to null;
+  //   - a missing inner key (confidence/reason omitted) defaults to null;
+  //   - a field that is not the expected object, or is omitted entirely,
+  //     falls back to "absent".
+  // The allowed vocabularies are still advertised to the model via the tool
+  // schema, so this only rescues the exceptions.
+  return z
+    .object({
+      value: value.nullable().catch(null).default(null),
+      confidence: z.number().min(0).max(1).nullable().catch(null).default(null),
+      reason: z.string().nullable().catch(null).default(null),
+    })
+    .catch(ABSENT)
+    .default(ABSENT);
 }
 
 const str = () => field(z.string());
@@ -73,18 +83,21 @@ export const IntakeExtractionSchema = z.object({
   paymentPlanRequired: bool(),
   keyDates: z
     .array(
-      z.object({
-        date: z.string(),
-        title: z.string(),
-        // A key date with an unrecognised type falls back to 'other', and an
-        // out-of-range confidence to 0.5, so one odd entry can't fail the job.
-        type: KeyDateTypeSchema.catch('other'),
-        confidence: z.number().min(0).max(1).catch(0.5),
-      }),
+      z
+        .object({
+          // A malformed entry becomes a blank placeholder that the mapping step
+          // drops (it keeps only entries with an ISO date and a title), so one
+          // odd entry can't fail the job.
+          date: z.string().catch('').default(''),
+          title: z.string().catch('').default(''),
+          type: KeyDateTypeSchema.catch('other').default('other'),
+          confidence: z.number().min(0).max(1).catch(0.5).default(0.5),
+        })
+        .catch({ date: '', title: '', type: 'other', confidence: 0.5 }),
     )
-    // If the array itself is malformed, treat it as no key dates rather than
-    // failing — the manual form is unaffected.
-    .catch([]),
+    // A malformed or missing array becomes no key dates rather than a failure.
+    .catch([])
+    .default([]),
 });
 
 export type IntakeExtraction = z.infer<typeof IntakeExtractionSchema>;

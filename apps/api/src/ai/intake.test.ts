@@ -94,6 +94,24 @@ describe('IntakeExtractionSchema resilience', () => {
       expect(parsed.data.keyDates[0]!.confidence).toBe(0.5);
     }
   });
+
+  it('tolerates omitted and wrongly-shaped fields', () => {
+    // A sparse, imperfect response: most fields omitted entirely, one returned
+    // as a bare value instead of the {value,confidence,reason} envelope, and no
+    // keyDates key at all. This must still parse — a real model does this.
+    const raw = {
+      parentFullName: val('Alex Morgan'),
+      email: 'alex@example.com',
+    };
+    const parsed = IntakeExtractionSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.parentFullName.value).toBe('Alex Morgan');
+      expect(parsed.data.email.value).toBeNull(); // bare value → absent
+      expect(parsed.data.paymentPlanRequired.value).toBeNull(); // omitted → absent
+      expect(parsed.data.keyDates).toEqual([]); // omitted → empty
+    }
+  });
 });
 
 describe('mapExtraction', () => {
