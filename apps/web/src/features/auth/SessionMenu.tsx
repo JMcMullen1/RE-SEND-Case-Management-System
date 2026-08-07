@@ -16,15 +16,22 @@ export function SessionMenu() {
 
   const signOut = useMutation({
     mutationFn: logout,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['session'] }),
+    // The server has cleared the session cookie. Invalidating the session query
+    // isn't enough: React Query keeps the last successful data on a failed
+    // background refetch, so the gate would never flip. Do a full navigation to
+    // the root instead — it re-bootstraps against a 401 (dropping to the login
+    // screen) and clears every cached query, so no case data lingers in memory.
+    onSuccess: () => {
+      window.location.assign('/');
+    },
   });
 
   const reset = useMutation({
     mutationFn: resetDemo,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['cases'] });
-      void qc.invalidateQueries({ queryKey: ['calendar'] });
-    },
+    // Reset empties every case-data table. Invalidate the whole cache so the
+    // list, the calendar and any open case screen all refetch their now-blank
+    // state, rather than showing stale rows.
+    onSuccess: () => qc.invalidateQueries(),
   });
 
   if (!session.data) return null;
