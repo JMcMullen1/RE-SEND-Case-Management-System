@@ -22,7 +22,7 @@ function inDays(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-async function signIn(page: Page, email = 'ada@resend.demo') {
+async function signIn(page: Page, email = 'jamie.mcmullen@resend.demo') {
   await page.goto('/');
   await page.getByLabel('Account').selectOption(email);
   await page.getByLabel('Password').fill('resend-demo');
@@ -188,13 +188,15 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
     .getByRole('button', { name: /Enquiries|TSA Team/ })
     .first();
   await ownerButton.click();
-  await page.getByRole('menuitem', { name: 'Ben Carter' }).click();
+  await page.getByRole('menuitem', { name: 'Alan Marsden' }).click();
 
   // The second session sees the new owner without reloading. Target the owner
   // cell button (not the hidden <option> in the acting-user switcher).
-  await expect(pageB.getByRole('button', { name: 'Ben Carter' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expect(pageB.getByRole('button', { name: 'Alan Marsden' })).toBeVisible(
+    {
+      timeout: 15_000,
+    },
+  );
 
   await second.close();
   await context.close();

@@ -27,7 +27,7 @@ async function scan(page: Page, label: string) {
 
 async function signIn(page: Page) {
   await page.goto('/');
-  await page.getByLabel('Account').selectOption('ada@resend.demo');
+  await page.getByLabel('Account').selectOption('jamie.mcmullen@resend.demo');
   await page.getByLabel('Password').fill('resend-demo');
   await page.getByRole('button', { name: 'Sign in' }).click();
 }

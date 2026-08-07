@@ -82,7 +82,7 @@ run('demo auth + reset', () => {
     expect(accounts.demoMode).toBe(true);
     expect(
       accounts.accounts.some(
-        (a: { email: string }) => a.email === 'ada@resend.demo',
+        (a: { email: string }) => a.email === 'jamie.mcmullen@resend.demo',
       ),
     ).toBe(true);
 
@@ -90,7 +90,7 @@ run('demo auth + reset', () => {
     const bad = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'ada@resend.demo', password: 'wrong' },
+      payload: { email: 'jamie.mcmullen@resend.demo', password: 'wrong' },
     });
     expect(bad.statusCode).toBe(401);
 
@@ -98,7 +98,7 @@ run('demo auth + reset', () => {
     const login = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'ada@resend.demo', password: 'resend-demo' },
+      payload: { email: 'jamie.mcmullen@resend.demo', password: 'resend-demo' },
     });
     expect(login.statusCode).toBe(200);
     const cookie = login.cookies.find((c) => c.name === 'resend_session');
@@ -112,7 +112,7 @@ run('demo auth + reset', () => {
       headers: { cookie: session },
     });
     expect(me.statusCode).toBe(200);
-    expect(me.json().displayName).toBe('Ada Okafor');
+    expect(me.json().displayName).toBe('Jamie McMullen');
 
     // Create a case, then reset: the list goes back to empty, accounts stay.
     await app.inject({
@@ -154,7 +154,7 @@ run('demo auth + reset', () => {
     const reLogin = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'ada@resend.demo', password: 'resend-demo' },
+      payload: { email: 'jamie.mcmullen@resend.demo', password: 'resend-demo' },
     });
     expect(reLogin.statusCode).toBe(200);
 

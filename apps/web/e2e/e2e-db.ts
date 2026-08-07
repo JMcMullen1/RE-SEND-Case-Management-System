@@ -21,10 +21,14 @@ function urlFor(db: string): string {
 export const E2E_DATABASE_URL = urlFor(E2E_DB);
 
 const ACCOUNTS: [string, string, string][] = [
-  ['ada@resend.demo', 'Ada Okafor', 'admin'],
-  ['ben@resend.demo', 'Ben Carter', 'caseworker'],
-  ['priya@resend.demo', 'Priya Nair', 'caseworker'],
-  ['dana@resend.demo', 'Dana Ruiz', 'finance'],
+  ['abbie.holland@resend.demo', 'Abbie Holland', 'caseworker'],
+  ['alan.marsden@resend.demo', 'Alan Marsden', 'caseworker'],
+  ['anna.gunn@resend.demo', 'Anna Gunn', 'caseworker'],
+  ['jamie.mcmullen@resend.demo', 'Jamie McMullen', 'admin'],
+  ['jo.barrow@resend.demo', 'Jo Barrow', 'caseworker'],
+  ['karen.jenkinson@resend.demo', 'Karen Jenkinson', 'caseworker'],
+  ['liz.stanley@resend.demo', 'Liz Stanley', 'caseworker'],
+  ['sarah.stafford@resend.demo', 'Sarah Stafford', 'caseworker'],
 ];
 
 export async function prepareDatabase(repoRoot: string): Promise<void> {

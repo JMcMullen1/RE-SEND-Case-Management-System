@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { and, like, notInArray, sql } from 'drizzle-orm';
 import type { UserRole } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { users } from '../db/schema';
@@ -19,15 +19,52 @@ export interface DemoAccount {
 }
 
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
-  { email: 'ada@resend.demo', displayName: 'Ada Okafor', role: 'admin' },
-  { email: 'ben@resend.demo', displayName: 'Ben Carter', role: 'caseworker' },
-  { email: 'priya@resend.demo', displayName: 'Priya Nair', role: 'caseworker' },
-  { email: 'dana@resend.demo', displayName: 'Dana Ruiz', role: 'finance' },
+  {
+    email: 'abbie.holland@resend.demo',
+    displayName: 'Abbie Holland',
+    role: 'caseworker',
+  },
+  {
+    email: 'alan.marsden@resend.demo',
+    displayName: 'Alan Marsden',
+    role: 'caseworker',
+  },
+  {
+    email: 'anna.gunn@resend.demo',
+    displayName: 'Anna Gunn',
+    role: 'caseworker',
+  },
+  {
+    email: 'jamie.mcmullen@resend.demo',
+    displayName: 'Jamie McMullen',
+    role: 'admin',
+  },
+  {
+    email: 'jo.barrow@resend.demo',
+    displayName: 'Jo Barrow',
+    role: 'caseworker',
+  },
+  {
+    email: 'karen.jenkinson@resend.demo',
+    displayName: 'Karen Jenkinson',
+    role: 'caseworker',
+  },
+  {
+    email: 'liz.stanley@resend.demo',
+    displayName: 'Liz Stanley',
+    role: 'caseworker',
+  },
+  {
+    email: 'sarah.stafford@resend.demo',
+    displayName: 'Sarah Stafford',
+    role: 'caseworker',
+  },
 ];
 
 /**
- * Ensure the demo accounts exist and are active. Idempotent: safe to run on
- * every boot. Only ever called when DEMO_MODE is on.
+ * Ensure the demo accounts exist and are active, and retire any demo account no
+ * longer in the list. Idempotent: safe to run on every boot. Only ever called
+ * when DEMO_MODE is on.
  */
 export async function provisionDemoAccounts(): Promise<void> {
   const db = getDb();
@@ -49,6 +86,17 @@ export async function provisionDemoAccounts(): Promise<void> {
         },
       });
   }
+
+  // Deactivate any previously-provisioned demo account (an @resend.demo user)
+  // that is no longer listed, so renamed or removed demo staff drop out of the
+  // staff pickers, which build from active users (invariant 5).
+  const keep = DEMO_ACCOUNTS.map((a) => a.email);
+  await db
+    .update(users)
+    .set({ active: false })
+    .where(
+      and(like(users.email, '%@resend.demo'), notInArray(users.email, keep)),
+    );
 }
 
 /** Constant-time password check against the shared demo password. */
