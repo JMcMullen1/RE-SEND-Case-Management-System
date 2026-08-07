@@ -58,7 +58,11 @@ export class ApiError extends Error {
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
-  headers.set('content-type', 'application/json');
+  // Only advertise a JSON body when one is actually sent. A content-type of
+  // application/json with an empty body makes Fastify reject the request with
+  // 400 (FST_ERR_CTP_EMPTY_JSON_BODY) — which broke the bodyless POSTs (sign
+  // out, reset demo).
+  if (init?.body != null) headers.set('content-type', 'application/json');
   const acting = getActingUserId();
   if (acting) headers.set('x-user-id', acting);
   // Include the session cookie on every request (needed if the API is ever on
