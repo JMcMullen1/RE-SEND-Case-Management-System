@@ -24,5 +24,5 @@ test('home page shows the product name', async ({ page }) => {
     }),
   );
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'RE-SEND' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'reSEND' })).toBeVisible();
 });

@@ -13,7 +13,7 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 
 describe('branding', () => {
   it('exposes product identity', () => {
-    expect(PRODUCT_NAME).toBe('RE-SEND');
+    expect(PRODUCT_NAME).toBe('reSEND');
     expect(STRAPLINE).toBe('Advice and Advocacy Charity');
     expect(LOGO_PATH.startsWith('/')).toBe(true);
   });

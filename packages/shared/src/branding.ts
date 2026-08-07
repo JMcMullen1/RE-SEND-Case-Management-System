@@ -8,7 +8,7 @@
  */
 
 /** Product name shown in headers, page titles and the browser tab. */
-export const PRODUCT_NAME = 'RE-SEND' as const;
+export const PRODUCT_NAME = 'reSEND' as const;
 
 /** Charity strapline shown alongside the product name. */
 export const STRAPLINE = 'Advice and Advocacy Charity' as const;
