@@ -38,16 +38,28 @@ export const DirectionPartySchema = z.enum(DIRECTION_PARTY_VALUES);
  * caseworker can check the reading, plus the source paragraph number because
  * directions are referred to by number.
  */
+// Every field is guarded with `.catch`/`.default`, so a single malformed or
+// omitted field — a capitalised party, a date like "2026-6-8", a time like
+// "4pm", a missing boolean — falls back to a safe value instead of failing the
+// whole order. The field descriptions still guide the model (they are emitted
+// in the tool schema); this only rescues the exceptions. A deadline that is not
+// a clean ISO date becomes null and is recomputed downstream from rawDateText.
 export const ExtractedDirectionSchema = z.object({
   obligation: z
     .string()
-    .describe('The obligation in full, as written in the order.'),
+    .describe('The obligation in full, as written in the order.')
+    .catch('')
+    .default(''),
   party: DirectionPartySchema.describe(
     'Who the obligation falls on: appellant, respondent, both, or tribunal.',
-  ),
+  )
+    .catch('respondent')
+    .default('respondent'),
   type: z
     .enum(KEY_DATE_TYPE_VALUES)
-    .describe('The kind of key date this obligation sets.'),
+    .describe('The kind of key date this obligation sets.')
+    .catch('other')
+    .default('other'),
   deadlineDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -55,41 +67,81 @@ export const ExtractedDirectionSchema = z.object({
     .describe(
       'The deadline as an absolute YYYY-MM-DD date, or null if the obligation ' +
         'vacates/removes a date rather than setting one.',
-    ),
+    )
+    .catch(null)
+    .default(null),
   deadlineTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .nullable()
-    .describe('Time of day if the order gives one (e.g. "16:00"), else null.'),
+    .describe('Time of day if the order gives one (e.g. "16:00"), else null.')
+    .catch(null)
+    .default(null),
   rawDateText: z
     .string()
-    .describe('The deadline exactly as written, e.g. "within 14 days".'),
+    .describe('The deadline exactly as written, e.g. "within 14 days".')
+    .catch('')
+    .default(''),
   workingDays: z
     .boolean()
-    .describe('True if the original deadline was expressed in working days.'),
+    .describe('True if the original deadline was expressed in working days.')
+    .catch(false)
+    .default(false),
   vacated: z
     .boolean()
-    .describe('True if this obligation vacates/removes an existing date.'),
+    .describe('True if this obligation vacates/removes an existing date.')
+    .catch(false)
+    .default(false),
   paragraph: z
     .number()
     .int()
     .nullable()
-    .describe('The source paragraph number in the order, or null.'),
+    .describe('The source paragraph number in the order, or null.')
+    .catch(null)
+    .default(null),
   confidence: z
     .number()
     .min(0)
     .max(1)
-    .describe('0..1 confidence in this extraction.'),
+    .describe('0..1 confidence in this extraction.')
+    .catch(0.5)
+    .default(0.5),
 });
 export type ExtractedDirection = z.infer<typeof ExtractedDirectionSchema>;
+
+/**
+ * Fallback for an array element that is not even a usable object. It has an
+ * empty obligation, so it is dropped by the filter below and never reaches the
+ * diff — one broken obligation cannot fail the whole order.
+ */
+const EMPTY_DIRECTION: ExtractedDirection = {
+  obligation: '',
+  party: 'respondent',
+  type: 'other',
+  deadlineDate: null,
+  deadlineTime: null,
+  rawDateText: '',
+  workingDays: false,
+  vacated: false,
+  paragraph: null,
+  confidence: 0,
+};
 
 export const ExtractDirectionsOutputSchema = z.object({
   orderDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
-    .describe('The date the order itself was made, as YYYY-MM-DD, or null.'),
-  directions: z.array(ExtractedDirectionSchema),
+    .describe('The date the order itself was made, as YYYY-MM-DD, or null.')
+    .catch(null)
+    .default(null),
+  directions: z
+    .array(ExtractedDirectionSchema.catch(EMPTY_DIRECTION))
+    .catch([])
+    .default([])
+    // Drop empty/unusable obligations (including the fallback above) so a single
+    // broken entry can't fail the order, and junk rows never reach the diff.
+    .transform((arr) => arr.filter((d) => d.obligation.trim() !== '')),
 });
 export type ExtractDirectionsOutput = z.infer<
   typeof ExtractDirectionsOutputSchema

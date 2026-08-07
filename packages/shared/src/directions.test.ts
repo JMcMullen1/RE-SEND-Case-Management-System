@@ -3,6 +3,7 @@ import type { KeyDateFull } from './case-detail';
 import {
   diffDirections,
   diffRowToApplyRow,
+  ExtractDirectionsOutputSchema,
   resolveDirections,
   summariseDiff,
   type ExtractDirectionsOutput,
@@ -293,5 +294,59 @@ describe('diffRowToApplyRow', () => {
   it('has no source reference when the paragraph is unknown', () => {
     const diff = diffDirections([], [resolved({ paragraph: null })]);
     expect(diffRowToApplyRow(diff.rows[0]!).sourceReference).toBeNull();
+  });
+});
+
+describe('ExtractDirectionsOutputSchema resilience', () => {
+  it('keeps good obligations, rescues bad fields, and drops broken entries', () => {
+    const raw = {
+      orderDate: '2026-05-01',
+      directions: [
+        // A clean obligation, kept as-is.
+        {
+          obligation: 'File and serve evidence',
+          party: 'respondent',
+          type: 'evidence_deadline',
+          deadlineDate: '2026-06-01',
+          deadlineTime: '16:00',
+          rawDateText: 'by 1 June 2026',
+          workingDays: false,
+          vacated: false,
+          paragraph: 3,
+          confidence: 0.9,
+        },
+        // A near-miss: capitalised party, "4pm" time, non-ISO date. These are
+        // rescued to safe values, and the obligation is still kept.
+        {
+          obligation: 'Attend the hearing',
+          party: 'Appellant',
+          type: 'court-hearing',
+          deadlineDate: '2026-6-8',
+          deadlineTime: '4pm',
+          rawDateText: '8 June 2026',
+          workingDays: 'no',
+          vacated: false,
+          paragraph: null,
+          confidence: 1.4,
+        },
+        // Not even an object — dropped entirely.
+        'nonsense',
+      ],
+    };
+    const parsed = ExtractDirectionsOutputSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.orderDate).toBe('2026-05-01');
+      // The two real obligations survive; the 'nonsense' element is dropped.
+      expect(parsed.data.directions).toHaveLength(2);
+      const bad = parsed.data.directions[1]!;
+      expect(bad.obligation).toBe('Attend the hearing');
+      expect(bad.party).toBe('respondent'); // invalid 'Appellant' -> fallback
+      expect(bad.type).toBe('other'); // invalid 'court-hearing' -> fallback
+      expect(bad.deadlineDate).toBeNull(); // non-ISO -> null
+      expect(bad.deadlineTime).toBeNull(); // "4pm" -> null
+      expect(bad.workingDays).toBe(false); // "no" -> false
+      expect(bad.confidence).toBe(0.5); // out of range -> 0.5
+    }
   });
 });
