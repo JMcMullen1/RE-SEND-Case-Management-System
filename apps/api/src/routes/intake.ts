@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { IntakeResponse } from '@re-send/shared';
@@ -38,12 +38,15 @@ export function registerIntakeRoutes(fastify: FastifyInstance): void {
           message: 'No file uploaded',
         } satisfies IntakeResponse);
       const bytes = await file.toBuffer();
-      return extract({
-        bytes,
-        filename: file.filename,
-        mimeType: file.mimetype,
-        source: request.query.source,
-      });
+      return extract(
+        {
+          bytes,
+          filename: file.filename,
+          mimeType: file.mimetype,
+          source: request.query.source,
+        },
+        request.log,
+      );
     },
   );
 
@@ -62,24 +65,38 @@ export function registerIntakeRoutes(fastify: FastifyInstance): void {
       },
     },
     async (request) =>
-      extract({
-        bytes: Buffer.from(request.body.text, 'utf8'),
-        filename: request.body.filename ?? 'pasted-enquiry.txt',
-        mimeType: 'text/plain',
-        source: request.body.source,
-      }),
+      extract(
+        {
+          bytes: Buffer.from(request.body.text, 'utf8'),
+          filename: request.body.filename ?? 'pasted-enquiry.txt',
+          mimeType: 'text/plain',
+          source: request.body.source,
+        },
+        request.log,
+      ),
   );
 }
 
-async function extract(input: IntakeInput): Promise<IntakeResponse> {
+async function extract(
+  input: IntakeInput,
+  log?: FastifyBaseLogger,
+): Promise<IntakeResponse> {
   try {
     const result = await runIntakeExtraction(input);
     return { status: 'ok', result };
   } catch (err) {
     if (err instanceof AiJobDisabledError) return { status: 'disabled' };
     if (err instanceof AiJobRefusalError) return { status: 'refused' };
-    // Any other failure (transport, missing key, bad output) leaves the form
-    // usable. No personal data in the message.
-    return { status: 'error', message: 'Smart fill could not read this file' };
+    // Surface the underlying reason. Our AI-job, transport and storage errors
+    // describe the failure mechanism (a bad key, a rate limit, a model or
+    // validation error), never the submission content — so it is safe to log
+    // and to show. This turns an opaque "could not be read" into a diagnosable
+    // message.
+    const reason = err instanceof Error ? err.message : 'unknown error';
+    log?.warn({ reason }, 'intake extraction failed');
+    return {
+      status: 'error',
+      message: `Smart fill could not read this file: ${reason}`,
+    };
   }
 }

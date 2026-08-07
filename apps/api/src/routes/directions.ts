@@ -61,9 +61,13 @@ export function registerDirectionsRoutes(fastify: FastifyInstance): void {
           return { status: 'disabled' } satisfies DirectionsResponse;
         if (err instanceof AiJobRefusalError)
           return { status: 'refused' } satisfies DirectionsResponse;
+        // Surface the real reason (failure mechanism, never order content) so an
+        // opaque failure becomes diagnosable.
+        const reason = err instanceof Error ? err.message : 'unknown error';
+        request.log.warn({ reason }, 'directions extraction failed');
         return {
           status: 'error',
-          message: 'The order could not be read',
+          message: `The order could not be read: ${reason}`,
         } satisfies DirectionsResponse;
       }
     },
