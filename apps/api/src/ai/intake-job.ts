@@ -20,10 +20,16 @@ import { defineAiJob } from './definition';
  * was actually present in the submission.
  */
 function field<T extends z.ZodTypeAny>(value: T) {
+  // Every part is `.catch`-guarded: if the model returns a malformed value for
+  // one field — a near-miss vocabulary code, or "yes" where a boolean is
+  // expected — that field falls back to null (treated as absent, filled in by
+  // hand) instead of failing the whole extraction. One bad field must never
+  // lose the rest of the form. The allowed enum values are still advertised to
+  // the model via the tool schema, so this only rescues the exceptions.
   return z.object({
-    value: value.nullable(),
-    confidence: z.number().min(0).max(1).nullable(),
-    reason: z.string().nullable(),
+    value: value.nullable().catch(null),
+    confidence: z.number().min(0).max(1).nullable().catch(null),
+    reason: z.string().nullable().catch(null),
   });
 }
 
@@ -65,14 +71,20 @@ export const IntakeExtractionSchema = z.object({
   consentContact: bool(),
   consentPrivacyNotice: bool(),
   paymentPlanRequired: bool(),
-  keyDates: z.array(
-    z.object({
-      date: z.string(),
-      title: z.string(),
-      type: KeyDateTypeSchema,
-      confidence: z.number().min(0).max(1),
-    }),
-  ),
+  keyDates: z
+    .array(
+      z.object({
+        date: z.string(),
+        title: z.string(),
+        // A key date with an unrecognised type falls back to 'other', and an
+        // out-of-range confidence to 0.5, so one odd entry can't fail the job.
+        type: KeyDateTypeSchema.catch('other'),
+        confidence: z.number().min(0).max(1).catch(0.5),
+      }),
+    )
+    // If the array itself is malformed, treat it as no key dates rather than
+    // failing — the manual form is unaffected.
+    .catch([]),
 });
 
 export type IntakeExtraction = z.infer<typeof IntakeExtractionSchema>;
@@ -99,7 +111,9 @@ export const extractIntakeJob = defineAiJob({
   systemPrompt: SYSTEM_PROMPT,
   toolDescription:
     'Record the fields extracted from the enquiry, each with a confidence or a reason for absence.',
-  maxTokens: 4096,
+  // Headroom over a form's structured output; output is billed per token
+  // generated, so a larger ceiling only prevents truncation on a long form.
+  maxTokens: 8192,
 });
 
 // --- Mapping onto the add-case form -----------------------------------------

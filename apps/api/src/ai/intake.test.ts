@@ -3,7 +3,11 @@ import type { StorageProvider } from '../storage';
 import { singleDocumentCorpus } from '../corpus/case-corpus';
 import type { MessagesClient } from './client';
 import { runIntakeExtraction } from './intake';
-import { mapExtraction, type IntakeExtraction } from './intake-job';
+import {
+  IntakeExtractionSchema,
+  mapExtraction,
+  type IntakeExtraction,
+} from './intake-job';
 
 type F = { value: unknown; confidence: number | null; reason: string | null };
 const val = (value: unknown, confidence = 0.9): F => ({
@@ -63,6 +67,32 @@ describe('singleDocumentCorpus', () => {
     expect(corpus.serialised).toContain('id=doc-1');
     expect(corpus.serialised).toContain('Parent: Sam Rivers');
     expect(corpus.tokenCount).toBeGreaterThan(0);
+  });
+});
+
+describe('IntakeExtractionSchema resilience', () => {
+  it('rescues malformed fields instead of failing the whole extraction', () => {
+    const raw = {
+      ...baseExtraction(),
+      parentFullName: val('Alex Morgan'),
+      // An out-of-vocabulary service code and a stringy boolean would each fail
+      // a strict schema; they must be rescued to null, not abort the parse.
+      serviceRequired: val('Something Not In The List'),
+      consentContact: val('yes'),
+      keyDates: [
+        // An unknown type and an out-of-range confidence are coerced, not fatal.
+        { date: '2026-03-01', title: 'Hearing', type: 'court', confidence: 5 },
+      ],
+    };
+    const parsed = IntakeExtractionSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.parentFullName.value).toBe('Alex Morgan');
+      expect(parsed.data.serviceRequired.value).toBeNull();
+      expect(parsed.data.consentContact.value).toBeNull();
+      expect(parsed.data.keyDates[0]!.type).toBe('other');
+      expect(parsed.data.keyDates[0]!.confidence).toBe(0.5);
+    }
   });
 });
 
