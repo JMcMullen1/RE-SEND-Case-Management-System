@@ -4,10 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { DirectionsReview as Review } from '@re-send/shared';
 import { applyDirections, extractDirections } from '../../api/directions';
 import { useToday } from '../../hooks/useToday';
-import { useUsers } from '../../hooks/useCaseData';
+import { useMe, useUsers } from '../../hooks/useCaseData';
 import { useCaseDetail, useCaseMutations } from '../../hooks/useCaseScreen';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { usePresence } from '../../realtime/RealtimeProvider';
+import { DeleteCaseButton } from './DeleteCaseButton';
 import { PresenceIndicator } from './PresenceIndicator';
 import { CaseHeader } from './CaseHeader';
 import { DetailPanel } from './DetailPanel';
@@ -33,6 +34,7 @@ export function CaseScreenPage() {
   const others = usePresence(caseId);
 
   const detailQuery = useCaseDetail(caseId);
+  const isAdmin = useMe().data?.role === 'admin';
   const users = useUsers().data?.users ?? [];
   const mutations = useCaseMutations(caseId);
   const wide = useMediaQuery('(min-width: 1400px)');
@@ -190,6 +192,14 @@ export function CaseScreenPage() {
         {others.length > 0 && (
           <div className="mt-2">
             <PresenceIndicator users={others} />
+          </div>
+        )}
+        {isAdmin && (
+          <div className="mt-2 flex justify-end">
+            <DeleteCaseButton
+              caseId={caseId}
+              confirmName={detail.client?.fullName ?? detail.caseReference}
+            />
           </div>
         )}
       </header>

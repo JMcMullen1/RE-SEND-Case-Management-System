@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Team } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { caseTeams, cases, children, clients, teams } from '../db/schema';
@@ -159,4 +159,70 @@ export async function caseIdForChild(childId: string): Promise<string | null> {
     .from(cases)
     .where(and(eq(cases.childId, childId)));
   return row?.id ?? null;
+}
+
+export interface CaseDeletionTarget {
+  caseReference: string;
+  /** The client's full name — what an admin must type to confirm deletion. */
+  clientName: string | null;
+}
+
+/**
+ * The confirmation target for deleting a live case: the client's name (which
+ * the admin must type back) plus the case reference. Null when the case does
+ * not exist or is already deleted.
+ */
+export async function getCaseDeletionTarget(
+  id: string,
+): Promise<CaseDeletionTarget | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      caseReference: cases.caseReference,
+      clientName: clients.fullName,
+    })
+    .from(cases)
+    .leftJoin(clients, eq(clients.id, cases.clientId))
+    .where(and(eq(cases.id, id), isNull(cases.deletedAt)));
+  if (!row) return null;
+  return {
+    caseReference: row.caseReference,
+    clientName: row.clientName ?? null,
+  };
+}
+
+/**
+ * Soft-delete a case: mark it deleted (it drops out of every list, which all
+ * filter on deleted_at IS NULL) and record who did it. Recoverable and fully
+ * audited — nothing is physically removed. Returns false if the case was
+ * already gone.
+ */
+export async function softDeleteCase(
+  id: string,
+  actor: string | null,
+): Promise<boolean> {
+  const db = getDb();
+  let ok = false;
+  await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(cases)
+      .where(and(eq(cases.id, id), isNull(cases.deletedAt)));
+    if (!before) return;
+    const deletedAt = new Date();
+    await tx
+      .update(cases)
+      .set({ deletedAt, updatedAt: deletedAt })
+      .where(eq(cases.id, id));
+    await recordAudit(tx, {
+      actorUserId: actor,
+      action: 'case.delete',
+      entityType: 'case',
+      entityId: id,
+      before: { deletedAt: before.deletedAt, status: before.status },
+      after: { deletedAt },
+    });
+    ok = true;
+  });
+  return ok;
 }

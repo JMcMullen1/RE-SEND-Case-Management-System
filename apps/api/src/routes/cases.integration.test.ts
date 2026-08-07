@@ -87,6 +87,79 @@ run('case list API', () => {
     await app.close();
   });
 
+  it('deletes a case: admin-only, name-confirmed, soft and audited', async () => {
+    const app = await buildServer();
+    // A self-contained case, so the fixture counts other tests assert on stay
+    // intact (this creates one and deletes it — net zero).
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/cases',
+        payload: {
+          client: {
+            fullName: 'Delete Me Parent',
+            email: 'delete.me@example.invalid',
+          },
+          child: { fullName: 'Delete Me Child', dateOfBirth: '2015-06-06' },
+          case: { currentWork: 'Other' },
+        },
+      })
+    ).json();
+    const caseId = created.caseId as string;
+
+    const adminId = (
+      (await getDb().execute(
+        sql`SELECT id FROM users WHERE role = 'admin' AND active = true LIMIT 1`,
+      )) as unknown as { id: string }[]
+    )[0]!.id;
+    const workerId = (
+      (await getDb().execute(
+        sql`SELECT id FROM users WHERE role <> 'admin' AND active = true LIMIT 1`,
+      )) as unknown as { id: string }[]
+    )[0]!.id;
+
+    // A non-admin cannot delete, even with the correct name.
+    const forbidden = await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${caseId}`,
+      headers: { 'x-user-id': workerId },
+      payload: { confirmName: 'Delete Me Parent' },
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    // An admin with the wrong name is refused.
+    const mismatch = await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${caseId}`,
+      headers: { 'x-user-id': adminId },
+      payload: { confirmName: 'Wrong Name' },
+    });
+    expect(mismatch.statusCode).toBe(400);
+
+    // An admin with the exact client name (case-insensitive) succeeds.
+    const ok = await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${caseId}`,
+      headers: { 'x-user-id': adminId },
+      payload: { confirmName: 'delete me parent' },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    // It drops out of the list and the deletion is audited.
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/cases?limit=500',
+    });
+    const ids = new Set(list.json().rows.map((r: { id: string }) => r.id));
+    expect(ids.has(caseId)).toBe(false);
+
+    const audit = (await getDb().execute(
+      sql`SELECT count(*)::int AS n FROM audit_log WHERE entity_id = ${caseId} AND action = 'case.delete'`,
+    )) as unknown as { n: number }[];
+    expect(Number(audit[0]!.n)).toBe(1);
+    await app.close();
+  });
+
   it('serves the seeded saved views', async () => {
     const app = await buildServer();
     const res = await app.inject({ method: 'GET', url: '/api/saved-views' });

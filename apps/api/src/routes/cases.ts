@@ -14,6 +14,10 @@ import {
   reassignOwner,
   type OwnerTarget,
 } from '../repositories/cases';
+import {
+  getCaseDeletionTarget,
+  softDeleteCase,
+} from '../repositories/case-edit';
 import { resolveActingUser } from '../auth/context';
 import {
   CaseListQuerystringSchema,
@@ -141,6 +145,52 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
         current?.id ?? null,
       );
       return { updated };
+    },
+  );
+
+  // Delete a case. Destructive, so it is admin-only and guarded twice: the
+  // caller must be an administrator, and must type back the client's name
+  // (echoed in the request) — a deliberate, hard-to-do-by-accident action. The
+  // delete is soft and fully audited (see softDeleteCase).
+  app.delete(
+    '/api/cases/:id',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ confirmName: z.string().min(1) }),
+        response: {
+          200: z.object({ ok: z.literal(true) }),
+          400: z.object({ message: z.string() }),
+          403: z.object({ message: z.string() }),
+          404: z.object({ message: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const current = await resolveActingUser(request);
+      if (!current) return reply.code(403).send({ message: 'Not signed in.' });
+      if (current.role !== 'admin')
+        return reply
+          .code(403)
+          .send({ message: 'Only an administrator can delete a case.' });
+
+      const target = await getCaseDeletionTarget(request.params.id);
+      if (!target) return reply.code(404).send({ message: 'Case not found.' });
+
+      // The confirmation string is the client's name, or the case reference
+      // when the case has no client. Compared case-insensitively, trimmed.
+      const expected = (target.clientName ?? target.caseReference).trim();
+      if (
+        request.body.confirmName.trim().toLowerCase() !== expected.toLowerCase()
+      )
+        return reply
+          .code(400)
+          .send({ message: 'The name entered does not match this case.' });
+
+      const ok = await softDeleteCase(request.params.id, current.id);
+      if (!ok) return reply.code(404).send({ message: 'Case not found.' });
+      return { ok: true as const };
     },
   );
 }

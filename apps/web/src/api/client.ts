@@ -100,6 +100,17 @@ export function fetchExpansion(id: string): Promise<CaseExpansion> {
   return request<CaseExpansion>(`/api/cases/${id}/expansion`);
 }
 
+/** Delete a case. Admin-only and name-confirmed; the server enforces both. */
+export function deleteCase(
+  id: string,
+  confirmName: string,
+): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/cases/${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmName }),
+  });
+}
+
 export function reassignCase(
   id: string,
   target: { ownerUserId: string } | { ownerQueue: OwnerQueue },
