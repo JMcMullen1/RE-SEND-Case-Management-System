@@ -105,12 +105,12 @@ export function CaseListPage() {
     <div className="flex h-screen flex-col bg-white text-resend-ink">
       <header className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="mr-auto flex items-center gap-3">
+          <div className="mr-auto flex items-center gap-4">
             <img
               src={LOGO_PATH}
               alt=""
               aria-hidden="true"
-              className="h-10 w-10 shrink-0 object-contain"
+              className="h-16 w-16 shrink-0 object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
