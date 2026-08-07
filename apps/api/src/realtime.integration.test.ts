@@ -36,10 +36,16 @@ run('live updates end to end', () => {
       sql`UPDATE cases SET updated_at = now() WHERE id = ${caseId}`,
     );
 
-    await waitFor(() =>
-      received.some((m) => m.type === 'invalidate' && m.entity === 'cases'),
-    );
-    const msg = received.find((m) => m.entity === 'cases')!;
+    // Other test files mutate the shared cases table concurrently, so more than
+    // one 'cases' invalidation can arrive on this connection. Wait for and
+    // select the message for THIS case, not merely the first one seen.
+    const isForThisCase = (m: WsMessage): boolean =>
+      m.type === 'invalidate' &&
+      m.entity === 'cases' &&
+      (m.queryKeys?.some((k) => k[0] === 'case-detail' && k[1] === caseId) ??
+        false);
+    await waitFor(() => received.some(isForThisCase));
+    const msg = received.find(isForThisCase)!;
     expect(msg.queryKeys?.some((k) => k[0] === 'cases')).toBe(true);
     expect(
       msg.queryKeys?.some((k) => k[0] === 'case-detail' && k[1] === caseId),

@@ -148,7 +148,7 @@ run('case list API', () => {
     // It drops out of the list and the deletion is audited.
     const list = await app.inject({
       method: 'GET',
-      url: '/api/cases?limit=500',
+      url: '/api/cases?limit=200',
     });
     const ids = new Set(list.json().rows.map((r: { id: string }) => r.id));
     expect(ids.has(caseId)).toBe(false);
