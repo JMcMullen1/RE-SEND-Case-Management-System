@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   encodeViewStateToString,
   hasActiveFilters,
+  LOGO_PATH,
   PRODUCT_NAME,
   STRAPLINE,
   type CaseFilters,
@@ -104,11 +105,22 @@ export function CaseListPage() {
     <div className="flex h-screen flex-col bg-white text-resend-ink">
       <header className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
-              {PRODUCT_NAME} cases
-            </h1>
-            <p className="text-xs text-gray-500">{STRAPLINE}</p>
+          <div className="mr-auto flex items-center gap-3">
+            <img
+              src={LOGO_PATH}
+              alt=""
+              aria-hidden="true"
+              className="h-10 w-10 shrink-0 object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <div>
+              <h1 className="text-lg font-semibold text-resend-purple">
+                {PRODUCT_NAME} cases
+              </h1>
+              <p className="text-xs text-gray-500">{STRAPLINE}</p>
+            </div>
           </div>
           <SegmentedControl
             mode={state.mode}

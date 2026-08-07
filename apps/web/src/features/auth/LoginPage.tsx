@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { PRODUCT_NAME, STRAPLINE } from '@re-send/shared';
+import { LOGO_PATH, PRODUCT_NAME, STRAPLINE } from '@re-send/shared';
 import { fetchAccounts, login } from '../../api/auth';
 
 /**
@@ -33,10 +33,22 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-resend-purple">
-          {PRODUCT_NAME}
-        </h1>
-        <p className="text-xs text-gray-500">{STRAPLINE}</p>
+        <img
+          src={LOGO_PATH}
+          alt={`${PRODUCT_NAME} — ${STRAPLINE}`}
+          className="mx-auto mb-2 w-full max-w-[220px] object-contain"
+          onError={(e) => {
+            // If the asset is ever missing, fall back to the wordmark text.
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.nextElementSibling?.removeAttribute('hidden');
+          }}
+        />
+        <div hidden className="text-center">
+          <h1 className="text-xl font-semibold text-resend-purple">
+            {PRODUCT_NAME}
+          </h1>
+          <p className="text-xs text-gray-500">{STRAPLINE}</p>
+        </div>
 
         {!demoMode ? (
           <p className="mt-6 text-sm text-gray-600">

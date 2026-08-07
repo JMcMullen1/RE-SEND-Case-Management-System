@@ -14,7 +14,7 @@ export const PRODUCT_NAME = 'RE-SEND' as const;
 export const STRAPLINE = 'Advice and Advocacy Charity' as const;
 
 /** Path to the logo asset, served from the web app's public root. */
-export const LOGO_PATH = '/brand/re-send-logo.svg' as const;
+export const LOGO_PATH = '/brand/re-send-logo.png' as const;
 
 /**
  * Brand colour palette. Each entry pairs the raw value (defined here, and only
