@@ -4,7 +4,7 @@ import {
 } from '@re-send/shared';
 import { defineAiJob } from './definition';
 
-const SYSTEM_PROMPT = `You extract the timetable from a SEND (special educational needs) First-tier Tribunal directions order. The order text is provided as a corpus item, with its paragraphs numbered — staff refer to directions by paragraph number, so preserve those numbers.
+const SYSTEM_PROMPT = `You extract the timetable from a SEND (special educational needs) First-tier Tribunal directions order. The order is provided as a PDF document to read in full (and, when available, its extracted text alongside, with paragraphs numbered) — staff refer to directions by paragraph number, so preserve those numbers.
 
 Return one entry per dated obligation. For each:
 - obligation: the obligation in full, as written.

@@ -1,3 +1,4 @@
+import type Anthropic from '@anthropic-ai/sdk';
 import {
   diffDirections,
   loadBankHolidays,
@@ -10,7 +11,15 @@ import { extractText } from '../documents/extract';
 import { createDocument } from '../repositories/documents';
 import { liveKeyDates } from '../repositories/directions';
 import { extractDirectionsJob } from './directions-job';
-import { runAiJob, type RunDeps } from './run';
+import { runAiJob, type AiJobInput, type RunDeps } from './run';
+
+const PDF_MIME = 'application/pdf';
+
+function isPdf(input: DirectionsInput): boolean {
+  return (
+    input.mimeType === PDF_MIME || input.filename.toLowerCase().endsWith('.pdf')
+  );
+}
 
 export interface DirectionsInput {
   caseId: string;
@@ -61,22 +70,16 @@ export async function runDirectionsExtraction(
   );
   const documentId = upload.document.id;
 
-  // 2. Extract text (paragraph numbering preserved) and read via the corpus.
+  // 2. Build Claude's input. A PDF is handed to the model natively so it reads
+  //    the full order — layout, tables and all — not just text we managed to
+  //    pull out (which is empty for a scanned order). We still extract text and
+  //    include it alongside when we have it, so the model has the paragraph
+  //    numbering staff cite. Anything else (DOCX, plain text) is read as text.
   const extraction = await extractText(input.mimeType, input.bytes);
-  const text = extraction.text ?? input.bytes.toString('utf8');
-  const corpus = singleDocumentCorpus({
-    id: documentId,
-    title: input.filename,
-    date: today,
-    text,
-  });
+  const jobInput = buildJobInput(input, documentId, today, extraction.text);
 
   // 3. Run the job, then resolve relative deadlines authoritatively.
-  const job = await runAiJob(
-    extractDirectionsJob,
-    corpus.serialised,
-    deps.jobOverrides,
-  );
+  const job = await runAiJob(extractDirectionsJob, jobInput, deps.jobOverrides);
   const { holidays } = await (deps.loadHolidays ?? loadBankHolidays)();
   const resolved = resolveDirections(job.output, holidays);
 
@@ -92,4 +95,51 @@ export async function runDirectionsExtraction(
     counts: diff.counts,
     rows: diff.rows,
   };
+}
+
+/**
+ * Assemble the user turn for the extraction job.
+ *
+ * - PDF: a native document block so Claude reads the whole order (a scanned
+ *   order has no extractable text at all); the paragraph-numbered text is added
+ *   as a second block when we have it, so paragraph citations stay accurate.
+ * - Anything else: the extracted text as a numbered corpus item.
+ */
+function buildJobInput(
+  input: DirectionsInput,
+  documentId: string,
+  today: string,
+  extractedText: string | null,
+): AiJobInput {
+  if (isPdf(input)) {
+    const blocks: Anthropic.ContentBlockParam[] = [
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: PDF_MIME,
+          data: input.bytes.toString('base64'),
+        },
+        title: input.filename,
+      },
+    ];
+    if (extractedText) {
+      const corpus = singleDocumentCorpus({
+        id: documentId,
+        title: input.filename,
+        date: today,
+        text: extractedText,
+      });
+      blocks.push({ type: 'text', text: corpus.serialised });
+    }
+    return blocks;
+  }
+
+  const corpus = singleDocumentCorpus({
+    id: documentId,
+    title: input.filename,
+    date: today,
+    text: extractedText ?? input.bytes.toString('utf8'),
+  });
+  return corpus.serialised;
 }

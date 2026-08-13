@@ -242,9 +242,9 @@ export function DetailPanel({
             type="button"
             onClick={() => directionsRef.current?.click()}
             disabled={directionsBusy}
-            className="mt-3 w-full rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
+            className="mt-2 text-sm font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
           >
-            {directionsBusy ? 'Reading order…' : 'Upload directions'}
+            {directionsBusy ? 'Reading order…' : '+ Upload directions order'}
           </button>
           <input
             ref={directionsRef}

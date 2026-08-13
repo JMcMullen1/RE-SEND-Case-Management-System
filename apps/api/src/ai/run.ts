@@ -58,9 +58,16 @@ const ZERO_USAGE: TokenUsage = {
  * - Every invocation is recorded — job, model, token counts, latency, outcome —
  *   and never the prompt or the response.
  */
+/**
+ * A job's user turn: either plain text, or structured content blocks so a job
+ * can hand Claude a document (a PDF read natively) rather than only text we
+ * extracted ourselves.
+ */
+export type AiJobInput = string | Anthropic.ContentBlockParam[];
+
 export async function runAiJob<TSchema extends z.ZodTypeAny>(
   definition: AiJobDefinition<TSchema>,
-  input: string,
+  input: AiJobInput,
   overrides: Partial<RunDeps> = {},
 ): Promise<AiJobResult<z.infer<TSchema>>> {
   const deps: RunDeps = {
@@ -170,7 +177,7 @@ export async function runAiJob<TSchema extends z.ZodTypeAny>(
 function buildRequest(
   definition: AiJobDefinition<z.ZodTypeAny>,
   toolName: string,
-  input: string,
+  input: AiJobInput,
 ): Anthropic.MessageCreateParamsNonStreaming {
   const tool = schemaToTool(
     toolName,

@@ -116,6 +116,42 @@ describe('runAiJob', () => {
     expect(records[0]!.costUsd).toBeGreaterThan(0);
   });
 
+  it('forwards structured content blocks (a native PDF) as the user turn', async () => {
+    const client = clientReturning(
+      message({
+        content: [
+          {
+            type: 'tool_use',
+            id: 't1',
+            name: TOOL,
+            input: { label: 'a', score: 1 },
+          },
+        ],
+      }),
+    );
+    const { deps } = harness(client);
+    const blocks = [
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: 'JVBERi0xLjc=',
+        },
+        title: 'order.pdf',
+      },
+      { type: 'text', text: 'numbered corpus text' },
+    ] as const;
+
+    await runAiJob(job, blocks as never, deps);
+
+    const create = client.messages.create as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    const request = create.mock.calls[0]![0] as { messages: unknown[] };
+    expect(request.messages).toEqual([{ role: 'user', content: blocks }]);
+  });
+
   it('throws AiJobDisabledError without calling the model, and records disabled', async () => {
     const client = clientReturning(message({}));
     const { records, deps } = harness(client, { globalEnabled: false });
