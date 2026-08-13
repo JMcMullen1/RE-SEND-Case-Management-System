@@ -50,6 +50,13 @@
       "when": 1786057438126,
       "tag": "0006_smart_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786620085837,
+      "tag": "0007_acoustic_george_stacy",
+      "breakpoints": true
     }
   ]
 }

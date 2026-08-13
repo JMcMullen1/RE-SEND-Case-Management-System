@@ -181,8 +181,15 @@ export const KEY_DATE_TYPE_COLOR_VAR: Record<KeyDateType, string> = {
   other: 'var(--kd-other)',
 };
 
-// --- Document categories ----------------------------------------------------
-export const DOCUMENT_CATEGORY_VALUES = [
+// --- Document folders -------------------------------------------------------
+/**
+ * Common starting folders that documents are filed under. NOT a fixed set:
+ * staff can file into a custom folder, and any folder already in use on a case
+ * is offered alongside these. A document's folder is a free-text label — the
+ * `DocumentCategory` name is retained internally (and as the DB column) for
+ * continuity, but the interface presents these as folders.
+ */
+export const DEFAULT_DOCUMENT_FOLDERS = [
   'EHCP Draft',
   'EHCP Amended',
   'EHCP Final',
@@ -196,8 +203,9 @@ export const DOCUMENT_CATEGORY_VALUES = [
   'Financial',
   'Other',
 ] as const;
-export type DocumentCategory = (typeof DOCUMENT_CATEGORY_VALUES)[number];
-export const DocumentCategorySchema = z.enum(DOCUMENT_CATEGORY_VALUES);
+/** A document's folder: a free-text label (a default or a custom one). */
+export const DocumentCategorySchema = z.string().trim().min(1).max(60);
+export type DocumentCategory = string;
 
 // --- Corpus item types ------------------------------------------------------
 // The kinds of thing the case corpus assembles for AI features. `case_record`,

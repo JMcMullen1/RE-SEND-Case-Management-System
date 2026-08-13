@@ -21,21 +21,8 @@ export function DropZone({
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const items = e.dataTransfer.items;
-    // Prefer the entries API so directories can be expanded; fall back to the
-    // flat file list when it is unavailable.
-    const entries: FileSystemEntry[] = [];
-    for (let i = 0; i < items.length; i += 1) {
-      const entry = items[i]?.webkitGetAsEntry?.();
-      if (entry) entries.push(entry);
-    }
-    if (entries.length > 0) {
-      const files = (await Promise.all(entries.map(readEntry))).flat();
-      if (files.length > 0) onFiles(files);
-    } else {
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) onFiles(files);
-    }
+    const files = await collectDroppedFiles(e.dataTransfer);
+    if (files.length > 0) onFiles(files);
   };
 
   return (
@@ -72,6 +59,27 @@ export function DropZone({
       />
     </>
   );
+}
+
+/**
+ * Collect the files from a drop, expanding whole folders where the browser
+ * supports the entries API and falling back to the flat file list otherwise.
+ * Exported so a larger drop target (e.g. the whole documents region) can reuse
+ * the same directory-walking behaviour.
+ */
+export async function collectDroppedFiles(
+  dataTransfer: DataTransfer,
+): Promise<File[]> {
+  const items = dataTransfer.items;
+  const entries: FileSystemEntry[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const entry = items[i]?.webkitGetAsEntry?.();
+    if (entry) entries.push(entry);
+  }
+  if (entries.length > 0) {
+    return (await Promise.all(entries.map(readEntry))).flat();
+  }
+  return Array.from(dataTransfer.files);
 }
 
 /** Recursively resolve a dropped entry to its files. */

@@ -22,7 +22,6 @@ import {
   caseStatusEnum,
   consultationStateEnum,
   discountCodeEnum,
-  documentCategoryEnum,
   emailDirectionEnum,
   enquiryMethodEnum,
   externalSyncStatusEnum,
@@ -342,7 +341,7 @@ export const documents = pgTable(
     uploadedAt: timestamp('uploaded_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    category: documentCategoryEnum('category').notNull(),
+    category: text('category').notNull(),
     caseId: uuid('case_id')
       .notNull()
       .references(() => cases.id, { onDelete: 'restrict' }),

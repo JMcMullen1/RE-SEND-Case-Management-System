@@ -3,7 +3,6 @@ import {
   AI_JOB_OUTCOME_VALUES,
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
-  DOCUMENT_CATEGORY_VALUES,
   EMAIL_DIRECTION_VALUES,
   ENQUIRY_METHOD_VALUES,
   EXTERNAL_SYNC_STATUS_VALUES,
@@ -39,10 +38,6 @@ export const keyDateTypeEnum = pgEnum('key_date_type', KEY_DATE_TYPE_VALUES);
 export const keyDateSourceEnum = pgEnum(
   'key_date_source',
   KEY_DATE_SOURCE_VALUES,
-);
-export const documentCategoryEnum = pgEnum(
-  'document_category',
-  DOCUMENT_CATEGORY_VALUES,
 );
 export const consultationStateEnum = pgEnum(
   'consultation_state',

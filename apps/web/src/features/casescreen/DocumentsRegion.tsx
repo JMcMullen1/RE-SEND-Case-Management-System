@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  DOCUMENT_CATEGORY_VALUES,
+  DEFAULT_DOCUMENT_FOLDERS,
   formatCivilDate,
   formatFileSize,
   isPreviewable,
@@ -14,7 +14,7 @@ import {
   uploadDocument,
 } from '../../api/documents';
 import { useDocuments } from '../../hooks/useCaseScreen';
-import { DropZone } from './DropZone';
+import { collectDroppedFiles } from './DropZone';
 
 interface Upload {
   id: string;
@@ -33,14 +33,52 @@ const OUTCOME_LABEL: Record<DocumentUploadOutcome, string> = {
 
 const CONCURRENCY = 3;
 
+const ALL_FILES = 'All files';
+
 export function DocumentsRegion({ caseId }: { caseId: string }) {
   const qc = useQueryClient();
   const { data, isLoading } = useDocuments(caseId);
   const documents = data?.documents ?? [];
-  const [category, setCategory] = useState<string>('Other');
+
+  const [customFolders, setCustomFolders] = useState<string[]>([]);
+  const [activeFolder, setActiveFolder] = useState<string>(ALL_FILES);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [preview, setPreview] = useState<DocumentInfo | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Folders offered: the common defaults, any folder already in use on this
+  // case, and any the user has just created — de-duplicated, order preserved.
+  const folders = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const f of [
+      ...DEFAULT_DOCUMENT_FOLDERS,
+      ...documents.map((d) => d.category),
+      ...customFolders,
+    ]) {
+      if (f && !seen.has(f)) {
+        seen.add(f);
+        out.push(f);
+      }
+    }
+    return out;
+  }, [documents, customFolders]);
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of documents) m.set(d.category, (m.get(d.category) ?? 0) + 1);
+    return m;
+  }, [documents]);
+
+  // New uploads go into the selected folder; when "All files" is selected there
+  // is no single target, so default to "Other".
+  const uploadFolder = activeFolder === ALL_FILES ? 'Other' : activeFolder;
+  const visible =
+    activeFolder === ALL_FILES
+      ? documents
+      : documents.filter((d) => d.category === activeFolder);
 
   const setUpload = (id: string, patch: Partial<Upload>) =>
     setUploads((prev) =>
@@ -48,6 +86,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
     );
 
   const onFiles = (files: File[]) => {
+    if (files.length === 0) return;
     const queued: Upload[] = files.map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
@@ -55,12 +94,12 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
       progress: 0,
     }));
     setUploads((prev) => [...queued, ...prev]);
-    void runPool(files, queued);
+    void runPool(files, queued, uploadFolder);
   };
 
   // Upload a batch with limited concurrency. Each file is independent: one
   // failure never discards the others' progress or results.
-  const runPool = async (files: File[], queued: Upload[]) => {
+  const runPool = async (files: File[], queued: Upload[], folder: string) => {
     let cursor = 0;
     const worker = async () => {
       while (cursor < files.length) {
@@ -68,7 +107,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
         const file = files[index]!;
         const entry = queued[index]!;
         try {
-          const result = await uploadDocument(caseId, file, category, (f) =>
+          const result = await uploadDocument(caseId, file, folder, (f) =>
             setUpload(entry.id, { progress: f }),
           );
           setUpload(entry.id, {
@@ -90,20 +129,89 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
     );
   };
 
-  const busy = uploads.some((u) => u.status === 'uploading');
+  const addFolder = () => {
+    const name = window.prompt('New folder name')?.trim();
+    if (!name) return;
+    setCustomFolders((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setActiveFolder(name);
+  };
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="relative flex h-full flex-col"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        // Ignore leave events fired while moving over child elements.
+        if (e.currentTarget === e.target) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void collectDroppedFiles(e.dataTransfer).then(onFiles);
+      }}
+    >
+      {/* Folder filter + upload controls */}
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <FolderChip
+          active={activeFolder === ALL_FILES}
+          onClick={() => setActiveFolder(ALL_FILES)}
+        >
+          {ALL_FILES} ({documents.length})
+        </FolderChip>
+        {folders.map((f) => (
+          <FolderChip
+            key={f}
+            active={activeFolder === f}
+            onClick={() => setActiveFolder(f)}
+          >
+            {f}
+            {counts.get(f) ? ` (${counts.get(f)})` : ''}
+          </FolderChip>
+        ))}
+        <button
+          type="button"
+          onClick={addFolder}
+          className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 hover:border-resend-purple hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        >
+          + New folder
+        </button>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="ml-auto rounded-md bg-resend-purple px-3 py-1 text-xs font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        >
+          Upload{activeFolder !== ALL_FILES ? ` to ${activeFolder}` : ''}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            onFiles(Array.from(e.target.files ?? []));
+            e.target.value = '';
+          }}
+        />
+      </div>
+      <p className="mb-3 text-xs text-gray-400">
+        Drag files or a folder anywhere in this panel to file them
+        {activeFolder === ALL_FILES ? ' under Other' : ` in ${activeFolder}`}.
+      </p>
+
       {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!isLoading && documents.length === 0 && (
+      {!isLoading && visible.length === 0 && (
         <p className="mb-3 text-sm text-gray-400">
-          No documents yet. Uploaded query forms and directions orders will be
-          listed here.
+          {activeFolder === ALL_FILES
+            ? 'No documents yet. Uploaded query forms and directions orders will be listed here.'
+            : `No documents in ${activeFolder} yet.`}
         </p>
       )}
 
-      <ul className="mb-4 divide-y divide-gray-100">
-        {documents.map((doc) => (
+      <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-auto">
+        {visible.map((doc) => (
           <li key={doc.id} className="py-2">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -184,28 +292,43 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
         </ul>
       )}
 
-      <div className="mt-auto">
-        <label className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-          Category
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            {DOCUMENT_CATEGORY_VALUES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <DropZone onFiles={onFiles} busy={busy} />
-      </div>
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-resend-purple bg-white/85 text-sm font-medium text-resend-purple">
+          Drop to file
+          {activeFolder === ALL_FILES ? ' under Other' : ` in ${activeFolder}`}
+        </div>
+      )}
 
       {preview && (
         <PreviewModal doc={preview} onClose={() => setPreview(null)} />
       )}
     </div>
+  );
+}
+
+/** A folder pill in the documents filter bar. */
+function FolderChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full px-2.5 py-1 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
+        active
+          ? 'bg-resend-purple text-white'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
