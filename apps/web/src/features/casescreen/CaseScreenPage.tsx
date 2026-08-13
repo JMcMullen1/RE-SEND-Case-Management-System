@@ -153,7 +153,7 @@ export function CaseScreenPage() {
                 href={`/cases/new?fromClient=${detail.client.id}`}
                 className="font-medium text-resend-purple hover:underline"
               >
-                Add another for this client
+                Add another child for this client
               </a>
             )}
             <button
