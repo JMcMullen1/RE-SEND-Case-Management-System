@@ -23,7 +23,8 @@ export function TimelineRegion({
   users: UserSummary[];
   today: string;
   mutations: Mutations;
-  kind: NoteKind;
+  /** Restrict to one kind, or omit for the combined "All" stream. */
+  kind?: NoteKind;
 }) {
   const [author, setAuthor] = useState('');
   const [from, setFrom] = useState('');
@@ -46,6 +47,9 @@ export function TimelineRegion({
   });
   const items = timeline.data?.items ?? [];
   const singular = kind === 'billable' ? 'billable' : 'note';
+  // The combined "All" stream has no kind of its own, so new entries there
+  // default to a case note — matching the original single timeline.
+  const addKind: NoteKind = kind ?? 'note';
 
   return (
     <div className="flex h-full flex-col">
@@ -64,7 +68,7 @@ export function TimelineRegion({
             disabled={!draft.trim() || mutations.addNote.isPending}
             onClick={() =>
               mutations.addNote.mutate(
-                { body: draft.trim(), kind },
+                { body: draft.trim(), kind: addKind },
                 { onSuccess: () => setDraft('') },
               )
             }
@@ -119,7 +123,11 @@ export function TimelineRegion({
         )}
         {!timeline.isLoading && items.length === 0 && (
           <p className="py-8 text-center text-sm text-gray-400">
-            {kind === 'billable' ? 'No billables yet.' : 'No case notes yet.'}
+            {kind === 'billable'
+              ? 'No billables yet.'
+              : kind === 'note'
+                ? 'No case notes yet.'
+                : 'No entries yet.'}
           </p>
         )}
         <ul className="divide-y divide-gray-100">

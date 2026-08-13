@@ -16,13 +16,14 @@ import { DocumentsRegion } from './DocumentsRegion';
 import { EmailsRegion } from './EmailsRegion';
 import { TimelineRegion } from './TimelineRegion';
 
-type Tab = 'details' | 'docs-emails' | 'billables' | 'notes';
+type Tab = 'details' | 'docs-emails' | 'billables' | 'notes' | 'all';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'details', label: 'Case details' },
   { id: 'docs-emails', label: 'Documents / Emails' },
   { id: 'billables', label: 'Billables' },
   { id: 'notes', label: 'Case notes' },
+  { id: 'all', label: 'All' },
 ];
 
 function RegionHeading({ children }: { children: ReactNode }) {
@@ -163,6 +164,18 @@ export function CaseScreenPage() {
       </div>
     </section>
   );
+  const allSection = (
+    <section className="flex h-full flex-col overflow-hidden p-5">
+      <div className="min-h-0 flex-1">
+        <TimelineRegion
+          caseId={caseId}
+          users={users}
+          today={today}
+          mutations={mutations}
+        />
+      </div>
+    </section>
+  );
 
   return (
     <div className="flex h-screen flex-col bg-white text-resend-ink">
@@ -248,6 +261,7 @@ export function CaseScreenPage() {
         {tab === 'docs-emails' && docsEmailsSection}
         {tab === 'billables' && billablesSection}
         {tab === 'notes' && notesSection}
+        {tab === 'all' && allSection}
       </main>
 
       {review && (
