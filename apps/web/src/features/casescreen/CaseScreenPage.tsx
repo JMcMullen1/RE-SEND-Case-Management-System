@@ -6,7 +6,6 @@ import { applyDirections, extractDirections } from '../../api/directions';
 import { useToday } from '../../hooks/useToday';
 import { useMe, useUsers } from '../../hooks/useCaseData';
 import { useCaseDetail, useCaseMutations } from '../../hooks/useCaseScreen';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { usePresence } from '../../realtime/RealtimeProvider';
 import { DeleteCaseButton } from './DeleteCaseButton';
 import { PresenceIndicator } from './PresenceIndicator';
@@ -17,7 +16,14 @@ import { DocumentsRegion } from './DocumentsRegion';
 import { EmailsRegion } from './EmailsRegion';
 import { TimelineRegion } from './TimelineRegion';
 
-type Tab = 'timeline' | 'documents' | 'emails';
+type Tab = 'details' | 'docs-emails' | 'billables' | 'notes';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'details', label: 'Case details' },
+  { id: 'docs-emails', label: 'Documents / Emails' },
+  { id: 'billables', label: 'Billables' },
+  { id: 'notes', label: 'Case notes' },
+];
 
 function RegionHeading({ children }: { children: ReactNode }) {
   return (
@@ -37,8 +43,7 @@ export function CaseScreenPage() {
   const isAdmin = useMe().data?.role === 'admin';
   const users = useUsers().data?.users ?? [];
   const mutations = useCaseMutations(caseId);
-  const wide = useMediaQuery('(min-width: 1400px)');
-  const [tab, setTab] = useState<Tab>('timeline');
+  const [tab, setTab] = useState<Tab>('details');
   const [justCreated, setJustCreated] = useState(
     () => new URLSearchParams(window.location.search).get('created') === '1',
   );
@@ -120,27 +125,40 @@ export function CaseScreenPage() {
       />
     </section>
   );
-  const documentsSection = (
-    <section className="h-full overflow-auto p-5">
-      <RegionHeading>Documents</RegionHeading>
-      <DocumentsRegion caseId={caseId} />
-    </section>
+  const docsEmailsSection = (
+    <div className="grid h-full min-h-0 divide-x divide-gray-100 md:grid-cols-2">
+      <section className="h-full overflow-auto p-5">
+        <RegionHeading>Documents</RegionHeading>
+        <DocumentsRegion caseId={caseId} />
+      </section>
+      <section className="h-full overflow-auto p-5">
+        <RegionHeading>Emails</RegionHeading>
+        <EmailsRegion />
+      </section>
+    </div>
   );
-  const emailsSection = (
-    <section className="h-full overflow-auto p-5">
-      <RegionHeading>Emails</RegionHeading>
-      <EmailsRegion />
-    </section>
-  );
-  const timelineSection = (
+  const billablesSection = (
     <section className="flex h-full flex-col overflow-hidden p-5">
-      <RegionHeading>Time entries &amp; case notes</RegionHeading>
       <div className="min-h-0 flex-1">
         <TimelineRegion
           caseId={caseId}
           users={users}
           today={today}
           mutations={mutations}
+          kind="billable"
+        />
+      </div>
+    </section>
+  );
+  const notesSection = (
+    <section className="flex h-full flex-col overflow-hidden p-5">
+      <div className="min-h-0 flex-1">
+        <TimelineRegion
+          caseId={caseId}
+          users={users}
+          today={today}
+          mutations={mutations}
+          kind="note"
         />
       </div>
     </section>
@@ -203,52 +221,34 @@ export function CaseScreenPage() {
         )}
       </header>
 
-      {wide ? (
-        <main
-          className="grid min-h-0 flex-1 divide-x divide-gray-100"
-          style={{
-            gridTemplateColumns:
-              '340px minmax(0,1fr) minmax(0,1fr) minmax(0,1.7fr)',
-          }}
-        >
-          {detailSection}
-          {documentsSection}
-          {emailsSection}
-          {timelineSection}
-        </main>
-      ) : (
-        <main className="flex min-h-0 flex-1 divide-x divide-gray-100">
-          <div className="w-[340px] shrink-0">{detailSection}</div>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div
-              role="tablist"
-              aria-label="Case regions"
-              className="flex gap-1 border-b border-gray-200 px-4 pt-3"
-            >
-              {(['timeline', 'documents', 'emails'] as const).map((t) => (
-                <button
-                  key={t}
-                  role="tab"
-                  aria-selected={tab === t}
-                  onClick={() => setTab(t)}
-                  className={`rounded-t-md px-3 py-1.5 text-sm font-medium capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
-                    tab === t
-                      ? 'border-b-2 border-resend-purple text-resend-purple'
-                      : 'text-gray-500 hover:text-resend-ink'
-                  }`}
-                >
-                  {t === 'timeline' ? 'Timeline' : t}
-                </button>
-              ))}
-            </div>
-            <div className="min-h-0 flex-1">
-              {tab === 'timeline' && timelineSection}
-              {tab === 'documents' && documentsSection}
-              {tab === 'emails' && emailsSection}
-            </div>
-          </div>
-        </main>
-      )}
+      <div
+        role="tablist"
+        aria-label="Case regions"
+        className="flex gap-1 border-b border-gray-200 px-4"
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
+              tab === t.id
+                ? 'border-b-2 border-resend-purple text-resend-purple'
+                : 'text-gray-500 hover:text-resend-ink'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <main className="min-h-0 flex-1">
+        {tab === 'details' && detailSection}
+        {tab === 'docs-emails' && docsEmailsSection}
+        {tab === 'billables' && billablesSection}
+        {tab === 'notes' && notesSection}
+      </main>
 
       {review && (
         <DirectionsReview

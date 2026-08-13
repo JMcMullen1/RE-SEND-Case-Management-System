@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   formatCivilDate,
   relativeSince,
+  NOTE_KIND_LABELS,
+  type NoteKind,
   type NoteTimelineItem,
   type TimelineItem,
 } from '@re-send/shared';
@@ -15,11 +17,13 @@ export function TimelineRegion({
   users,
   today,
   mutations,
+  kind,
 }: {
   caseId: string;
   users: UserSummary[];
   today: string;
   mutations: Mutations;
+  kind: NoteKind;
 }) {
   const [author, setAuthor] = useState('');
   const [from, setFrom] = useState('');
@@ -38,8 +42,10 @@ export function TimelineRegion({
     from: from || undefined,
     to: to || undefined,
     q: debounced || undefined,
+    kind,
   });
   const items = timeline.data?.items ?? [];
+  const singular = kind === 'billable' ? 'billable' : 'note';
 
   return (
     <div className="flex h-full flex-col">
@@ -47,8 +53,8 @@ export function TimelineRegion({
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a note. It will be stamped with today's date and your name."
-          aria-label="New note"
+          placeholder={`Add a ${singular}. It will be stamped with today's date and your name.`}
+          aria-label={`New ${singular}`}
           rows={3}
           className="w-full rounded-lg border border-gray-200 p-3 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
         />
@@ -57,13 +63,14 @@ export function TimelineRegion({
             type="button"
             disabled={!draft.trim() || mutations.addNote.isPending}
             onClick={() =>
-              mutations.addNote.mutate(draft.trim(), {
-                onSuccess: () => setDraft(''),
-              })
+              mutations.addNote.mutate(
+                { body: draft.trim(), kind },
+                { onSuccess: () => setDraft('') },
+              )
             }
             className="rounded-lg bg-resend-purple px-4 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >
-            Add note
+            Add {singular}
           </button>
         </div>
       </div>
@@ -112,8 +119,7 @@ export function TimelineRegion({
         )}
         {!timeline.isLoading && items.length === 0 && (
           <p className="py-8 text-center text-sm text-gray-400">
-            No entries yet. Notes, and in time also time entries, filed emails,
-            documents and key-date changes, will appear here newest first.
+            {kind === 'billable' ? 'No billables yet.' : 'No case notes yet.'}
           </p>
         )}
         <ul className="divide-y divide-gray-100">
@@ -174,6 +180,9 @@ function NoteRow({
     <li className="py-3">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xs text-gray-500">
+          <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+            {NOTE_KIND_LABELS[item.kind]}
+          </span>
           <span className="font-medium text-resend-ink">
             {formatCivilDate(item.occurredOn)}
           </span>{' '}

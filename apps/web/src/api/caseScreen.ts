@@ -2,6 +2,7 @@ import type {
   CaseDetail,
   DocumentInfo,
   KeyDateFull,
+  NoteKind,
   Team,
   TimelineItem,
 } from '@re-send/shared';
@@ -77,13 +78,20 @@ export function deleteKeyDate(id: string): Promise<{ ok: true }> {
 
 export function fetchTimeline(
   caseId: string,
-  filters: { author?: string; from?: string; to?: string; q?: string },
+  filters: {
+    author?: string;
+    from?: string;
+    to?: string;
+    q?: string;
+    kind?: NoteKind;
+  },
 ): Promise<{ items: TimelineItem[] }> {
   const params = new URLSearchParams();
   if (filters.author) params.set('author', filters.author);
   if (filters.from) params.set('from', filters.from);
   if (filters.to) params.set('to', filters.to);
   if (filters.q) params.set('q', filters.q);
+  if (filters.kind) params.set('kind', filters.kind);
   const qs = params.toString();
   return request(`/api/cases/${caseId}/timeline${qs ? `?${qs}` : ''}`);
 }
@@ -91,10 +99,11 @@ export function fetchTimeline(
 export function addNote(
   caseId: string,
   body: string,
+  kind: NoteKind,
 ): Promise<{ item: TimelineItem }> {
   return request(`/api/cases/${caseId}/notes`, {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, kind }),
   });
 }
 

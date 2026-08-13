@@ -1,5 +1,6 @@
 import type {
   CaseListRow,
+  NoteKind,
   OwnerQueue,
   SavedViewSeed,
   ViewState,
@@ -29,7 +30,12 @@ export interface SavedView {
 }
 
 export interface CaseExpansion {
-  notes: { entryDate: string; author: string | null; body: string }[];
+  notes: {
+    entryDate: string;
+    author: string | null;
+    body: string;
+    kind: NoteKind;
+  }[];
   email: string | null;
   phone: string | null;
   mobile: string | null;

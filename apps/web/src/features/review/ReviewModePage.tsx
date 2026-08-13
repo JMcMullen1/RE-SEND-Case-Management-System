@@ -69,7 +69,7 @@ export function ReviewModePage() {
     const draft = (drafts[id] ?? '').trim();
     try {
       if (draft) {
-        await mutations.addNote.mutateAsync(draft);
+        await mutations.addNote.mutateAsync({ body: draft, kind: 'note' });
         setNotesAdded((n) => n + 1);
         setDrafts((d) => ({ ...d, [id]: '' }));
       }

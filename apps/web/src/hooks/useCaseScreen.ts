@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaseDetail } from '@re-send/shared';
+import type { CaseDetail, NoteKind } from '@re-send/shared';
 import { reassignCase, type UserSummary } from '../api/client';
 import {
   addNote,
@@ -30,7 +30,13 @@ export function useCaseDetail(id: string) {
 
 export function useTimeline(
   id: string,
-  filters: { author?: string; from?: string; to?: string; q?: string },
+  filters: {
+    author?: string;
+    from?: string;
+    to?: string;
+    q?: string;
+    kind?: NoteKind;
+  },
 ) {
   return useQuery({
     queryKey: ['timeline', id, filters],
@@ -95,7 +101,8 @@ export function useCaseMutations(id: string) {
       ...opts,
     }),
     addNote: useMutation({
-      mutationFn: (body: string) => addNote(id, body),
+      mutationFn: (v: { body: string; kind: NoteKind }) =>
+        addNote(id, v.body, v.kind),
       ...opts,
     }),
     editNote: useMutation({
