@@ -171,7 +171,6 @@ export function CaseScreenPage() {
         <CaseHeader
           detail={detail}
           users={users}
-          today={today}
           mutations={mutations}
           onUploadDirections={uploadDirections}
           directionsBusy={directionsBusy && !review}

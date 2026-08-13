@@ -16,14 +16,12 @@ type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 export function CaseHeader({
   detail,
   users,
-  today,
   mutations,
   onUploadDirections,
   directionsBusy,
 }: {
   detail: CaseDetail;
   users: UserSummary[];
-  today: string;
   mutations: Mutations;
   onUploadDirections: (file: File) => void;
   directionsBusy: boolean;
@@ -73,20 +71,6 @@ export function CaseHeader({
           ))}
         </select>
       </label>
-
-      <button
-        type="button"
-        onClick={() =>
-          mutations.addKeyDate.mutate({
-            date: today,
-            title: 'New key date',
-            type: 'other',
-          })
-        }
-        className="rounded-md border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-      >
-        Add key date
-      </button>
 
       <button
         type="button"
