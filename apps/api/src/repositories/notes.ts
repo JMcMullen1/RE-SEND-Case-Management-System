@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import type { NoteTimelineItem } from '@re-send/shared';
+import type { NoteKind, NoteTimelineItem } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { caseNotes } from '../db/schema';
 import { recordAudit } from './audit';
@@ -15,24 +15,26 @@ interface Actor {
 export async function addNote(
   caseId: string,
   body: string,
+  kind: NoteKind,
   entryDate: string,
   actor: Actor,
 ): Promise<NoteTimelineItem> {
   const db = getDb();
   const [row] = await db
     .insert(caseNotes)
-    .values({ caseId, body, entryDate, authorUserId: actor.id })
+    .values({ caseId, body, kind, entryDate, authorUserId: actor.id })
     .returning();
   await recordAudit(db, {
     actorUserId: actor.id,
     action: 'note.create',
     entityType: 'note',
     entityId: row!.id,
-    after: { caseId, entryDate },
+    after: { caseId, entryDate, kind },
   });
   return {
     id: row!.id,
     type: 'note',
+    kind: row!.kind as NoteKind,
     occurredOn: row!.entryDate,
     createdAt: row!.createdAt.toISOString(),
     authorUserId: actor.id,
@@ -79,6 +81,7 @@ export async function editNote(
     item: {
       id: row!.id,
       type: 'note',
+      kind: row!.kind as NoteKind,
       occurredOn: row!.entryDate,
       createdAt: row!.createdAt.toISOString(),
       authorUserId: row!.authorUserId,

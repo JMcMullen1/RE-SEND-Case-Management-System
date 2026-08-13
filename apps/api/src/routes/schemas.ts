@@ -6,6 +6,7 @@ import {
   DocumentCategorySchema,
   EnquiryMethodSchema,
   KeyDateSourceSchema,
+  NoteKindSchema,
   OptionalColumnSchema,
   OwnerQueueSchema,
   PaymentCodeSchema,
@@ -456,6 +457,7 @@ export const TimelineItemSchema = z.discriminatedUnion('type', [
   z.object({
     ...TimelineBase,
     type: z.literal('note'),
+    kind: NoteKindSchema,
     body: z.string(),
     canEdit: z.boolean(),
     edited: z.boolean(),
@@ -551,7 +553,10 @@ export const KeyDateCreateSchema = z.object({
 
 export const KeyDatePatchSchema = KeyDateCreateSchema.partial();
 
-export const NoteCreateSchema = z.object({ body: z.string().min(1) });
+export const NoteCreateSchema = z.object({
+  body: z.string().min(1),
+  kind: NoteKindSchema.default('note'),
+});
 export const NoteEditSchema = z.object({ body: z.string().min(1) });
 export const SetTeamsSchema = z.object({ team: z.array(TeamSchema) });
 

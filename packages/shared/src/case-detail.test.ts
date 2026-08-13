@@ -32,6 +32,7 @@ describe('sortTimeline', () => {
       {
         id: 'a',
         type: 'note',
+        kind: 'note',
         occurredOn: '2026-09-10',
         createdAt: '2026-09-10T09:00:00Z',
         authorUserId: null,
@@ -43,6 +44,7 @@ describe('sortTimeline', () => {
       {
         id: 'b',
         type: 'note',
+        kind: 'note',
         occurredOn: '2026-09-12',
         createdAt: '2026-09-12T09:00:00Z',
         authorUserId: null,
@@ -54,6 +56,7 @@ describe('sortTimeline', () => {
       {
         id: 'c',
         type: 'note',
+        kind: 'note',
         occurredOn: '2026-09-12',
         createdAt: '2026-09-12T11:00:00Z',
         authorUserId: null,

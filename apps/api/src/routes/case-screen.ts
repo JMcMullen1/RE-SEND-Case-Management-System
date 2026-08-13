@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { londonToday } from '@re-send/shared';
+import { londonToday, NoteKindSchema } from '@re-send/shared';
 import { getCaseDetail, listTimeline } from '../repositories/case-detail';
 import { listDocuments } from '../repositories/documents';
 import {
@@ -264,6 +264,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
           from: z.string().optional(),
           to: z.string().optional(),
           q: z.string().optional(),
+          kind: NoteKindSchema.optional(),
         }),
         response: { 200: z.object({ items: z.array(TimelineItemSchema) }) },
       },
@@ -277,6 +278,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
           from: request.query.from,
           to: request.query.to,
           q: request.query.q,
+          kind: request.query.kind,
         },
         current ? { id: current.id, role: current.role } : null,
       );
@@ -300,6 +302,7 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
       const item = await addNote(
         request.params.id,
         request.body.body,
+        request.body.kind,
         londonToday(new Date()),
         {
           id: current.id,

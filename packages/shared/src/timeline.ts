@@ -8,6 +8,8 @@
  * never a rewrite.
  */
 
+import type { NoteKind } from './config';
+
 export const TIMELINE_ITEM_TYPES = [
   'note',
   'time_entry',
@@ -30,6 +32,7 @@ interface TimelineItemBase {
 
 export interface NoteTimelineItem extends TimelineItemBase {
   type: 'note';
+  kind: NoteKind;
   body: string;
   /** True when the acting user may edit this note (its author, or an admin). */
   canEdit: boolean;

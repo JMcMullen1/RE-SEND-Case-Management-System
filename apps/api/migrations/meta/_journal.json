@@ -57,6 +57,13 @@
       "when": 1786620085837,
       "tag": "0007_acoustic_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786631582438,
+      "tag": "0008_rare_master_chief",
+      "breakpoints": true
     }
   ]
 }

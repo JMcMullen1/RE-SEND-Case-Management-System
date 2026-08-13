@@ -292,6 +292,18 @@ export const EMAIL_DIRECTION_VALUES = ['inbound', 'outbound'] as const;
 export type EmailDirection = (typeof EMAIL_DIRECTION_VALUES)[number];
 export const EmailDirectionSchema = z.enum(EMAIL_DIRECTION_VALUES);
 
+// --- Note kind --------------------------------------------------------------
+// A note is either a normal case note or a billable. A billable is just a
+// labelled note (same shape); this is NOT time tracking.
+export const NOTE_KIND_VALUES = ['note', 'billable'] as const;
+export type NoteKind = (typeof NOTE_KIND_VALUES)[number];
+export const NoteKindSchema = z.enum(NOTE_KIND_VALUES);
+/** Label shown for each note kind (as a chip). */
+export const NOTE_KIND_LABELS: Record<NoteKind, string> = {
+  note: 'Case notes',
+  billable: 'Billables',
+};
+
 // --- External sync status ---------------------------------------------------
 /** Sync state of a time entry against the external accounting system. */
 export const EXTERNAL_SYNC_STATUS_VALUES = [

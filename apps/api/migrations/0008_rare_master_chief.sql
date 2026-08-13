@@ -1,0 +1,1 @@
+ALTER TABLE "case_notes" ADD COLUMN "kind" text DEFAULT 'note' NOT NULL;

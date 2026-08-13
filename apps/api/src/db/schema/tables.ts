@@ -242,6 +242,7 @@ export const caseNotes = pgTable(
       .references(() => users.id, { onDelete: 'restrict' }),
     entryDate: date('entry_date').notNull(),
     body: text('body').notNull(),
+    kind: text('kind').notNull().default('note'),
     ...timestamps,
     ...softDelete,
   },

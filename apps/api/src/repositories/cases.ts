@@ -2,6 +2,7 @@ import { eq, sql, type SQL } from 'drizzle-orm';
 import type {
   CaseFilters,
   CaseListRow,
+  NoteKind,
   OwnerQueue,
   SortId,
 } from '@re-send/shared';
@@ -259,7 +260,12 @@ export async function getCaseRow(id: string): Promise<CaseListRow | null> {
 // --- Row expansion ----------------------------------------------------------
 
 export interface CaseExpansion {
-  notes: { entryDate: string; author: string | null; body: string }[];
+  notes: {
+    entryDate: string;
+    author: string | null;
+    body: string;
+    kind: NoteKind;
+  }[];
   email: string | null;
   phone: string | null;
   mobile: string | null;
@@ -269,7 +275,7 @@ export interface CaseExpansion {
 export async function getCaseExpansion(id: string): Promise<CaseExpansion> {
   const db = getDb();
   const notesResult = await db.execute(sql`
-    SELECT n.entry_date AS entry_date, u.display_name AS author, n.body AS body
+    SELECT n.entry_date AS entry_date, u.display_name AS author, n.body AS body, n.kind AS kind
     FROM case_notes n
     LEFT JOIN users u ON u.id = n.author_user_id
     WHERE n.case_id = ${id} AND n.deleted_at IS NULL
@@ -286,8 +292,14 @@ export async function getCaseExpansion(id: string): Promise<CaseExpansion> {
       entry_date: string;
       author: string | null;
       body: string;
+      kind: NoteKind;
     }[]
-  ).map((n) => ({ entryDate: n.entry_date, author: n.author, body: n.body }));
+  ).map((n) => ({
+    entryDate: n.entry_date,
+    author: n.author,
+    body: n.body,
+    kind: n.kind,
+  }));
   const contact = (
     contactResult as unknown as {
       email: string | null;

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, ilike, isNull, lte } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type {
   CaseDetail,
+  NoteKind,
   NoteTimelineItem,
   TimelineItem,
 } from '@re-send/shared';
@@ -162,6 +163,7 @@ export interface TimelineFilters {
   from?: string;
   to?: string;
   q?: string;
+  kind?: NoteKind;
 }
 
 export async function listTimeline(
@@ -179,6 +181,7 @@ export async function listTimeline(
   if (filters.from) conditions.push(gte(caseNotes.entryDate, filters.from));
   if (filters.to) conditions.push(lte(caseNotes.entryDate, filters.to));
   if (filters.q) conditions.push(ilike(caseNotes.body, `%${filters.q}%`));
+  if (filters.kind) conditions.push(eq(caseNotes.kind, filters.kind));
 
   const rows = await db
     .select({
@@ -187,6 +190,7 @@ export async function listTimeline(
       createdAt: caseNotes.createdAt,
       updatedAt: caseNotes.updatedAt,
       body: caseNotes.body,
+      kind: caseNotes.kind,
       authorUserId: caseNotes.authorUserId,
       authorName: users.displayName,
     })
@@ -199,6 +203,7 @@ export async function listTimeline(
   return rows.map((r): NoteTimelineItem => ({
     id: r.id,
     type: 'note',
+    kind: r.kind as NoteKind,
     occurredOn: r.entryDate,
     createdAt: r.createdAt.toISOString(),
     authorUserId: r.authorUserId,

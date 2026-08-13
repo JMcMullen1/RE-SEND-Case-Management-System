@@ -3,6 +3,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   decodeViewState,
+  NoteKindSchema,
   OwnerQueueSchema,
   type OwnerQueue,
 } from '@re-send/shared';
@@ -84,6 +85,7 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
                 entryDate: z.string(),
                 author: z.string().nullable(),
                 body: z.string(),
+                kind: NoteKindSchema,
               }),
             ),
             email: z.string().nullable(),
