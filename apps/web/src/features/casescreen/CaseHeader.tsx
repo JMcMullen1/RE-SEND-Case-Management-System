@@ -17,16 +17,11 @@ export function CaseHeader({
   detail,
   users,
   mutations,
-  onUploadDirections,
-  directionsBusy,
 }: {
   detail: CaseDetail;
   users: UserSummary[];
   mutations: Mutations;
-  onUploadDirections: (file: File) => void;
-  directionsBusy: boolean;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
   const childName = detail.child?.preferredName ?? detail.child?.fullName ?? '';
 
   return (
@@ -71,26 +66,6 @@ export function CaseHeader({
           ))}
         </select>
       </label>
-
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={directionsBusy}
-        className="rounded-md border border-gray-200 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
-      >
-        {directionsBusy ? 'Reading order…' : 'Upload directions'}
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onUploadDirections(file);
-          e.target.value = '';
-        }}
-      />
     </div>
   );
 }

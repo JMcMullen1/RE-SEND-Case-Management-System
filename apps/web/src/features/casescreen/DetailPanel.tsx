@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   calculateAge,
   CONSULTATION_STATE_VALUES,
@@ -82,12 +82,17 @@ export function DetailPanel({
   detail,
   today,
   mutations,
+  onUploadDirections,
+  directionsBusy,
 }: {
   detail: CaseDetail;
   today: string;
   mutations: Mutations;
+  onUploadDirections: (file: File) => void;
+  directionsBusy: boolean;
 }) {
   const [showSecondary, setShowSecondary] = useState(false);
+  const directionsRef = useRef<HTMLInputElement>(null);
   const { client, child } = detail;
 
   const caseField = (
@@ -232,6 +237,25 @@ export function DetailPanel({
             onAdd={(input) => mutations.addKeyDate.mutate(input)}
             onEdit={(id, patch) => mutations.editKeyDate.mutate({ id, patch })}
             onRemove={(id) => mutations.removeKeyDate.mutate(id)}
+          />
+          <button
+            type="button"
+            onClick={() => directionsRef.current?.click()}
+            disabled={directionsBusy}
+            className="mt-3 w-full rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
+          >
+            {directionsBusy ? 'Reading order…' : 'Upload directions'}
+          </button>
+          <input
+            ref={directionsRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUploadDirections(file);
+              e.target.value = '';
+            }}
           />
         </dd>
       </div>

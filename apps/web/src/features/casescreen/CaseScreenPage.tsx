@@ -111,7 +111,13 @@ export function CaseScreenPage() {
   const detailSection = (
     <section className="h-full overflow-auto p-5">
       <RegionHeading>Case detail</RegionHeading>
-      <DetailPanel detail={detail} today={today} mutations={mutations} />
+      <DetailPanel
+        detail={detail}
+        today={today}
+        mutations={mutations}
+        onUploadDirections={uploadDirections}
+        directionsBusy={directionsBusy && !review}
+      />
     </section>
   );
   const documentsSection = (
@@ -168,13 +174,7 @@ export function CaseScreenPage() {
         </div>
       )}
       <header className="border-b border-gray-200 px-6 py-3">
-        <CaseHeader
-          detail={detail}
-          users={users}
-          mutations={mutations}
-          onUploadDirections={uploadDirections}
-          directionsBusy={directionsBusy && !review}
-        />
+        <CaseHeader detail={detail} users={users} mutations={mutations} />
         {directionsNote && (
           <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
             <span>{directionsNote}</span>
