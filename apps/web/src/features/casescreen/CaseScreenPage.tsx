@@ -164,15 +164,55 @@ export function CaseScreenPage() {
       </div>
     </section>
   );
+  // The "All" tab shows every region at once on one scrollable page, the way
+  // the case screen read before it was split into tabs.
   const allSection = (
-    <section className="flex h-full flex-col overflow-hidden p-5">
-      <div className="min-h-0 flex-1">
-        <TimelineRegion
-          caseId={caseId}
-          users={users}
+    <section className="h-full space-y-8 overflow-auto p-5">
+      <div>
+        <RegionHeading>Case detail</RegionHeading>
+        <DetailPanel
+          detail={detail}
           today={today}
           mutations={mutations}
+          onUploadDirections={uploadDirections}
+          directionsBusy={directionsBusy && !review}
         />
+      </div>
+      <div className="grid gap-8 md:grid-cols-2">
+        <div>
+          <RegionHeading>Documents</RegionHeading>
+          <DocumentsRegion caseId={caseId} />
+        </div>
+        <div>
+          <RegionHeading>Emails</RegionHeading>
+          <EmailsRegion />
+        </div>
+      </div>
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="flex h-[32rem] flex-col">
+          <RegionHeading>Billables</RegionHeading>
+          <div className="min-h-0 flex-1">
+            <TimelineRegion
+              caseId={caseId}
+              users={users}
+              today={today}
+              mutations={mutations}
+              kind="billable"
+            />
+          </div>
+        </div>
+        <div className="flex h-[32rem] flex-col">
+          <RegionHeading>Case notes</RegionHeading>
+          <div className="min-h-0 flex-1">
+            <TimelineRegion
+              caseId={caseId}
+              users={users}
+              today={today}
+              mutations={mutations}
+              kind="note"
+            />
+          </div>
+        </div>
       </div>
     </section>
   );
