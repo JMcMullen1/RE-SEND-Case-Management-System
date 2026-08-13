@@ -18,10 +18,61 @@ type Mutations = ReturnType<typeof useCaseMutations>;
 const opts = (values: readonly string[]): SelectOption[] =>
   values.map((v) => ({ value: v, label: v }));
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+/** A one-click copy control, shown beside a field's label when it has a value. */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={`Copy ${label}`}
+      title={`Copy ${label}`}
+      onClick={() => {
+        void navigator.clipboard?.writeText(value).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+      className="text-gray-300 transition-colors hover:text-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+    >
+      {copied ? (
+        <span className="text-resend-green" aria-hidden="true">
+          ✓
+        </span>
+      ) : (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function Field({
+  label,
+  copy,
+  children,
+}: {
+  label: string;
+  /** When a non-empty string, a copy button is shown beside the label. */
+  copy?: string | null;
+  children: ReactNode;
+}) {
   return (
     <div className="py-1">
-      <dt className="text-xs uppercase tracking-wide text-gray-400">{label}</dt>
+      <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-gray-400">
+        {label}
+        {copy != null && copy !== '' && (
+          <CopyButton value={copy} label={label} />
+        )}
+      </dt>
       <dd>{children}</dd>
     </div>
   );
@@ -105,11 +156,11 @@ export function DetailPanel({
 
   return (
     <dl className="text-sm">
-      <Field label="Client name">
+      <Field label="Client name" copy={client?.fullName}>
         {clientField('Client name', 'fullName', client?.fullName ?? null)}
       </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Case reference">
+        <Field label="Case reference" copy={detail.caseReference}>
           <span className="font-medium text-resend-ink">
             {detail.caseReference}
           </span>
@@ -118,7 +169,7 @@ export function DetailPanel({
           {caseField('Appeal number', 'appealNumber', detail.appealNumber)}
         </Field>
       </div>
-      <Field label="Child name">
+      <Field label="Child name" copy={child?.fullName}>
         {childField('Child name', 'fullName', child?.fullName ?? null)}
       </Field>
       <div className="grid grid-cols-2 gap-2">
@@ -147,21 +198,21 @@ export function DetailPanel({
           )}
         </Field>
       </div>
-      <Field label="Current school">
+      <Field label="Current school" copy={child?.currentSchoolName}>
         {childField(
           'Current school',
           'currentSchoolName',
           child?.currentSchoolName ?? null,
         )}
       </Field>
-      <Field label="Desired school">
+      <Field label="Desired school" copy={child?.desiredSchool}>
         {childField(
           'Desired school',
           'desiredSchool',
           child?.desiredSchool ?? null,
         )}
       </Field>
-      <Field label="SEND needs">
+      <Field label="SEND needs" copy={child?.sendNeeds}>
         {childField(
           'SEND needs',
           'sendNeeds',
@@ -196,23 +247,23 @@ export function DetailPanel({
 
       {showSecondary && (
         <div className="mt-2 space-y-1">
-          <Field label="Email">
+          <Field label="Email" copy={client?.email}>
             {clientField('Email', 'email', client?.email ?? null)}
           </Field>
-          <Field label="Phone">
+          <Field label="Phone" copy={client?.phone}>
             {clientField('Phone', 'phone', client?.phone ?? null)}
           </Field>
-          <Field label="Mobile">
+          <Field label="Mobile" copy={client?.mobile}>
             {clientField('Mobile', 'mobile', client?.mobile ?? null)}
           </Field>
-          <Field label="Other contact">
+          <Field label="Other contact" copy={client?.otherContact}>
             {clientField(
               'Other contact',
               'otherContact',
               client?.otherContact ?? null,
             )}
           </Field>
-          <Field label="Address">
+          <Field label="Address" copy={client?.streetAddress}>
             {clientField(
               'Street address',
               'streetAddress',
@@ -220,14 +271,14 @@ export function DetailPanel({
             )}
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="City">
+            <Field label="City" copy={client?.city}>
               {clientField('City', 'city', client?.city ?? null)}
             </Field>
-            <Field label="Postcode">
+            <Field label="Postcode" copy={client?.postcode}>
               {clientField('Postcode', 'postcode', client?.postcode ?? null)}
             </Field>
           </div>
-          <Field label="County">
+          <Field label="County" copy={client?.county}>
             {clientField('County', 'county', client?.county ?? null)}
           </Field>
           <Field label="Team">
@@ -263,7 +314,7 @@ export function DetailPanel({
               opts(CONSULTATION_STATE_VALUES),
             )}
           </Field>
-          <Field label="Support level">
+          <Field label="Support level" copy={detail.supportLevel}>
             {caseField('Support level', 'supportLevel', detail.supportLevel)}
           </Field>
         </div>
