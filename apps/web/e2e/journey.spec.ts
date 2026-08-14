@@ -70,8 +70,8 @@ function directionsStub(documentReference: string) {
           class: 'new',
           existingKeyDateId: null,
           oldValue: null,
-          newValue: { date: inDays(40), time: '10:00', title: 'Final hearing' },
-          type: 'hearing',
+          newValue: { date: inDays(40), time: '10:00', title: 'Final Hearing' },
+          category: 'Final Hearing',
           party: 'tribunal',
           obligation: `The final hearing is relisted (${documentReference}).`,
           rawDateText: 'relisted',
@@ -88,9 +88,9 @@ function directionsStub(documentReference: string) {
           newValue: {
             date: inDays(20),
             time: '16:00',
-            title: 'Evidence deadline',
+            title: 'Final Evidence Deadline',
           },
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           party: 'appellant',
           obligation:
             'The appellant shall file evidence 15 working days before the hearing.',

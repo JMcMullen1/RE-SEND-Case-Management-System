@@ -65,7 +65,7 @@ const review = {
         existingKeyDateId: null,
         oldValue: null,
         newValue: { date: '2026-06-08', time: '10:00', title: 'Hearing' },
-        type: 'hearing',
+        category: 'Final Hearing',
         party: 'tribunal',
         obligation: 'The final hearing is listed for 8 June 2026 at 10am.',
         rawDateText: '8 June 2026',
@@ -88,7 +88,7 @@ const review = {
           time: '16:00',
           title: 'Evidence deadline',
         },
-        type: 'evidence_deadline',
+        category: 'Final Evidence Deadline',
         party: 'appellant',
         obligation:
           'The appellant shall file evidence no later than 4pm 10 working days before the hearing.',
