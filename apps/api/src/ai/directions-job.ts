@@ -23,15 +23,17 @@ Also return orderDate: the date the order itself was made, as YYYY-MM-DD, or nul
 Extract only what the order states. Never invent a date. If a deadline is relative and you cannot find the date it is relative to, still return the obligation with your best deadlineDate and a lower confidence — the deadline is recomputed downstream from rawDateText.`;
 
 /**
- * The directions-extraction job. Claude Sonnet 5 — parsing legal directions and
- * getting the timetable right is worth the stronger model; the choice is per-job
- * config so it can move on evidence. The output is structurally guaranteed by
- * the shared schema (a forced tool call), and relative deadlines are recomputed
- * downstream with the working-day utility rather than trusted from the model.
+ * The directions-extraction job. Claude Haiku 4.5 — the same model the intake
+ * extraction runs on, so it works on any key that can already run the query
+ * form. The output is structurally guaranteed by the shared schema (a forced
+ * tool call), and relative deadlines are recomputed downstream with the
+ * working-day utility rather than trusted from the model, so the heavy lifting
+ * does not rest on the model's arithmetic. Model choice is per-job config, so
+ * it can move to a stronger model later without touching this pipeline.
  */
 export const extractDirectionsJob = defineAiJob({
   name: EXTRACT_DIRECTIONS_JOB,
-  model: 'claude-sonnet-5',
+  model: 'claude-haiku-4-5',
   outputSchema: ExtractDirectionsOutputSchema,
   systemPrompt: SYSTEM_PROMPT,
   toolDescription:
