@@ -7,7 +7,7 @@ import {
   type Status,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
-import { UnassignedChip } from '../caselist/primitives';
+import { CaretDown, UnassignedChip } from '../caselist/primitives';
 import type { useCaseMutations } from '../../hooks/useCaseScreen';
 
 type Mutations = ReturnType<typeof useCaseMutations>;
@@ -96,6 +96,11 @@ function Reassign({
     onReassign(target);
   };
 
+  // Staff, A–Z by name (the API sorts too; this keeps it correct regardless).
+  const sortedUsers = [...users].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -103,13 +108,16 @@ function Reassign({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        className="inline-flex max-w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       >
         {detail.owner.kind === 'user' ? (
-          <span className="text-resend-ink">{detail.owner.displayName}</span>
+          <span className="truncate text-resend-ink">
+            {detail.owner.displayName}
+          </span>
         ) : (
           <UnassignedChip queue={detail.owner.queue ?? 'Enquiries'} />
         )}
+        <CaretDown />
       </button>
       {open && (
         <div
@@ -119,7 +127,7 @@ function Reassign({
           <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-gray-400">
             Assign to
           </p>
-          {users.map((u) => (
+          {sortedUsers.map((u) => (
             <button
               key={u.id}
               type="button"

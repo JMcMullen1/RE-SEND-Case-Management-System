@@ -47,6 +47,26 @@ export function UnassignedChip({ queue }: { queue: string }) {
   );
 }
 
+/** A small downward caret marking a control as an opener for a dropdown menu. */
+export function CaretDown() {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className="h-3 w-3 shrink-0 text-gray-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        d="M3 4.5 6 7.5 9 4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function Chevron({ open }: { open: boolean }) {
   return (
     <svg

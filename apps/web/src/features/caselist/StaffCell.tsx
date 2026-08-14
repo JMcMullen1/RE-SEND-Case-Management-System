@@ -5,7 +5,7 @@ import {
   type OwnerQueue,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
-import { UnassignedChip } from './primitives';
+import { CaretDown, UnassignedChip } from './primitives';
 
 type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 
@@ -44,20 +44,31 @@ export function StaffCell({
     onReassign(target);
   };
 
+  // Staff, A–Z by name. The API already returns them sorted; this keeps the
+  // order correct regardless of source.
+  const sortedUsers = [...users].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
+
   return (
     <div ref={ref} className="relative">
+      {/* Looks and behaves like the owner control inside a case: a bordered,
+          clearly-clickable button that opens the staff list. */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="rounded px-1 py-0.5 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        className="inline-flex max-w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       >
         {row.owner.kind === 'user' ? (
-          <span className="text-resend-ink">{row.owner.displayName}</span>
+          <span className="truncate text-resend-ink">
+            {row.owner.displayName}
+          </span>
         ) : (
           <UnassignedChip queue={row.owner.queue} />
         )}
+        <CaretDown />
       </button>
 
       {open && (
@@ -68,7 +79,7 @@ export function StaffCell({
           <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-gray-400">
             Assign to
           </p>
-          {users.map((u) => (
+          {sortedUsers.map((u) => (
             <button
               key={u.id}
               type="button"
