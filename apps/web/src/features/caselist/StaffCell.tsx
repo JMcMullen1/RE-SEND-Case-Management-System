@@ -6,7 +6,7 @@ import {
   type OwnerQueue,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
-import { CaretDown, UnassignedChip } from './primitives';
+import { UnassignedChip } from './primitives';
 
 type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 
@@ -92,24 +92,20 @@ export function StaffCell({
 
   return (
     <>
-      {/* Looks and behaves like the owner control inside a case: a bordered,
-          clearly-clickable button that opens the staff list. */}
+      {/* A plain, un-boxed name that opens the staff list on click. */}
       <button
         ref={buttonRef}
         type="button"
         onClick={() => (open ? setPos(null) : openMenu())}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex max-w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        className="max-w-full truncate rounded px-1 py-0.5 text-left text-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       >
         {row.owner.kind === 'user' ? (
-          <span className="truncate text-resend-ink">
-            {row.owner.displayName}
-          </span>
+          <span className="text-resend-ink">{row.owner.displayName}</span>
         ) : (
           <UnassignedChip queue={row.owner.queue} />
         )}
-        <CaretDown />
       </button>
 
       {open &&
