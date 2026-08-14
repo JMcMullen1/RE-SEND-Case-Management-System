@@ -62,35 +62,7 @@ export async function runIntakeExtraction(
   );
 
   const storageId = randomUUID();
-  // Normally the labelled text is enough (and far cheaper than page images).
-  // But when a PDF yields little or no text — a scanned form, or an upload
-  // whose content-type stopped the text extractor — hand Claude the PDF itself
-  // so the form still reads, rather than sending it near-empty text.
-  let jobInput: AiJobInput;
-  if (
-    looksLikePdf(input.mimeType, input.filename) &&
-    text.trim().length < MIN_USEFUL_PDF_TEXT
-  ) {
-    const blocks: Anthropic.ContentBlockParam[] = [
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: PDF_MIME,
-          data: input.bytes.toString('base64'),
-        },
-        title: input.filename,
-      },
-    ];
-    jobInput = blocks;
-  } else {
-    jobInput = singleDocumentCorpus({
-      id: storageId,
-      title: input.filename,
-      date: today,
-      text,
-    }).serialised;
-  }
+  const jobInput = buildIntakeJobInput(input, { storageId, today, text });
 
   const extraction = await runAiJob(
     extractIntakeJob,
@@ -115,6 +87,49 @@ export async function runIntakeExtraction(
   };
 
   return mapExtraction(extraction.output, { source: input.source, today, ref });
+}
+
+/**
+ * Assemble the user turn for extract_intake.
+ *
+ * For a PDF, hand Claude the PDF itself, not only the flattened text. A query
+ * form is full of radio-button / checkbox questions whose SELECTED option is
+ * shown visually (a filled button, a highlight); extraction flattens every
+ * option to plain text and loses which one was chosen, so a text-only read gets
+ * the free-text fields right but mis-reads the choices. The extracted text
+ * rides alongside when it is substantial, for exact spellings of names, emails
+ * and addresses. Non-PDF formats (HTML, .eml, text) carry no such visual state
+ * and are read as text.
+ */
+export function buildIntakeJobInput(
+  input: Pick<IntakeInput, 'mimeType' | 'filename' | 'bytes'>,
+  opts: { storageId: string; today: string; text: string },
+): AiJobInput {
+  const corpusText = () =>
+    singleDocumentCorpus({
+      id: opts.storageId,
+      title: input.filename,
+      date: opts.today,
+      text: opts.text,
+    }).serialised;
+
+  if (!looksLikePdf(input.mimeType, input.filename)) return corpusText();
+
+  const blocks: Anthropic.ContentBlockParam[] = [
+    {
+      type: 'document',
+      source: {
+        type: 'base64',
+        media_type: PDF_MIME,
+        data: input.bytes.toString('base64'),
+      },
+      title: input.filename,
+    },
+  ];
+  if (opts.text.trim().length >= MIN_USEFUL_PDF_TEXT) {
+    blocks.push({ type: 'text', text: corpusText() });
+  }
+  return blocks;
 }
 
 // --- Text extraction for the intake formats ---------------------------------

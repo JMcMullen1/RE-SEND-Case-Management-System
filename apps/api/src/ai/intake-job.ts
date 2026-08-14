@@ -102,10 +102,11 @@ export const IntakeExtractionSchema = z.object({
 
 export type IntakeExtraction = z.infer<typeof IntakeExtractionSchema>;
 
-const SYSTEM_PROMPT = `You extract structured intake details from a single SEND advice-and-advocacy enquiry — a JotForm query-form submission or a plain enquiry email. The text is provided as a corpus item.
+const SYSTEM_PROMPT = `You extract structured intake details from a single SEND advice-and-advocacy enquiry — a JotForm query-form submission or a plain enquiry email. A PDF form is provided as a document to read directly; its extracted text may also be provided alongside for exact spellings.
 
 Rules:
 - For every field, either return a value with a confidence from 0 to 1, or return value null with a short reason (for example "not present in the form"). NEVER guess — if a field is not clearly stated, return null with a reason.
+- Many questions are multiple-choice (radio buttons or checkboxes). The answer is ONLY the option the applicant actually selected — shown in the PDF by a filled/ticked control or a highlighted choice. Do not treat the mere presence of an option in the list as a selection; if you cannot tell which option was chosen, return null with a reason rather than guessing. Read selections from the PDF's visual state, not from the flattened text, which lists every option unmarked.
 - Dates must be ISO YYYY-MM-DD. If only a partial date is given, return null with a reason.
 - For fields with an allowed set of values, choose the closest allowed value; if none fits, return null with a reason.
 - Consents are booleans: true only where the person has clearly agreed (a ticked box, "I agree", "yes"). If a consent is not addressed, return null with a reason — do not assume false.
