@@ -34,14 +34,17 @@ async function extractRaw(
   mimeType: string,
   bytes: Buffer,
 ): Promise<string | null> {
-  if (mimeType === 'application/pdf') return extractPdf(bytes);
-  if (mimeType === DOCX_MIME) return extractDocx(bytes);
+  // Normalise: strip any `; charset=…` suffix and l-case, so `application/pdf`
+  // still matches when the browser tags the upload `application/pdf; …`.
+  const type = mimeType.split(';')[0]!.trim().toLowerCase();
+  if (type === 'application/pdf') return extractPdf(bytes);
+  if (type === DOCX_MIME) return extractDocx(bytes);
   if (isPlainText(mimeType)) return bytes.toString('utf8');
   return null;
 }
 
 function isPlainText(mimeType: string): boolean {
-  const type = mimeType.split(';')[0]!.trim();
+  const type = mimeType.split(';')[0]!.trim().toLowerCase();
   return (
     type === 'text/plain' ||
     type === 'text/markdown' ||

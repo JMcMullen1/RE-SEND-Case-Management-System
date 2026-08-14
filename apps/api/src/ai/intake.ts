@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type Anthropic from '@anthropic-ai/sdk';
 import {
   londonToday,
   type IntakeRef,
@@ -8,7 +9,24 @@ import { singleDocumentCorpus } from '../corpus/case-corpus';
 import { extractText } from '../documents/extract';
 import { getStorageProvider, type StorageProvider } from '../storage';
 import { extractIntakeJob, mapExtraction } from './intake-job';
-import { runAiJob, type RunDeps } from './run';
+import { runAiJob, type AiJobInput, type RunDeps } from './run';
+
+const PDF_MIME = 'application/pdf';
+
+/**
+ * Below this many characters of extracted text we treat a PDF's text layer as
+ * unusable (a scanned form, or an upload whose content-type stopped the text
+ * extractor running) and hand Claude the PDF itself instead. A real query form
+ * is a few thousand characters, so this only trips on genuine failures.
+ */
+const MIN_USEFUL_PDF_TEXT = 200;
+
+function looksLikePdf(mimeType: string, filename: string): boolean {
+  return (
+    mimeType.split(';')[0]!.trim().toLowerCase() === PDF_MIME ||
+    filename.toLowerCase().endsWith('.pdf')
+  );
+}
 
 export interface IntakeInput {
   bytes: Buffer;
@@ -44,16 +62,39 @@ export async function runIntakeExtraction(
   );
 
   const storageId = randomUUID();
-  const corpus = singleDocumentCorpus({
-    id: storageId,
-    title: input.filename,
-    date: today,
-    text,
-  });
+  // Normally the labelled text is enough (and far cheaper than page images).
+  // But when a PDF yields little or no text — a scanned form, or an upload
+  // whose content-type stopped the text extractor — hand Claude the PDF itself
+  // so the form still reads, rather than sending it near-empty text.
+  let jobInput: AiJobInput;
+  if (
+    looksLikePdf(input.mimeType, input.filename) &&
+    text.trim().length < MIN_USEFUL_PDF_TEXT
+  ) {
+    const blocks: Anthropic.ContentBlockParam[] = [
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: PDF_MIME,
+          data: input.bytes.toString('base64'),
+        },
+        title: input.filename,
+      },
+    ];
+    jobInput = blocks;
+  } else {
+    jobInput = singleDocumentCorpus({
+      id: storageId,
+      title: input.filename,
+      date: today,
+      text,
+    }).serialised;
+  }
 
   const extraction = await runAiJob(
     extractIntakeJob,
-    corpus.serialised,
+    jobInput,
     deps.jobOverrides,
   );
 
@@ -100,7 +141,11 @@ export async function extractIntakeText(
 
   const out = await extractText(mimeType, bytes);
   if (out.text) return out.text;
-  // Fall back to treating unknown types as UTF-8 text (e.g. a pasted body).
+  // A PDF or DOCX whose extraction failed must NOT be decoded as UTF-8 — that
+  // yields binary noise, not text. Return empty so the caller falls back to
+  // handing Claude the file itself (for a PDF) rather than reading garbage.
+  if (looksLikePdf(mimeType, name) || name.endsWith('.docx')) return '';
+  // Anything else (an unknown but text-like body) is treated as UTF-8 text.
   return bytes.toString('utf8');
 }
 

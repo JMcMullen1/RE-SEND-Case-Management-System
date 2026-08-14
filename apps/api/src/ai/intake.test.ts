@@ -253,4 +253,72 @@ describe('runIntakeExtraction', () => {
     expect(puts[0]!.key).toMatch(/^intake\//);
     expect(result.ref.storageKey).toBe(puts[0]!.key);
   });
+
+  it('hands Claude the PDF itself when a PDF yields no extractable text', async () => {
+    const storage = {
+      put: async () => {},
+      get: async () => null,
+      delete: async () => {},
+      getSignedUrl: async () => '',
+      exists: async () => false,
+    } as unknown as StorageProvider;
+
+    const create = vi.fn().mockResolvedValue({
+      id: 'm',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-haiku-4-5',
+      stop_reason: 'tool_use',
+      content: [
+        {
+          type: 'tool_use',
+          id: 't1',
+          name: 'record_extract_intake',
+          input: baseExtraction(),
+        },
+      ],
+      usage: {
+        input_tokens: 300,
+        output_tokens: 50,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      },
+    });
+    const client = {
+      messages: { create },
+    } as unknown as MessagesClient;
+
+    // A "scanned" PDF: valid %PDF header, no text layer the extractor can read.
+    const scanned = Buffer.concat([
+      Buffer.from('%PDF-1.4\n', 'utf8'),
+      Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04]),
+    ]);
+
+    await runIntakeExtraction(
+      {
+        bytes: scanned,
+        filename: 'reSENDQueryForm.pdf',
+        mimeType: 'application/pdf',
+        source: 'form',
+      },
+      {
+        storage,
+        today: '2026-01-15',
+        jobOverrides: {
+          client,
+          record: async () => {},
+          getFlag: async () => null,
+          globalEnabled: true,
+        },
+      },
+    );
+
+    const content = create.mock.calls[0]![0].messages[0].content as unknown[];
+    expect(Array.isArray(content)).toBe(true);
+    const doc = (content as { type: string }[]).find(
+      (b) => b.type === 'document',
+    ) as { source: { media_type: string; type: string } } | undefined;
+    expect(doc?.source.media_type).toBe('application/pdf');
+    expect(doc?.source.type).toBe('base64');
+  });
 });
