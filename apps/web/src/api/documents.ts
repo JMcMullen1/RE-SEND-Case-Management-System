@@ -68,6 +68,20 @@ export function fetchDocumentVersions(
   return request(`/api/documents/${documentId}/versions`);
 }
 
+/**
+ * Soft-delete one or more documents on a case (every version of each). Returns
+ * how many version rows were removed.
+ */
+export function deleteDocuments(
+  caseId: string,
+  ids: string[],
+): Promise<{ deleted: number }> {
+  return request(`/api/cases/${caseId}/documents`, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export function documentContentUrl(id: string, download = false): string {
   return `/api/documents/${id}/content${download ? '?download=1' : ''}`;
 }

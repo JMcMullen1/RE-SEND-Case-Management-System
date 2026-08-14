@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import {
   createDocument,
+  deleteDocuments,
   listDocumentVersions,
   listDocuments,
 } from '../repositories/documents';
@@ -84,6 +85,48 @@ run('documents: dedup + versioning', () => {
     const versions = await listDocumentVersions(second.document.id);
     expect(versions).toHaveLength(2);
     expect(versions.filter((v) => v.isCurrent)).toHaveLength(1);
+  });
+
+  it('soft-deletes a document and every version, scoped to the case', async () => {
+    const filename = `to-delete-${Date.now()}.txt`;
+    // Two versions → one logical document, a version chain of two rows.
+    await createDocument(
+      caseId,
+      {
+        filename,
+        mimeType: 'text/plain',
+        bytes: Buffer.from('v1', 'utf8'),
+        category: 'Working Document',
+      },
+      userId,
+    );
+    const v2 = await createDocument(
+      caseId,
+      {
+        filename,
+        mimeType: 'text/plain',
+        bytes: Buffer.from('v2', 'utf8'),
+        category: 'Working Document',
+      },
+      userId,
+    );
+
+    // Deleting by the current-version id removes both rows in the group.
+    const result = await deleteDocuments(caseId, [v2.document.id], userId);
+    expect(result.deleted).toBe(2);
+
+    // It disappears from the list and its history is gone.
+    const listed = await listDocuments(caseId);
+    expect(listed.some((d) => d.originalFilename === filename)).toBe(false);
+    expect(await listDocumentVersions(v2.document.id)).toHaveLength(0);
+
+    // An id belonging to another case cannot be deleted through this case.
+    const otherCaseDelete = await deleteDocuments(
+      '00000000-0000-0000-0000-000000000000',
+      [v2.document.id],
+      userId,
+    );
+    expect(otherCaseDelete.deleted).toBe(0);
   });
 });
 

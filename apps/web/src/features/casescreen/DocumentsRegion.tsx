@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DEFAULT_DOCUMENT_FOLDERS,
   formatCivilDate,
@@ -9,6 +9,7 @@ import {
   type DocumentUploadOutcome,
 } from '@re-send/shared';
 import {
+  deleteDocuments,
   documentContentUrl,
   fetchDocumentVersions,
   uploadDocument,
@@ -46,7 +47,31 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
   const [preview, setPreview] = useState<DocumentInfo | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Files ticked for deletion, and the batch awaiting the confirm dialog.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const del = useMutation({
+    mutationFn: (ids: string[]) => deleteDocuments(caseId, ids),
+    onSuccess: async (_res, ids) => {
+      await qc.invalidateQueries({ queryKey: ['documents', caseId] });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.delete(id);
+        return next;
+      });
+      setPendingDelete(null);
+    },
+  });
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Folders offered: the common defaults, any folder already in use on this
   // case, and any the user has just created — de-duplicated, order preserved.
@@ -210,38 +235,88 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
         </p>
       )}
 
+      {visible.length > 0 && (
+        <div className="mb-1 flex items-center gap-3 text-xs text-gray-500">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={visible.every((d) => selected.has(d.id))}
+              ref={(el) => {
+                if (el)
+                  el.indeterminate =
+                    visible.some((d) => selected.has(d.id)) &&
+                    !visible.every((d) => selected.has(d.id));
+              }}
+              onChange={(e) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  for (const d of visible)
+                    if (e.target.checked) next.add(d.id);
+                    else next.delete(d.id);
+                  return next;
+                })
+              }
+              aria-label="Select all files"
+              className="h-3.5 w-3.5 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+            />
+            Select all
+          </label>
+          {selected.size > 0 && (
+            <>
+              <span>{selected.size} selected</span>
+              <button
+                type="button"
+                onClick={() => setPendingDelete([...selected])}
+                className="font-medium text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+              >
+                Delete selected
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-auto">
         {visible.map((doc) => (
           <li key={doc.id} className="py-2">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-resend-ink">
-                  {doc.originalFilename}
-                  {doc.versionCount > 1 && (
-                    <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-600">
-                      v{doc.version}
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {doc.category} · {doc.uploadedByName ?? 'Unknown'} ·{' '}
-                  {formatCivilDate(doc.uploadedAt.slice(0, 10))} ·{' '}
-                  {formatFileSize(doc.byteSize)}
-                  {doc.versionCount > 1 && (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setHistoryFor((h) => (h === doc.id ? null : doc.id))
-                        }
-                        className="text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-                      >
-                        {doc.versionCount} versions
-                      </button>
-                    </>
-                  )}
-                </p>
+              <div className="flex min-w-0 items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.has(doc.id)}
+                  onChange={() => toggleOne(doc.id)}
+                  aria-label={`Select ${doc.originalFilename}`}
+                  className="mt-1 h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-resend-ink">
+                    {doc.originalFilename}
+                    {doc.versionCount > 1 && (
+                      <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-600">
+                        v{doc.version}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {doc.category} · {doc.uploadedByName ?? 'Unknown'} ·{' '}
+                    {formatCivilDate(doc.uploadedAt.slice(0, 10))} ·{' '}
+                    {formatFileSize(doc.byteSize)}
+                    {doc.versionCount > 1 && (
+                      <>
+                        {' · '}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHistoryFor((h) => (h === doc.id ? null : doc.id))
+                          }
+                          className="text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                        >
+                          {doc.versionCount} versions
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
               <div className="flex shrink-0 gap-2 text-sm">
                 {isPreviewable(doc.mimeType) && (
@@ -259,6 +334,13 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
                 >
                   Download
                 </a>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete([doc.id])}
+                  className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                >
+                  Delete
+                </button>
               </div>
             </div>
             {historyFor === doc.id && <VersionHistory documentId={doc.id} />}
@@ -302,6 +384,80 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
       {preview && (
         <PreviewModal doc={preview} onClose={() => setPreview(null)} />
       )}
+
+      {pendingDelete && (
+        <ConfirmDeleteDialog
+          count={pendingDelete.length}
+          busy={del.isPending}
+          error={del.isError ? 'Could not delete. Please try again.' : null}
+          onCancel={() => {
+            del.reset();
+            setPendingDelete(null);
+          }}
+          onConfirm={() => del.mutate(pendingDelete)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The "are you sure?" gate before a document is deleted. Deletion is a real,
+ * if recoverable, action on case files, so it always takes a second, deliberate
+ * click here — never a single stray click on the list.
+ */
+function ConfirmDeleteDialog({
+  count,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  count: number;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const noun = count === 1 ? 'file' : 'files';
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-title"
+    >
+      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-lg">
+        <h2
+          id="confirm-delete-title"
+          className="text-base font-semibold text-resend-ink"
+        >
+          Delete {count} {noun}?
+        </h2>
+        <p className="mt-2 text-sm text-gray-600">
+          {count === 1 ? 'This file' : `These ${count} files`} and every version
+          will be removed from this case. It is recoverable by an administrator
+          and the deletion is recorded.
+        </p>
+        {error && <p className="mt-2 text-sm text-status-amber">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="rounded-md bg-status-amber px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber disabled:opacity-50"
+          >
+            {busy ? 'Deleting…' : `Yes, delete ${noun}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

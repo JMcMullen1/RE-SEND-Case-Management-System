@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { DocumentCategorySchema, isPreviewable } from '@re-send/shared';
 import {
   createDocument,
+  deleteDocuments,
   getDocumentContent,
   listDocumentVersions,
 } from '../repositories/documents';
@@ -53,6 +54,27 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
         current?.id ?? null,
       );
       return result;
+    },
+  );
+
+  // Soft-delete one or more documents (every version of each) on a case. The
+  // ids are the current-version ids the list shows; the delete is audited.
+  app.delete(
+    '/api/cases/:id/documents',
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ ids: z.array(z.string().uuid()).min(1) }),
+        response: { 200: z.object({ deleted: z.number().int() }) },
+      },
+    },
+    async (request) => {
+      const current = await resolveActingUser(request);
+      return deleteDocuments(
+        request.params.id,
+        request.body.ids,
+        current?.id ?? null,
+      );
     },
   );
 

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type {
   DocumentCategory,
   DocumentInfo,
@@ -15,6 +15,70 @@ import { recordAudit } from './audit';
 export interface UploadResult {
   document: DocumentInfo;
   outcome: DocumentUploadOutcome;
+}
+
+/**
+ * Soft-delete one or more documents on a case.
+ *
+ * A "document" the user sees is a version chain; deleting it removes the whole
+ * group (every version), not just the current one. The delete is soft — the
+ * rows keep their `deleted_at` stamp and the bytes remain in storage, so an
+ * administrator can recover a document filed in error — and each deleted group
+ * is audited. Only documents on the named case are touched, so an id from
+ * another case cannot be deleted through this path. Returns the number of
+ * version rows soft-deleted.
+ */
+export async function deleteDocuments(
+  caseId: string,
+  ids: string[],
+  actor: string | null,
+): Promise<{ deleted: number }> {
+  if (ids.length === 0) return { deleted: 0 };
+  const db = getDb();
+
+  // Resolve the selected rows to their groups (scoped to this case), so a
+  // deletion takes every version of each selected document with it.
+  const selected = await db
+    .select({ id: documents.id, groupId: documents.documentGroupId })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.caseId, caseId),
+        inArray(documents.id, ids),
+        isNull(documents.deletedAt),
+      ),
+    );
+  if (selected.length === 0) return { deleted: 0 };
+
+  const groupIds = [...new Set(selected.map((r) => r.groupId ?? r.id))];
+  const now = new Date();
+
+  const removed = await db
+    .update(documents)
+    .set({ deletedAt: now })
+    .where(
+      and(
+        eq(documents.caseId, caseId),
+        isNull(documents.deletedAt),
+        or(
+          inArray(documents.documentGroupId, groupIds),
+          inArray(documents.id, groupIds),
+        ),
+      ),
+    )
+    .returning({ id: documents.id });
+
+  for (const row of selected) {
+    await recordAudit(db, {
+      actorUserId: actor,
+      action: 'document.delete',
+      entityType: 'document',
+      entityId: row.id,
+      before: { caseId },
+    });
+  }
+
+  return { deleted: removed.length };
 }
 
 /**
