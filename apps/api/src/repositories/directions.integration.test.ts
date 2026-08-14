@@ -47,7 +47,7 @@ run(
         {
           obligation: 'The final hearing is listed for 18 June 2026.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           title: 'Final hearing',
           date: '2026-06-18',
           time: '10:00',
@@ -62,7 +62,7 @@ run(
           obligation:
             'The appellant shall file and serve evidence within 14 days of the date of this order.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           title: 'Evidence deadline',
           date: '2026-05-01',
           time: '16:00',
@@ -105,7 +105,7 @@ run(
           obligation:
             'The appellant shall file and serve evidence within 21 days of the date of this order.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           title: 'Evidence deadline',
           date: '2026-05-15',
           time: '16:00',
@@ -119,7 +119,7 @@ run(
         {
           obligation: 'The hearing listed for 18 June 2026 is vacated.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           title: 'Final hearing',
           date: null,
           time: null,

@@ -181,6 +181,45 @@ export const KEY_DATE_TYPE_COLOR_VAR: Record<KeyDateType, string> = {
   other: 'var(--kd-other)',
 };
 
+// --- Directions categories --------------------------------------------------
+/**
+ * The timetable items a SEND First-tier Tribunal directions order sets. These
+ * are the categories the directions reader classifies each dated obligation
+ * into, and the options offered in the review drop-down — the order's own
+ * language, not the generic key-date types. `Other` is the catch-all for a
+ * dated obligation that is none of the standard six, so nothing is dropped or
+ * mislabelled.
+ */
+export const DIRECTIONS_CATEGORY_VALUES = [
+  'LA response to the Appeal',
+  'Final Evidence Deadline',
+  'Case Review Form',
+  'Final Tribunal Bundle',
+  'Case Management Review',
+  'Final Hearing',
+  'Other',
+] as const;
+export type DirectionsCategory = (typeof DIRECTIONS_CATEGORY_VALUES)[number];
+export const DirectionsCategorySchema = z.enum(DIRECTIONS_CATEGORY_VALUES);
+
+/**
+ * Each directions category shown on the calendar in the colour of a key-date
+ * type. The category is the label staff see; this only decides its colour, so a
+ * directions date sits alongside manually-added key dates coherently.
+ */
+export const DIRECTIONS_CATEGORY_KEY_DATE_TYPE: Record<
+  DirectionsCategory,
+  KeyDateType
+> = {
+  'LA response to the Appeal': 'evidence_deadline',
+  'Final Evidence Deadline': 'evidence_deadline',
+  'Case Review Form': 'working_document',
+  'Final Tribunal Bundle': 'working_document',
+  'Case Management Review': 'hearing',
+  'Final Hearing': 'hearing',
+  Other: 'other',
+};
+
 // --- Document folders -------------------------------------------------------
 /**
  * Common starting folders that documents are filed under. NOT a fixed set:

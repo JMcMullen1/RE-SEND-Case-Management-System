@@ -79,7 +79,7 @@ run('directions extraction pipeline', () => {
         {
           obligation: 'The final hearing is listed for 8 June 2026 at 10am.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           deadlineDate: '2026-06-08',
           deadlineTime: '10:00',
           rawDateText: '8 June 2026',
@@ -92,7 +92,7 @@ run('directions extraction pipeline', () => {
           obligation:
             'The appellant shall file evidence no later than 4pm 10 working days before the hearing.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           deadlineDate: '2026-05-25',
           deadlineTime: null,
           rawDateText: 'no later than 4pm 10 working days before the hearing',
@@ -125,7 +125,7 @@ run('directions extraction pipeline', () => {
     // The working-day deadline is resolved authoritatively (over the Spring
     // bank holiday), and the explanation is carried into the review.
     const evidenceRow = review1.rows.find(
-      (r) => r.type === 'evidence_deadline',
+      (r) => r.category === 'Final Evidence Deadline',
     )!;
     expect(evidenceRow.newValue!.date).toBe('2026-05-22');
     expect(evidenceRow.newValue!.time).toBe('16:00');
@@ -172,7 +172,7 @@ run('directions extraction pipeline', () => {
           obligation:
             'The appellant shall file evidence within 21 days of the date of this order.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           deadlineDate: '2026-05-01',
           deadlineTime: '16:00',
           rawDateText: 'within 21 days of the date of this order',
@@ -184,7 +184,7 @@ run('directions extraction pipeline', () => {
         {
           obligation: 'The hearing listed for 8 June 2026 is vacated.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           deadlineDate: null,
           deadlineTime: null,
           rawDateText: 'vacated',

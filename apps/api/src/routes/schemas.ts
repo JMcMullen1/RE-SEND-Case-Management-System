@@ -18,6 +18,7 @@ import {
   WorkTypeSchema,
   KeyDateTypeSchema,
   DirectionPartySchema,
+  DirectionsCategorySchema,
 } from '@re-send/shared';
 
 /** Mirrors the shared CaseFilters type; validates every facet value. */
@@ -310,7 +311,7 @@ export const DirectionDiffRowSchema = z.object({
   existingKeyDateId: z.string().nullable(),
   oldValue: DirectionValueSchema.nullable(),
   newValue: DirectionValueSchema.nullable(),
-  type: KeyDateTypeSchema,
+  category: DirectionsCategorySchema,
   party: DirectionPartySchema,
   obligation: z.string(),
   rawDateText: z.string(),
@@ -351,6 +352,7 @@ export const DirectionApplyRowSchema = z.object({
   date: z.string().nullable(),
   time: z.string().nullable(),
   title: z.string(),
+  category: DirectionsCategorySchema,
   type: KeyDateTypeSchema,
   obligation: z.string(),
   sourceReference: z.string().nullable(),

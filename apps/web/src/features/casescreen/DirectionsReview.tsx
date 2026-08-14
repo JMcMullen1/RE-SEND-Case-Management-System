@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import {
+  DIRECTIONS_CATEGORY_VALUES,
   DIRECTIONS_LOW_CONFIDENCE,
-  KEY_DATE_TYPE_VALUES,
   diffRowToApplyRow,
+  keyDateTypeForCategory,
   type DirectionApplyRow,
   type DirectionDiffRow,
+  type DirectionsCategory,
   type DirectionsReview as Review,
-  type KeyDateType,
 } from '@re-send/shared';
 
 /** Editable overlay a caseworker can change before applying a row. */
@@ -14,8 +15,7 @@ interface RowEdit {
   include: boolean;
   date: string;
   time: string;
-  title: string;
-  type: KeyDateType;
+  category: DirectionsCategory;
 }
 
 const CLASS_LABEL: Record<DirectionDiffRow['class'], string> = {
@@ -37,9 +37,21 @@ function initialEdit(row: DirectionDiffRow): RowEdit {
     include: row.include,
     date: row.newValue?.date ?? '',
     time: row.newValue?.time ?? '',
-    title: row.newValue?.title ?? row.oldValue?.title ?? '',
-    type: row.type,
+    category: row.category,
   };
+}
+
+/**
+ * The label stored for a row: the category itself for the standard six, so a
+ * later order's same-category date pairs with it; the obligation-derived title
+ * for "Other", which has no standard label.
+ */
+function titleForRow(
+  row: DirectionDiffRow,
+  category: DirectionsCategory,
+): string {
+  if (category !== 'Other') return category;
+  return row.newValue?.title ?? row.oldValue?.title ?? row.obligation;
 }
 
 /**
@@ -78,8 +90,10 @@ export function DirectionsReview({
         // A removal carries no date; everything else uses the edited values.
         date: row.class === 'superseded' ? null : e.date || null,
         time: row.class === 'superseded' ? null : e.time || null,
-        title: e.title,
-        type: e.type,
+        // The category drives the stored label and the calendar-colour type.
+        category: e.category,
+        title: titleForRow(row, e.category),
+        type: keyDateTypeForCategory(e.category),
         confidence: row.confidence,
       };
     });
@@ -181,7 +195,7 @@ function RowCard({
           type="checkbox"
           checked={edit.include}
           onChange={(e) => onChange({ include: e.target.checked })}
-          aria-label={`Include ${row.type}`}
+          aria-label={`Include ${row.category}`}
           className="mt-1 h-4 w-4 accent-resend-purple"
         />
         <div className="min-w-0 flex-1">
@@ -229,12 +243,22 @@ function RowCard({
                 </p>
               ) : (
                 <div className="space-y-1.5">
-                  <input
-                    value={edit.title}
-                    onChange={(e) => onChange({ title: e.target.value })}
-                    aria-label="Title"
+                  <select
+                    value={edit.category}
+                    onChange={(e) =>
+                      onChange({
+                        category: e.target.value as DirectionsCategory,
+                      })
+                    }
+                    aria-label="Category"
                     className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-                  />
+                  >
+                    {DIRECTIONS_CATEGORY_VALUES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                   <div className="flex gap-1.5">
                     <input
                       type="date"
@@ -250,20 +274,6 @@ function RowCard({
                       aria-label="Time"
                       className="rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
                     />
-                    <select
-                      value={edit.type}
-                      onChange={(e) =>
-                        onChange({ type: e.target.value as KeyDateType })
-                      }
-                      aria-label="Type"
-                      className="rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-                    >
-                      {KEY_DATE_TYPE_VALUES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               )}

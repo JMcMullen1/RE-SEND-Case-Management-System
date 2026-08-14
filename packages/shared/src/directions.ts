@@ -12,7 +12,12 @@
 
 import { z } from 'zod';
 import type { KeyDateFull } from './case-detail';
-import { KEY_DATE_TYPE_VALUES, type KeyDateType } from './config';
+import {
+  DIRECTIONS_CATEGORY_KEY_DATE_TYPE,
+  DIRECTIONS_CATEGORY_VALUES,
+  type DirectionsCategory,
+  type KeyDateType,
+} from './config';
 import {
   parseDeadlineExpression,
   resolveDeadline,
@@ -55,11 +60,20 @@ export const ExtractedDirectionSchema = z.object({
   )
     .catch('respondent')
     .default('respondent'),
-  type: z
-    .enum(KEY_DATE_TYPE_VALUES)
-    .describe('The kind of key date this obligation sets.')
-    .catch('other')
-    .default('other'),
+  category: z
+    .enum(DIRECTIONS_CATEGORY_VALUES)
+    .describe(
+      'The tribunal directions category this obligation sets, one of: ' +
+        '"LA response to the Appeal" (the LA/respondent filing its response to ' +
+        'the appeal), "Final Evidence Deadline" (the deadline to file/serve ' +
+        'final evidence), "Case Review Form" (filing the case review form), ' +
+        '"Final Tribunal Bundle" (the final hearing bundle), "Case Management ' +
+        'Review" (a case management review/telephone case management hearing), ' +
+        '"Final Hearing" (the final hearing itself), or "Other" if it is none ' +
+        'of these.',
+    )
+    .catch('Other')
+    .default('Other'),
   deadlineDate: z
     .string()
     .nullable()
@@ -118,7 +132,7 @@ export type ExtractedDirection = z.infer<typeof ExtractedDirectionSchema>;
 const EMPTY_DIRECTION: ExtractedDirection = {
   obligation: '',
   party: 'respondent',
-  type: 'other',
+  category: 'Other',
   deadlineDate: null,
   deadlineTime: null,
   rawDateText: '',
@@ -161,8 +175,9 @@ export type ExtractDirectionsOutput = z.infer<
 export interface ResolvedDirection {
   obligation: string;
   party: DirectionParty;
-  type: KeyDateType;
-  /** A short label for the key date, e.g. "Evidence deadline". */
+  /** The tribunal directions category, e.g. "Final Hearing". */
+  category: DirectionsCategory;
+  /** A short label for the key date — the category, or (for "Other") the obligation. */
   title: string;
   /** Absolute date, or null when the obligation vacates an existing date. */
   date: string | null;
@@ -178,21 +193,16 @@ export interface ResolvedDirection {
 
 // --- Resolution (relative deadlines → absolute dates) -----------------------
 
-const TYPE_LABEL: Record<KeyDateType, string> = {
-  hearing: 'Hearing',
-  evidence_deadline: 'Evidence deadline',
-  annual_review: 'Annual review',
-  working_document: 'Working document',
-  mediation: 'Mediation',
-  consultation: 'Consultation',
-  other: 'Direction',
-};
-
-/** A short, human title for a direction, from its type (or its obligation). */
+/**
+ * A short, human title for a direction. For a named category the title IS the
+ * category (so it reads as the order does, and so a later order's same-category
+ * date matches this one). "Other" has no standard label, so it falls back to
+ * the opening words of the obligation.
+ */
 function titleFor(d: ExtractedDirection): string {
-  if (d.type !== 'other') return TYPE_LABEL[d.type];
+  if (d.category !== 'Other') return d.category;
   const words = d.obligation.trim().split(/\s+/).slice(0, 6).join(' ');
-  return words || TYPE_LABEL.other;
+  return words || 'Direction';
 }
 
 /**
@@ -295,7 +305,7 @@ export function resolveDirections(
   const hearingDate =
     output.directions
       .map((d) =>
-        d.type === 'hearing'
+        d.category === 'Final Hearing'
           ? (normaliseIsoDate(d.deadlineDate) ??
             normaliseIsoDate(d.rawDateText))
           : null,
@@ -332,7 +342,7 @@ export function resolveDirections(
     return {
       obligation: d.obligation,
       party: d.party,
-      type: d.type,
+      category: d.category,
       title: titleFor(d),
       date: d.vacated ? null : date,
       time: d.vacated ? null : time,
@@ -365,7 +375,7 @@ export interface DirectionDiffRow {
   oldValue: { date: string; time: string | null; title: string } | null;
   /** The proposed value (null when the row only removes an existing date). */
   newValue: { date: string; time: string | null; title: string } | null;
-  type: KeyDateType;
+  category: DirectionsCategory;
   party: DirectionParty;
   /** Full obligation text, quoted beside the row. */
   obligation: string;
@@ -409,10 +419,18 @@ function similarity(a: string, b: string): number {
   return shared / (ta.size + tb.size - shared);
 }
 
+/** Case-insensitive equality of two key-date titles. */
+function sameTitle(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
 /**
- * Find the best existing key date for a resolved direction: same type, and —
- * when several share that type — the closest by title. Already-matched key
- * dates are excluded so two directions never claim the same existing date.
+ * Find the existing key date a resolved direction updates: the one with the
+ * same title — which, for the standard categories, IS the category, so a later
+ * order's "Final Hearing" pairs with the existing "Final Hearing" and is
+ * proposed as a move rather than a duplicate. When several share the title, the
+ * closest by obligation text wins. Already-matched key dates are excluded so two
+ * directions never claim the same existing date.
  */
 function findMatch(
   resolved: ResolvedDirection,
@@ -420,14 +438,14 @@ function findMatch(
   taken: Set<string>,
 ): KeyDateFull | null {
   const candidates = existing.filter(
-    (k) => k.type === resolved.type && !taken.has(k.id),
+    (k) => sameTitle(k.title, resolved.title) && !taken.has(k.id),
   );
   if (candidates.length === 0) return null;
   if (candidates.length === 1) return candidates[0]!;
   let best = candidates[0]!;
-  let bestScore = similarity(resolved.title, best.title);
+  let bestScore = similarity(resolved.obligation, best.title);
   for (const c of candidates.slice(1)) {
-    const score = similarity(resolved.title, c.title);
+    const score = similarity(resolved.obligation, c.title);
     if (score > bestScore) {
       best = c;
       bestScore = score;
@@ -460,7 +478,7 @@ export function diffDirections(
     if (match) taken.add(match.id);
 
     const base = {
-      type: d.type,
+      category: d.category,
       party: d.party,
       obligation: d.obligation,
       rawDateText: d.rawDateText,
@@ -586,9 +604,18 @@ export interface DirectionApplyRow {
   date: string | null;
   time: string | null;
   title: string;
+  category: DirectionsCategory;
+  /** The key-date type the category maps to, stored for the calendar colour. */
   type: KeyDateType;
   obligation: string;
   sourceReference: string | null;
+}
+
+/** The key-date type a directions category is stored as (for calendar colour). */
+export function keyDateTypeForCategory(
+  category: DirectionsCategory,
+): KeyDateType {
+  return DIRECTIONS_CATEGORY_KEY_DATE_TYPE[category];
 }
 
 /** Turn a diff row into its default apply row (source reference from paragraph). */
@@ -600,7 +627,8 @@ export function diffRowToApplyRow(row: DirectionDiffRow): DirectionApplyRow {
     date: row.newValue?.date ?? null,
     time: row.newValue?.time ?? null,
     title: row.newValue?.title ?? row.oldValue?.title ?? row.obligation,
-    type: row.type,
+    category: row.category,
+    type: keyDateTypeForCategory(row.category),
     obligation: row.obligation,
     sourceReference: sourceReference(row.paragraph),
   };

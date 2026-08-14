@@ -9,7 +9,7 @@ const SYSTEM_PROMPT = `You extract the timetable from a SEND (special educationa
 Return one entry per dated obligation. For each:
 - obligation: the obligation in full, as written.
 - party: who it falls on — "appellant", "respondent", "both", or "tribunal".
-- type: the kind of key date — one of hearing, evidence_deadline, annual_review, working_document, mediation, consultation, other. Use "hearing" for the final hearing, "evidence_deadline" for filing/serving evidence or documents, and "other" when nothing else fits.
+- category: the tribunal directions category — exactly one of "LA response to the Appeal" (the local authority/respondent filing its response to the appeal), "Final Evidence Deadline" (the deadline to file and serve final evidence), "Case Review Form" (filing the case review form), "Final Tribunal Bundle" (preparing/filing the final hearing bundle), "Case Management Review" (a case management review or telephone case management hearing), "Final Hearing" (the final hearing itself), or "Other" if the dated obligation is none of these. Choose the closest of the six named categories; use "Other" only when none genuinely fits.
 - deadlineDate: the deadline as an absolute YYYY-MM-DD date. Compute it from the order where the order gives a relative deadline (for example "within 14 days of the date of this order"). If the obligation vacates or removes a date rather than setting one, set this to null.
 - deadlineTime: a time of day as HH:MM if the order states one (for example "no later than 4pm" → "16:00"), otherwise null.
 - rawDateText: the deadline exactly as written in the order (for example "within 14 days of the date of this order").

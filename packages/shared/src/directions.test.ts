@@ -18,9 +18,11 @@ function existing(partial: Partial<KeyDateFull>): KeyDateFull {
     id: partial.id ?? 'k1',
     date: partial.date ?? '2026-06-18',
     time: partial.time ?? null,
-    title: partial.title ?? 'Final hearing',
+    // Directions-created key dates carry the category as their title — that is
+    // what a later order matches on.
+    title: partial.title ?? 'Final Evidence Deadline',
     description: partial.description ?? null,
-    type: partial.type ?? 'hearing',
+    type: partial.type ?? 'evidence_deadline',
     source: partial.source ?? 'directions_order',
     confidence: partial.confidence ?? 'high',
     sourceReference: partial.sourceReference ?? null,
@@ -28,11 +30,12 @@ function existing(partial: Partial<KeyDateFull>): KeyDateFull {
 }
 
 function resolved(partial: Partial<ResolvedDirection>): ResolvedDirection {
+  const category = partial.category ?? 'Final Evidence Deadline';
   return {
     obligation: partial.obligation ?? 'An obligation.',
     party: partial.party ?? 'appellant',
-    type: partial.type ?? 'evidence_deadline',
-    title: partial.title ?? 'Evidence deadline',
+    category,
+    title: partial.title ?? category,
     date: partial.date ?? '2026-05-01',
     time: partial.time ?? null,
     rawDateText: partial.rawDateText ?? 'within 14 days',
@@ -48,7 +51,7 @@ describe('diffDirections', () => {
   it('classifies unmatched dates as new', () => {
     const diff = diffDirections(
       [],
-      [resolved({}), resolved({ type: 'hearing' })],
+      [resolved({}), resolved({ category: 'Final Hearing' })],
     );
     expect(diff.counts.new).toBe(2);
     expect(diff.rows.every((r) => r.class === 'new')).toBe(true);
@@ -96,8 +99,15 @@ describe('diffDirections', () => {
 
   it('classifies a vacated obligation as superseded', () => {
     const diff = diffDirections(
-      [existing({ id: 'h1', type: 'hearing', date: '2026-06-18' })],
-      [resolved({ type: 'hearing', vacated: true, date: null })],
+      [
+        existing({
+          id: 'h1',
+          type: 'hearing',
+          title: 'Final Hearing',
+          date: '2026-06-18',
+        }),
+      ],
+      [resolved({ category: 'Final Hearing', vacated: true, date: null })],
     );
     expect(diff.counts.superseded).toBe(1);
     const row = diff.rows[0]!;
@@ -109,7 +119,7 @@ describe('diffDirections', () => {
   it('drops a vacation that matches no existing date', () => {
     const diff = diffDirections(
       [],
-      [resolved({ type: 'hearing', vacated: true, date: null })],
+      [resolved({ category: 'Final Hearing', vacated: true, date: null })],
     );
     expect(diff.rows).toHaveLength(0);
   });
@@ -120,7 +130,12 @@ describe('diffDirections', () => {
     const diff = diffDirections(
       [
         existing({ id: 'e1', type: 'evidence_deadline', date: '2026-05-01' }),
-        existing({ id: 'a1', type: 'annual_review', date: '2026-09-01' }),
+        existing({
+          id: 'a1',
+          type: 'annual_review',
+          title: 'Annual review',
+          date: '2026-09-01',
+        }),
       ],
       [resolved({ date: '2026-05-15' })],
     );
@@ -146,7 +161,6 @@ describe('diffDirections', () => {
       ],
       [
         resolved({
-          type: 'evidence_deadline',
           title: 'Respondent evidence',
           date: '2026-05-20',
         }),
@@ -160,10 +174,7 @@ describe('diffDirections', () => {
   it('does not let two directions claim the same existing date', () => {
     const diff = diffDirections(
       [existing({ id: 'e1', type: 'evidence_deadline', date: '2026-05-01' })],
-      [
-        resolved({ type: 'evidence_deadline', date: '2026-05-15' }),
-        resolved({ type: 'evidence_deadline', date: '2026-05-22' }),
-      ],
+      [resolved({ date: '2026-05-15' }), resolved({ date: '2026-05-22' })],
     );
     // First moves the existing row; second finds nothing left to match → new.
     const classes = diff.rows.map((r) => r.class).sort();
@@ -202,7 +213,7 @@ describe('resolveDirections', () => {
           obligation:
             'The appellant shall file evidence within 14 days of the date of this order.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           // Model's arithmetic is deliberately wrong — we recompute it.
           deadlineDate: '2026-04-20',
           deadlineTime: null,
@@ -228,7 +239,7 @@ describe('resolveDirections', () => {
         {
           obligation: 'The final hearing is listed for 8 June 2026.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           deadlineDate: '2026-06-08',
           deadlineTime: '10:00',
           rawDateText: '8 June 2026',
@@ -241,7 +252,7 @@ describe('resolveDirections', () => {
           obligation:
             'The appellant shall file evidence no later than 4pm 10 working days before the hearing.',
           party: 'appellant',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           deadlineDate: '2026-05-25',
           deadlineTime: null,
           rawDateText: 'no later than 4pm 10 working days before the hearing',
@@ -253,7 +264,9 @@ describe('resolveDirections', () => {
       ],
     };
     const resolved = resolveDirections(output, H);
-    const evidence = resolved.find((d) => d.type === 'evidence_deadline')!;
+    const evidence = resolved.find(
+      (d) => d.category === 'Final Evidence Deadline',
+    )!;
     expect(evidence.date).toBe('2026-05-22');
     expect(evidence.time).toBe('16:00');
     expect(evidence.explanation).toContain('Spring bank holiday');
@@ -266,7 +279,7 @@ describe('resolveDirections', () => {
         {
           obligation: 'The hearing listed for 8 June 2026 is vacated.',
           party: 'tribunal',
-          type: 'hearing',
+          category: 'Final Hearing',
           deadlineDate: null,
           deadlineTime: null,
           rawDateText: 'vacated',
@@ -280,7 +293,7 @@ describe('resolveDirections', () => {
     const [d] = resolveDirections(output, H);
     expect(d!.date).toBeNull();
     expect(d!.vacated).toBe(true);
-    expect(d!.title).toBe('Hearing');
+    expect(d!.title).toBe('Final Hearing');
   });
 });
 
@@ -308,7 +321,7 @@ describe('ExtractDirectionsOutputSchema resilience', () => {
         {
           obligation: 'File and serve evidence',
           party: 'respondent',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           deadlineDate: '2026-06-01',
           deadlineTime: '16:00',
           rawDateText: 'by 1 June 2026',
@@ -322,7 +335,7 @@ describe('ExtractDirectionsOutputSchema resilience', () => {
         {
           obligation: 'Attend the hearing',
           party: 'Appellant',
-          type: 'court-hearing',
+          category: 'court-hearing',
           deadlineDate: '2026-6-8',
           deadlineTime: '4pm',
           rawDateText: '8 June 2026',
@@ -344,7 +357,7 @@ describe('ExtractDirectionsOutputSchema resilience', () => {
       const bad = parsed.data.directions[1]!;
       expect(bad.obligation).toBe('Attend the hearing');
       expect(bad.party).toBe('respondent'); // invalid 'Appellant' -> fallback
-      expect(bad.type).toBe('other'); // invalid 'court-hearing' -> fallback
+      expect(bad.category).toBe('Other'); // invalid 'court-hearing' -> fallback
       expect(bad.deadlineDate).toBe('2026-6-8'); // kept; normalised downstream
       expect(bad.deadlineTime).toBe('4pm'); // kept; normalised downstream
       expect(bad.workingDays).toBe(false); // "no" -> false
@@ -381,7 +394,7 @@ describe('resolveDirections date normalisation', () => {
         {
           obligation: 'The LA must send the final documents',
           party: 'respondent',
-          type: 'evidence_deadline',
+          category: 'Final Evidence Deadline',
           deadlineDate: '17/04/2026',
           deadlineTime: '12 noon',
           rawDateText: 'By 12 noon on the 17/04/2026',
