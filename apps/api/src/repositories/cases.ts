@@ -104,7 +104,7 @@ function whereClause(conditions: SQL[]): SQL {
 const ORDER_BY: Record<SortId, SQL> = {
   keyDateSoonest: sql`primary_date ASC NULLS LAST, cl.display_name ASC`,
   clientName: sql`cl.display_name ASC NULLS LAST`,
-  childName: sql`ch.preferred_name ASC NULLS LAST`,
+  childName: sql`COALESCE(ch.preferred_name, ch.full_name) ASC NULLS LAST`,
   dateAddedNewest: sql`c.date_of_enquiry DESC NULLS LAST`,
   dateAddedOldest: sql`c.date_of_enquiry ASC NULLS LAST`,
   lastUpdatedNewest: sql`most_recent_note_date DESC NULLS LAST`,
@@ -179,7 +179,7 @@ const SELECT_ROW = sql`
   c.id,
   cl.id AS client_id,
   cl.display_name AS client_name,
-  ch.preferred_name AS child_name,
+  COALESCE(ch.preferred_name, ch.full_name) AS child_name,
   c.current_work::text AS current_work,
   c.original_query::text AS original_query,
   c.owner_user_id,
