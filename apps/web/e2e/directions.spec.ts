@@ -49,6 +49,7 @@ const caseDetail = {
     sendNeeds: null,
   },
   keyDates: [],
+  familyCases: [{ caseId: CASE_ID, childName: 'Test Child' }],
 };
 
 const review = {

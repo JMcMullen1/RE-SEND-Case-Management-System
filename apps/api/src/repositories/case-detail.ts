@@ -69,6 +69,26 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
       )[0]
     : undefined;
 
+  // Every case for the same client (this one included) — for the sibling
+  // switcher. Each child is its own case (billing is per child).
+  const familyRows = row.clientId
+    ? await db
+        .select({
+          caseId: cases.id,
+          childFull: children.fullName,
+          childPreferred: children.preferredName,
+        })
+        .from(cases)
+        .leftJoin(children, eq(children.id, cases.childId))
+        .where(and(eq(cases.clientId, row.clientId), isNull(cases.deletedAt)))
+    : [];
+  const familyCases = familyRows
+    .map((c) => ({
+      caseId: c.caseId,
+      childName: c.childPreferred ?? c.childFull ?? 'Unnamed child',
+    }))
+    .sort((a, b) => a.childName.localeCompare(b.childName));
+
   const teamRows = await db
     .select({ code: teams.code })
     .from(caseTeams)
@@ -155,6 +175,7 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
       confidence: k.confidence,
       sourceReference: k.sourceReference,
     })),
+    familyCases,
   };
 }
 

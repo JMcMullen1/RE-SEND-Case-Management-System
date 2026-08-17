@@ -69,6 +69,16 @@ export interface CaseOwnerDetail {
   queue: OwnerQueue | null;
 }
 
+/**
+ * Another case belonging to the same client (parent). Each child is a separate
+ * case — billing is per child — so a family with several children has several
+ * cases; this lets the case screen offer a switcher between the siblings.
+ */
+export interface FamilyCaseRef {
+  caseId: string;
+  childName: string;
+}
+
 export interface CaseDetail {
   id: string;
   caseReference: string;
@@ -88,6 +98,11 @@ export interface CaseDetail {
   client: CaseClientDetail | null;
   child: CaseChildDetail | null;
   keyDates: KeyDateFull[];
+  /**
+   * Every case for this case's client (this one included), ordered by child
+   * name — for the sibling switcher. A single-child family has one entry.
+   */
+  familyCases: FamilyCaseRef[];
 }
 
 export interface DocumentInfo {

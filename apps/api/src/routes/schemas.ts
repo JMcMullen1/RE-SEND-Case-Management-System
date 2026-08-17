@@ -220,6 +220,7 @@ export const CaseDetailSchema = z.object({
   client: CaseClientDetailSchema.nullable(),
   child: CaseChildDetailSchema.nullable(),
   keyDates: z.array(KeyDateFullSchema),
+  familyCases: z.array(z.object({ caseId: z.string(), childName: z.string() })),
 });
 
 export const DocumentInfoSchema = z.object({

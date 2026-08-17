@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
@@ -22,7 +23,10 @@ export function CaseHeader({
   users: UserSummary[];
   mutations: Mutations;
 }) {
+  const navigate = useNavigate();
   const childName = detail.child?.preferredName ?? detail.child?.fullName ?? '';
+  // More than one case for this client means siblings to switch between.
+  const hasSiblings = detail.familyCases.length > 1;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -32,8 +36,31 @@ export function CaseHeader({
       <div className="mr-auto">
         <h1 className="text-xl font-semibold text-resend-ink">
           {detail.client?.displayName ?? 'Unnamed client'}
-          {childName && (
-            <span className="font-normal text-gray-500"> · {childName}</span>
+          {hasSiblings ? (
+            <>
+              {' · '}
+              <select
+                value={detail.id}
+                onChange={(e) =>
+                  navigate({
+                    to: '/cases/$caseId',
+                    params: { caseId: e.target.value },
+                  })
+                }
+                aria-label="Switch to another child in this family"
+                className="rounded border border-gray-200 bg-white px-1 py-0.5 text-base font-normal text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                {detail.familyCases.map((f) => (
+                  <option key={f.caseId} value={f.caseId}>
+                    {f.childName}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            childName && (
+              <span className="font-normal text-gray-500"> · {childName}</span>
+            )
           )}
         </h1>
         <p className="text-xs text-gray-500">
@@ -41,6 +68,16 @@ export function CaseHeader({
           {detail.appealNumber && ` · ${detail.appealNumber}`}
           {detail.team.length > 0 && ` · ${detail.team.join(', ')}`}
         </p>
+        {/* Each child is a separate case (billing is per child), so adding a
+            child for this client opens a fresh case prefilled with the parent. */}
+        {detail.client && (
+          <a
+            href={`/cases/new?fromClient=${detail.client.id}`}
+            className="mt-0.5 inline-block text-xs font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            + Add another child for this client
+          </a>
+        )}
       </div>
 
       <Reassign
