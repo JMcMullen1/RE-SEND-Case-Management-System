@@ -47,6 +47,8 @@ const caseDetail = {
     currentSchoolAddress: null,
     desiredSchool: null,
     sendNeeds: null,
+    la: null,
+    laContacts: [],
   },
   keyDates: [],
   familyCases: [{ caseId: CASE_ID, childName: 'Test Child' }],

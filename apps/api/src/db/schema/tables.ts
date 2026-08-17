@@ -135,6 +135,13 @@ export const children = pgTable('children', {
   currentSchoolAddress: text('current_school_address'),
   desiredSchool: text('desired_school'),
   sendNeeds: text('send_needs'),
+  // The local authority responsible for this child's EHCP, and its named
+  // contacts (a list — a case often deals with several LA officers).
+  la: text('la'),
+  laContacts: jsonb('la_contacts')
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   ...timestamps,
   ...softDelete,
 });

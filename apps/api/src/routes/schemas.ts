@@ -194,6 +194,8 @@ export const CaseChildDetailSchema = z.object({
   currentSchoolAddress: z.string().nullable(),
   desiredSchool: z.string().nullable(),
   sendNeeds: z.string().nullable(),
+  la: z.string().nullable(),
+  laContacts: z.array(z.string()),
 });
 
 export const CaseDetailSchema = z.object({
@@ -540,6 +542,8 @@ export const ChildFieldsPatchSchema = z
     currentSchoolAddress: z.string().nullable().optional(),
     desiredSchool: z.string().nullable().optional(),
     sendNeeds: z.string().nullable().optional(),
+    la: z.string().nullable().optional(),
+    laContacts: z.array(z.string()).optional(),
   })
   .strict();
 

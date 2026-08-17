@@ -60,6 +60,10 @@ export interface CaseChildDetail {
   currentSchoolAddress: string | null;
   desiredSchool: string | null;
   sendNeeds: string | null;
+  /** The local authority for this child's EHCP. */
+  la: string | null;
+  /** Named LA contacts — free-text lines, one per contact. */
+  laContacts: string[];
 }
 
 export interface CaseOwnerDetail {

@@ -162,6 +162,8 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
           currentSchoolAddress: child.currentSchoolAddress,
           desiredSchool: child.desiredSchool,
           sendNeeds: child.sendNeeds,
+          la: child.la,
+          laContacts: (child.laContacts ?? []) as string[],
         }
       : null,
     keyDates: kd.map((k) => ({

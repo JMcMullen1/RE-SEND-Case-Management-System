@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   calculateAge,
   CONSULTATION_STATE_VALUES,
@@ -58,15 +58,18 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 function Field({
   label,
   copy,
+  span2,
   children,
 }: {
   label: string;
   /** When a non-empty string, a copy button is shown beside the label. */
   copy?: string | null;
+  /** Span both columns of the details grid (for long/one-line-wide fields). */
+  span2?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="py-1">
+    <div className={`py-1 ${span2 ? 'sm:col-span-2' : ''}`}>
       <dt className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-gray-400">
         {label}
         {copy != null && copy !== '' && (
@@ -160,49 +163,45 @@ export function DetailPanel({
   const age = calculateAge(child?.dateOfBirth ?? null, today);
 
   return (
-    <dl className="text-sm">
-      <Field label="Client name" copy={client?.fullName}>
+    <dl className="grid max-w-3xl grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+      <Field span2 label="Client name" copy={client?.fullName}>
         {clientField('Client name', 'fullName', client?.fullName ?? null)}
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Case reference" copy={detail.caseReference}>
-          <span className="font-medium text-resend-ink">
-            {detail.caseReference}
-          </span>
-        </Field>
-        <Field label="Appeal number">
-          {caseField('Appeal number', 'appealNumber', detail.appealNumber)}
-        </Field>
-      </div>
-      <Field label="Child name" copy={child?.fullName}>
+      <Field label="Case reference" copy={detail.caseReference}>
+        <span className="font-medium text-resend-ink">
+          {detail.caseReference}
+        </span>
+      </Field>
+      <Field label="Appeal number">
+        {caseField('Appeal number', 'appealNumber', detail.appealNumber)}
+      </Field>
+      <Field span2 label="Child name" copy={child?.fullName}>
         {childField('Child name', 'fullName', child?.fullName ?? null)}
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Date of birth">
-          <div className="flex items-baseline gap-2">
-            {childField(
-              'Date of birth',
-              'dateOfBirth',
-              child?.dateOfBirth ?? null,
-              'date',
-            )}
-            {age !== null && (
-              <span className="whitespace-nowrap text-xs text-gray-500">
-                age {age}
-              </span>
-            )}
-          </div>
-        </Field>
-        <Field label="School year">
+      <Field label="Date of birth">
+        <div className="flex items-baseline gap-2">
           {childField(
-            'School year',
-            'schoolYear',
-            child?.schoolYear ?? null,
-            'select',
-            opts(SCHOOL_YEAR_VALUES),
+            'Date of birth',
+            'dateOfBirth',
+            child?.dateOfBirth ?? null,
+            'date',
           )}
-        </Field>
-      </div>
+          {age !== null && (
+            <span className="whitespace-nowrap text-xs text-gray-500">
+              age {age}
+            </span>
+          )}
+        </div>
+      </Field>
+      <Field label="School year">
+        {childField(
+          'School year',
+          'schoolYear',
+          child?.schoolYear ?? null,
+          'select',
+          opts(SCHOOL_YEAR_VALUES),
+        )}
+      </Field>
       <Field label="Current school" copy={child?.currentSchoolName}>
         {childField(
           'Current school',
@@ -217,7 +216,7 @@ export function DetailPanel({
           child?.desiredSchool ?? null,
         )}
       </Field>
-      <Field label="SEND needs" copy={child?.sendNeeds}>
+      <Field span2 label="SEND needs" copy={child?.sendNeeds}>
         {childField(
           'SEND needs',
           'sendNeeds',
@@ -225,8 +224,26 @@ export function DetailPanel({
           'textarea',
         )}
       </Field>
+      <Field label="LA" copy={child?.la}>
+        {childField('LA', 'la', child?.la ?? null)}
+      </Field>
+      <Field span2 label="LA contacts">
+        {child ? (
+          <LaContactsEditor
+            contacts={child.laContacts}
+            onChange={(laContacts) =>
+              mutations.patchChild.mutate({
+                childId: child.id,
+                patch: { laContacts },
+              })
+            }
+          />
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        )}
+      </Field>
 
-      <div className="mt-3 border-t border-gray-100 pt-3">
+      <div className="mt-3 border-t border-gray-100 pt-3 sm:col-span-2">
         <dt className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Key dates
         </dt>
@@ -264,13 +281,13 @@ export function DetailPanel({
         type="button"
         onClick={() => setShowSecondary((v) => !v)}
         aria-expanded={showSecondary}
-        className="mt-4 w-full border-t border-gray-100 pt-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        className="mt-4 w-full border-t border-gray-100 pt-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple sm:col-span-2"
       >
         {showSecondary ? '▾' : '▸'} More detail
       </button>
 
       {showSecondary && (
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1 sm:col-span-2 sm:grid-cols-2">
           <Field label="Email" copy={client?.email}>
             {clientField('Email', 'email', client?.email ?? null)}
           </Field>
@@ -287,21 +304,19 @@ export function DetailPanel({
               client?.otherContact ?? null,
             )}
           </Field>
-          <Field label="Address" copy={client?.streetAddress}>
+          <Field span2 label="Address" copy={client?.streetAddress}>
             {clientField(
               'Street address',
               'streetAddress',
               client?.streetAddress ?? null,
             )}
           </Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="City" copy={client?.city}>
-              {clientField('City', 'city', client?.city ?? null)}
-            </Field>
-            <Field label="Postcode" copy={client?.postcode}>
-              {clientField('Postcode', 'postcode', client?.postcode ?? null)}
-            </Field>
-          </div>
+          <Field label="City" copy={client?.city}>
+            {clientField('City', 'city', client?.city ?? null)}
+          </Field>
+          <Field label="Postcode" copy={client?.postcode}>
+            {clientField('Postcode', 'postcode', client?.postcode ?? null)}
+          </Field>
           <Field label="County" copy={client?.county}>
             {clientField('County', 'county', client?.county ?? null)}
           </Field>
@@ -344,6 +359,65 @@ export function DetailPanel({
         </div>
       )}
     </dl>
+  );
+}
+
+/**
+ * The LA contacts list: one free-text line per contact (name, email, phone —
+ * however the caseworker records it), with add and remove. Saves the whole
+ * trimmed, non-empty list on blur or removal.
+ */
+function LaContactsEditor({
+  contacts,
+  onChange,
+}: {
+  contacts: string[];
+  onChange: (contacts: string[]) => void;
+}) {
+  const [rows, setRows] = useState<string[]>(contacts);
+  useEffect(() => setRows(contacts), [contacts]);
+
+  const commit = (next: string[]) =>
+    onChange(next.map((s) => s.trim()).filter((s) => s !== ''));
+
+  return (
+    <div className="space-y-1.5">
+      {rows.map((c, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            value={c}
+            onChange={(e) =>
+              setRows((prev) =>
+                prev.map((r, j) => (j === i ? e.target.value : r)),
+              )
+            }
+            onBlur={() => commit(rows)}
+            placeholder="Name · email · phone"
+            aria-label={`LA contact ${i + 1}`}
+            className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink placeholder:text-gray-400 focus:border-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const next = rows.filter((_, j) => j !== i);
+              setRows(next);
+              commit(next);
+            }}
+            aria-label={`Remove LA contact ${i + 1}`}
+            className="shrink-0 rounded px-1 text-gray-400 hover:text-status-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => setRows((prev) => [...prev, ''])}
+        className="text-xs font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+      >
+        + Add contact
+      </button>
+    </div>
   );
 }
 
