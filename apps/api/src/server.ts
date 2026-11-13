@@ -5,6 +5,7 @@ import Fastify, { type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
+import { registerSessionGate } from './auth/gate';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -72,6 +73,8 @@ export async function buildServer() {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie);
+  // Nothing under /api is served without a session where sign-in is enforced.
+  registerSessionGate(app);
 
   // Security headers, applied to the API responses and the served SPA alike.
   // script-src is 'self' with NO unsafe-inline — the XSS-critical directive — so

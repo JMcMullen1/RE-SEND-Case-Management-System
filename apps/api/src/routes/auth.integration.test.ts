@@ -75,6 +75,41 @@ run('demo auth + reset', () => {
       (await app.inject({ method: 'GET', url: '/api/me' })).statusCode,
     ).toBe(401);
 
+    // Nothing under /api is served without a session, and naming a user in a
+    // header does not stand in for signing in.
+    for (const url of [
+      '/api/cases?limit=1',
+      '/api/users',
+      '/api/time?from=2026-01-01&to=2026-01-31',
+    ]) {
+      expect((await app.inject({ method: 'GET', url })).statusCode).toBe(401);
+    }
+    const accountsForIds = (
+      await app.inject({ method: 'GET', url: '/api/auth/accounts' })
+    ).json();
+    expect(JSON.stringify(accountsForIds)).not.toMatch(/"id"/);
+    const [anyUser] = (await (
+      await import('../db/client')
+    )
+      .getDb()
+      .execute(
+        (await import('drizzle-orm'))
+          .sql`SELECT id FROM users WHERE role = 'admin' LIMIT 1`,
+      )) as unknown as { id: string }[];
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/admin/rates',
+          headers: { 'x-user-id': anyUser!.id },
+        })
+      ).statusCode,
+    ).toBe(401);
+    // Health checks stay public.
+    expect(
+      (await app.inject({ method: 'GET', url: '/health' })).statusCode,
+    ).toBe(200);
+
     // The sign-in page can list the accounts (never the password).
     const accounts = (
       await app.inject({ method: 'GET', url: '/api/auth/accounts' })
