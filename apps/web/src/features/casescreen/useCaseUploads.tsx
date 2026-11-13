@@ -147,7 +147,7 @@ export function UploadList({
 function UploadStatus({ upload }: { upload: Upload }) {
   if (upload.status === 'uploading') {
     return (
-      <span className="shrink-0 tabular-nums text-gray-400">
+      <span className="shrink-0 tabular-nums text-gray-500">
         {Math.round(upload.progress * 100)}%
       </span>
     );

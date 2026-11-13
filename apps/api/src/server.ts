@@ -5,6 +5,7 @@ import Fastify, { type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
+import { registerSessionGate } from './auth/gate';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -27,6 +28,7 @@ import { registerCorpusRoutes } from './routes/corpus';
 import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerEmailRoutes } from './routes/emails';
+import { registerTimeRoutes } from './routes/time';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -71,6 +73,8 @@ export async function buildServer() {
   app.setSerializerCompiler(serializerCompiler);
 
   await app.register(cookie);
+  // Nothing under /api is served without a session where sign-in is enforced.
+  registerSessionGate(app);
 
   // Security headers, applied to the API responses and the served SPA alike.
   // script-src is 'self' with NO unsafe-inline — the XSS-critical directive — so
@@ -152,6 +156,7 @@ export async function buildServer() {
   registerCaseScreenRoutes(app);
   registerDocumentRoutes(app);
   registerEmailRoutes(app);
+  registerTimeRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);

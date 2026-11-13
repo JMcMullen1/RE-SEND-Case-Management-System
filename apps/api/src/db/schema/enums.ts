@@ -7,6 +7,7 @@ import {
   ENQUIRY_METHOD_VALUES,
   EXTERNAL_SYNC_STATUS_VALUES,
   KEY_DATE_SOURCE_VALUES,
+  RATE_KIND_VALUES,
   KEY_DATE_TYPE_VALUES,
   OWNER_QUEUE_VALUES,
   PAYMENT_CODE_VALUES,
@@ -52,3 +53,4 @@ export const externalSyncStatusEnum = pgEnum(
   EXTERNAL_SYNC_STATUS_VALUES,
 );
 export const aiJobOutcomeEnum = pgEnum('ai_job_outcome', AI_JOB_OUTCOME_VALUES);
+export const rateKindEnum = pgEnum('rate_kind', RATE_KIND_VALUES);

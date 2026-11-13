@@ -15,6 +15,7 @@ import {
   clients,
   keyDates,
   teams,
+  timeEntries,
   users,
 } from '../db/schema';
 
@@ -216,9 +217,14 @@ export async function listTimeline(
       kind: caseNotes.kind,
       authorUserId: caseNotes.authorUserId,
       authorName: users.displayName,
+      minutes: timeEntries.minutes,
     })
     .from(caseNotes)
     .leftJoin(users, eq(users.id, caseNotes.authorUserId))
+    .leftJoin(
+      timeEntries,
+      and(eq(timeEntries.noteId, caseNotes.id), isNull(timeEntries.deletedAt)),
+    )
     .where(and(...conditions))
     .orderBy(desc(caseNotes.entryDate), desc(caseNotes.createdAt));
 
@@ -234,5 +240,6 @@ export async function listTimeline(
     body: r.body,
     canEdit: isAdmin || r.authorUserId === current?.id,
     edited: r.updatedAt.getTime() - r.createdAt.getTime() > 1000,
+    minutes: r.kind === 'billable' ? (r.minutes ?? null) : null,
   }));
 }

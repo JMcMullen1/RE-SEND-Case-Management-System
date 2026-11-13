@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { users } from '../db/schema';
 
@@ -40,6 +40,19 @@ export async function listActiveUsers(): Promise<UserSummary[]> {
     .where(eq(users.active, true))
     .orderBy(asc(users.displayName));
   return rows;
+}
+
+/** Everyone with an account, leavers included (active first, then by name). */
+export async function listAllUsers(): Promise<UserSummary[]> {
+  return getDb()
+    .select({
+      id: users.id,
+      displayName: users.displayName,
+      role: users.role,
+      active: users.active,
+    })
+    .from(users)
+    .orderBy(desc(users.active), asc(users.displayName));
 }
 
 /**

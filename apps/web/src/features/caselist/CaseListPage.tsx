@@ -140,6 +140,12 @@ export function CaseListPage() {
             Calendar
           </a>
           <a
+            href="/time"
+            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            My time
+          </a>
+          <a
             href={`/review${encodeViewStateToString(state)}`}
             className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >

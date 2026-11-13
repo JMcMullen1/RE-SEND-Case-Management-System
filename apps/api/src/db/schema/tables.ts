@@ -30,6 +30,7 @@ import {
   ownerQueueEnum,
   paymentCodeEnum,
   queryTypeEnum,
+  rateKindEnum,
   schoolYearEnum,
   userRoleEnum,
   workTypeEnum,
@@ -453,7 +454,7 @@ export const emails = pgTable(
   }),
 );
 
-// --- time_entries (created now; nothing populates it yet) -------------------
+// --- time_entries -------------------------------------------------------------
 export const timeEntries = pgTable(
   'time_entries',
   {
@@ -473,12 +474,50 @@ export const timeEntries = pgTable(
       .default('not_synced'),
     externalId: text('external_id'),
     rateSnapshot: numeric('rate_snapshot', { precision: 10, scale: 2 }),
+    // The billable note this time was recorded with. A billable is a labelled
+    // note plus its time; the note carries the narrative.
+    noteId: uuid('note_id').references(() => caseNotes.id, {
+      onDelete: 'restrict',
+    }),
     ...timestamps,
     ...softDelete,
   },
   (t) => ({
     caseIdIdx: index('idx_time_entries_case_id').on(t.caseId),
     userIdIdx: index('idx_time_entries_user_id').on(t.userId),
+    noteIdIdx: uniqueIndex('uq_time_entries_note_id')
+      .on(t.noteId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    userDateIdx: index('idx_time_entries_user_date').on(t.userId, t.entryDate),
+  }),
+);
+
+// --- user_rates ---------------------------------------------------------------
+// Hourly rates per member of staff, set by an admin. Dated: the rate that
+// applies to a time entry is the latest one effective on or before the entry
+// date, so a change (or a rate set for the first time and backdated) never
+// silently rewrites what was earned before it.
+export const userRates = pgTable(
+  'user_rates',
+  {
+    id: primaryId(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    kind: rateKindEnum('kind').notNull(),
+    ratePence: integer('rate_pence').notNull(),
+    effectiveFrom: date('effective_from').notNull(),
+    setByUserId: uuid('set_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    ...timestamps,
+  },
+  (t) => ({
+    userKindFromIdx: uniqueIndex('uq_user_rates_user_kind_from').on(
+      t.userId,
+      t.kind,
+      t.effectiveFrom,
+    ),
   }),
 );
 

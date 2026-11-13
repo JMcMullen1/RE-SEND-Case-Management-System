@@ -25,8 +25,7 @@ interface EntityMapping {
 
 /**
  * Entity type → affected query keys. Adding an entity to live updates is one
- * entry here. `time_entries` is registered but inert until its table carries
- * the trigger and its screen reads live.
+ * entry here.
  */
 const REGISTRY: Record<string, EntityMapping> = {
   cases: {
@@ -35,7 +34,13 @@ const REGISTRY: Record<string, EntityMapping> = {
   case_notes: {
     keys: (_id, scopeId) =>
       scopeId
-        ? [['cases'], ['case-detail', scopeId], ['timeline', scopeId]]
+        ? [
+            ['cases'],
+            ['case-detail', scopeId],
+            ['timeline', scopeId],
+            ['time-summary', scopeId],
+            ['time'],
+          ]
         : [['cases']],
   },
   key_dates: {
@@ -66,8 +71,13 @@ const REGISTRY: Record<string, EntityMapping> = {
           ]
         : [],
   },
-  // Inert registry entry — wire a trigger and query keys to switch it on.
-  time_entries: { keys: () => [] },
+  // Recorded time: the case's billables and totals, and every "My time" page.
+  time_entries: {
+    keys: (_id, scopeId) =>
+      scopeId
+        ? [['timeline', scopeId], ['time-summary', scopeId], ['time']]
+        : [['time']],
+  },
 };
 
 interface Connection {

@@ -11,3 +11,4 @@ export * from './working-days';
 export * from './directions';
 export * from './calendar';
 export * from './email';
+export * from './time';
