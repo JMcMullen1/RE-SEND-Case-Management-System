@@ -64,8 +64,8 @@ export function registerEmailRoutes(fastify: FastifyInstance): void {
     async (request) => ({ emails: await listEmails(request.params.id) }),
   );
 
-  // Remove an email filed in error (soft, audited). Its attachments stay on the
-  // case as documents.
+  // Remove an email filed in error (soft, audited). `?attachments=true` also
+  // removes the attachments this filing added (e.g. it was the wrong case).
   app.delete(
     '/api/cases/:id/emails/:emailId',
     {
@@ -74,18 +74,31 @@ export function registerEmailRoutes(fastify: FastifyInstance): void {
           id: z.string().uuid(),
           emailId: z.string().uuid(),
         }),
-        response: { 200: z.object({ deleted: z.boolean() }), 404: Message },
+        querystring: z.object({
+          attachments: z
+            .enum(['true', 'false'])
+            .optional()
+            .transform((v) => v === 'true'),
+        }),
+        response: {
+          200: z.object({
+            deleted: z.boolean(),
+            attachmentsDeleted: z.number().int(),
+          }),
+          404: Message,
+        },
       },
     },
     async (request, reply) => {
       const current = await resolveActingUser(request);
-      const deleted = await deleteEmail(
+      const result = await deleteEmail(
         request.params.id,
         request.params.emailId,
         current?.id ?? null,
+        { withAttachments: request.query.attachments },
       );
-      if (!deleted) return reply.code(404).send({ message: 'Email not found' });
-      return { deleted };
+      if (!result) return reply.code(404).send({ message: 'Email not found' });
+      return { deleted: true, ...result };
     },
   );
 }

@@ -253,4 +253,109 @@ run('email filing API', () => {
     expect(again.statusCode).toBe(404);
     await app.close();
   });
+
+  it('keeps same-named attachments from different emails as separate documents', async () => {
+    const app = await buildServer();
+    const send = (n: number, content: string) =>
+      app.inject({
+        method: 'POST',
+        url: `/api/cases/${caseId}/emails`,
+        ...multipart(
+          `scan-${n}.eml`,
+          buildEml({
+            messageId: `<scan-${n}-${stamp}@example.org>`,
+            subject: `Scan ${n} ${stamp}`,
+            attachment: {
+              filename: `Scan-${stamp}.txt`,
+              mimeType: 'text/plain',
+              content: Buffer.from(content),
+            },
+          }),
+          'message/rfc822',
+        ),
+      });
+    await send(1, `A medical letter ${stamp}`);
+    await send(2, `A school report ${stamp}`);
+    const docs = (
+      await app.inject({ method: 'GET', url: `/api/cases/${caseId}/documents` })
+    ).json().documents as { originalFilename: string; versionCount: number }[];
+    const scans = docs.filter(
+      (d) => d.originalFilename === `Scan-${stamp}.txt`,
+    );
+    expect(scans).toHaveLength(2);
+    expect(scans.every((d) => d.versionCount === 1)).toBe(true);
+    await app.close();
+  });
+
+  it('can delete an email with the attachments it filed, keeping older files', async () => {
+    const app = await buildServer();
+    // A file already on the case before the email arrives.
+    const existing = Buffer.from(`Already on file ${stamp}`);
+    const boundary = '----resenddoc';
+    await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/documents?category=Evidence`,
+      payload: Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="kept-${stamp}.txt"\r\nContent-Type: text/plain\r\n\r\n`,
+        ),
+        existing,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]),
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+    });
+
+    const eml = (filename: string, content: Buffer) =>
+      [
+        'From: Sam Parent <sam.parent@example.org>',
+        'To: casework@resend.test',
+        `Subject: Wrong case ${stamp}`,
+        `Message-ID: <wrong-${stamp}@example.org>`,
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/mixed; boundary="x"',
+        '',
+        '--x',
+        'Content-Type: text/plain',
+        '',
+        'Two files.',
+        '--x',
+        `Content-Type: text/plain; name="${filename}"`,
+        `Content-Disposition: attachment; filename="${filename}"`,
+        '',
+        content.toString(),
+        '--x',
+        `Content-Type: text/plain; name="new-${stamp}.txt"`,
+        `Content-Disposition: attachment; filename="new-${stamp}.txt"`,
+        '',
+        `Only in this email ${stamp}`,
+        '--x--',
+        '',
+      ].join('\r\n');
+    const filed = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/emails`,
+      ...multipart(
+        'wrong.eml',
+        Buffer.from(eml(`kept-${stamp}.txt`, existing)),
+        'message/rfc822',
+      ),
+    });
+    const email = filed.json().email as { id: string };
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${caseId}/emails/${email.id}?attachments=true`,
+    });
+    expect(res.json()).toEqual({ deleted: true, attachmentsDeleted: 1 });
+    const docs = (
+      await app.inject({ method: 'GET', url: `/api/cases/${caseId}/documents` })
+    ).json().documents as { originalFilename: string }[];
+    expect(docs.some((d) => d.originalFilename === `kept-${stamp}.txt`)).toBe(
+      true,
+    );
+    expect(docs.some((d) => d.originalFilename === `new-${stamp}.txt`)).toBe(
+      false,
+    );
+    await app.close();
+  });
 });

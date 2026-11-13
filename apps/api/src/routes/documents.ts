@@ -116,10 +116,32 @@ export function registerDocumentRoutes(fastify: FastifyInstance): void {
       reply
         .header(
           'content-disposition',
-          `${inline ? 'inline' : 'attachment'}; filename="${content.filename.replace(/"/g, '')}"`,
+          contentDisposition(
+            inline ? 'inline' : 'attachment',
+            content.filename,
+          ),
         )
         .type(content.mimeType);
       return reply.send(content.bytes);
     },
   );
+}
+
+/**
+ * A Content-Disposition value safe for any filename (RFC 6266): an ASCII
+ * fallback in `filename=` and the real name, UTF-8 percent-encoded, in
+ * `filename*=`. Node rejects header values outside Latin-1, and Outlook names
+ * exports after the subject, so curly quotes and dashes are common.
+ */
+export function contentDisposition(
+  type: 'inline' | 'attachment',
+  filename: string,
+): string {
+  const clean = filename.replace(/[\r\n"\\]/g, '').trim() || 'download';
+  const ascii = clean.replace(/[^\x20-\x7e]/g, '_');
+  const encoded = encodeURIComponent(clean).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }

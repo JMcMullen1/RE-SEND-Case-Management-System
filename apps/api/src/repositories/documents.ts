@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { EMAIL_ATTACHMENT_FOLDER } from '@re-send/shared';
 import type {
   DocumentCategory,
   DocumentInfo,
@@ -109,6 +110,14 @@ export async function createDocument(
     category: DocumentCategory;
   },
   actor: string | null,
+  options: {
+    /**
+     * Treat a same-named file already on the case as an earlier version.
+     * Off for email attachments: unrelated attachments routinely share names
+     * (Scan.pdf, image001.jpg), so the name says nothing about lineage.
+     */
+    versioning?: boolean;
+  } = {},
 ): Promise<UploadResult> {
   const db = getDb();
   const sha256 = createHash('sha256').update(input.bytes).digest('hex');
@@ -143,19 +152,22 @@ export async function createDocument(
   }
 
   // Same filename, different bytes → a new version of the current document.
-  const [prev] = await db
-    .select()
-    .from(documents)
-    .where(
-      and(
-        eq(documents.caseId, caseId),
-        eq(documents.originalFilename, input.filename),
-        isNull(documents.deletedAt),
-        isNull(documents.supersededById),
-        notEmailSource,
-      ),
-    )
-    .limit(1);
+  const [prev] =
+    options.versioning === false
+      ? []
+      : await db
+          .select()
+          .from(documents)
+          .where(
+            and(
+              eq(documents.caseId, caseId),
+              eq(documents.originalFilename, input.filename),
+              isNull(documents.deletedAt),
+              isNull(documents.supersededById),
+              notEmailSource,
+            ),
+          )
+          .limit(1);
 
   const uploader = actor ?? (await anyUserId());
   const storageId = randomUUID();
@@ -248,7 +260,7 @@ export async function storeEmailSource(
       byteSize: input.bytes.byteLength,
       sha256: createHash('sha256').update(input.bytes).digest('hex'),
       uploadedByUserId: uploader,
-      category: 'Correspondence',
+      category: EMAIL_ATTACHMENT_FOLDER,
       caseId,
       documentGroupId: randomUUID(),
       version: 1,

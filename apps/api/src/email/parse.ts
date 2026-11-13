@@ -69,7 +69,7 @@ type WithoutKey = Omit<ParsedEmail, 'dedupKey'>;
 /**
  * The same email exported twice (or by two people, as .eml and .msg) shares a
  * Message-ID. When there is none, fall back to a hash of what identifies the
- * message — sender, send time, subject and body — never of the file bytes,
+ * message — sender, send time, subject, body and attachments — never of the file bytes,
  * which differ between export formats.
  */
 export function dedupKeyFor(email: WithoutKey): string {
@@ -81,6 +81,11 @@ export function dedupKeyFor(email: WithoutKey): string {
         email.sentAt?.toISOString() ?? '',
         email.subject ?? '',
         (email.bodyText ?? '').replace(/\s+/g, ' ').trim(),
+        // Attachments too: two scanner emails with the same subject and an
+        // empty body are different emails if they carry different files.
+        ...email.attachments.map((a) =>
+          createHash('sha256').update(a.bytes).digest('hex'),
+        ),
       ].join('\u0000'),
     )
     .digest('hex');
@@ -227,7 +232,9 @@ function parseMsg(bytes: Buffer): WithoutKey {
     null;
 
   return {
-    messageId: normaliseMessageId(header('Message-ID')),
+    // PR_INTERNET_MESSAGE_ID is stored even when transport headers are not
+    // (e.g. a message saved from Sent Items), so prefer it.
+    messageId: normaliseMessageId(data.messageId ?? header('Message-ID')),
     subject: data.subject?.trim() || null,
     fromName: data.senderName?.trim() || null,
     fromAddress:

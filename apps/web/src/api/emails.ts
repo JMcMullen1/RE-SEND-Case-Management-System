@@ -22,8 +22,10 @@ export function fetchEmails(caseId: string): Promise<{ emails: EmailInfo[] }> {
 export function deleteEmail(
   caseId: string,
   emailId: string,
-): Promise<{ deleted: boolean }> {
-  return request(`/api/cases/${caseId}/emails/${emailId}`, {
-    method: 'DELETE',
-  });
+  withAttachments = false,
+): Promise<{ deleted: boolean; attachmentsDeleted: number }> {
+  return request(
+    `/api/cases/${caseId}/emails/${emailId}${withAttachments ? '?attachments=true' : ''}`,
+    { method: 'DELETE' },
+  );
 }

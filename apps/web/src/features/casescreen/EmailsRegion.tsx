@@ -74,9 +74,13 @@ export function EmailsRegion({ caseId }: { caseId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const del = useMutation({
-    mutationFn: (id: string) => deleteEmail(caseId, id),
+    mutationFn: (v: { id: string; withAttachments: boolean }) =>
+      deleteEmail(caseId, v.id, v.withAttachments),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['emails', caseId] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['emails', caseId] }),
+        qc.invalidateQueries({ queryKey: ['documents', caseId] }),
+      ]);
       setPendingDelete(null);
     },
   });
@@ -188,7 +192,9 @@ export function EmailsRegion({ caseId }: { caseId: string }) {
             del.reset();
             setPendingDelete(null);
           }}
-          onConfirm={() => del.mutate(pendingDelete.id)}
+          onConfirm={(withAttachments) =>
+            del.mutate({ id: pendingDelete.id, withAttachments })
+          }
         />
       )}
     </div>
@@ -365,8 +371,10 @@ function ConfirmDeleteEmail({
   busy: boolean;
   error: string | null;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (withAttachments: boolean) => void;
 }) {
+  const [withAttachments, setWithAttachments] = useState(false);
+  const n = email.attachments.length;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -382,11 +390,27 @@ function ConfirmDeleteEmail({
           Delete this email?
         </h2>
         <p className="mt-2 break-words text-sm text-gray-600">
-          “{email.subject ?? '(no subject)'}” will be removed from this case.
-          {email.attachments.length > 0 &&
-            ' Its attachments stay in Documents.'}{' '}
-          It is recoverable by an administrator and the deletion is recorded.
+          “{email.subject ?? '(no subject)'}” will be removed from this case. It
+          is recoverable by an administrator and the deletion is recorded.
         </p>
+        {n > 0 && (
+          <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={withAttachments}
+              onChange={(e) => setWithAttachments(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+            />
+            <span>
+              Also delete {n === 1 ? 'its attachment' : `its ${n} attachments`}{' '}
+              from Documents
+              <span className="block text-xs text-gray-500">
+                Tick this if the email was filed on the wrong case. Files that
+                were already on the case are kept.
+              </span>
+            </span>
+          </label>
+        )}
         {error && <p className="mt-2 text-sm text-status-amber">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button
@@ -398,7 +422,7 @@ function ConfirmDeleteEmail({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm(withAttachments)}
             disabled={busy}
             className="rounded-md bg-status-amber px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber disabled:opacity-50"
           >

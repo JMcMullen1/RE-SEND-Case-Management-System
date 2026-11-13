@@ -113,8 +113,8 @@ Correspondence is filed against the case it belongs to (Documents / Emails tab,
   are always filed as emails; any other file is filed as a document, so staff
   never have to know which panel a file "belongs" to.
 - **Attachments are documents in their own right.** Each attachment is filed in
-  Documents under `Correspondence`, with the usual duplicate and version
-  handling, so an expert report sent by email is findable as a report. Small
+  Documents under `Correspondence`, with the usual duplicate check (but never
+  versioned against an unrelated file that happens to share its name), so an expert report sent by email is findable as a report. Small
   inline images (signature logos) are skipped. The original email file is kept,
   hidden from the documents list, and downloads through the audited content
   route.
@@ -130,7 +130,7 @@ Correspondence is filed against the case it belongs to (Documents / Emails tab,
 - **One case history.** Filed emails join the case corpus (with attachment names
   and headers) for AI features, update live for everyone through the same
   `NOTIFY` channel, and every filing, duplicate and deletion is audited by
-  identifier. Deleting an email is soft and leaves its attachments in place.
+  identifier. Deleting an email is soft; ticking “also delete its attachments” (for an email filed on the wrong case) removes the attachments that filing added, never a file that was already on the case.
 - **Not yet:** filing straight from Outlook (an add-in or Microsoft Graph) and
   automatic matching of unplaced email to cases with a review queue. Both build
   on the same `fileEmail` path; see `docs/roadmap.md`.

@@ -117,6 +117,11 @@ export function buildMsg(opts: {
   body: string;
   sent: Date;
   messageId?: string;
+  /**
+   * Where the Message-ID lives: transport headers (a received message) or only
+   * the PR_INTERNET_MESSAGE_ID property (e.g. saved from Sent Items).
+   */
+  messageIdIn?: 'headers' | 'property';
   to: { name: string; smtp: string }[];
   cc?: { name: string; smtp: string }[];
   attachment?: { filename: string; mimeType: string; content: Buffer };
@@ -147,7 +152,9 @@ export function buildMsg(opts: {
   doc(0, '__substg1.0_0C1A001F', utf16(opts.senderName));
   doc(0, '__substg1.0_5D01001F', utf16(opts.senderSmtp));
   doc(0, '__substg1.0_1000001F', utf16(opts.body));
-  if (opts.messageId) {
+  if (opts.messageId && opts.messageIdIn === 'property') {
+    doc(0, '__substg1.0_1035001F', utf16(opts.messageId));
+  } else if (opts.messageId) {
     doc(
       0,
       '__substg1.0_007D001F',

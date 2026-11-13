@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import {
   CORPUS_ITEM_TYPE_VALUES,
   renderEmailText,
@@ -12,8 +12,9 @@ import {
   type ExcludedCorpusItem,
 } from '@re-send/shared';
 import { getDb } from '../db/client';
-import { caseNotes, documents, emails, users } from '../db/schema';
+import { caseNotes, documents, users } from '../db/schema';
 import { getCaseDetail } from '../repositories/case-detail';
+import { emailsForCorpus } from '../repositories/emails';
 import { getCachedCorpus, setCachedCorpus } from './cache';
 
 export interface CorpusOptions {
@@ -215,12 +216,7 @@ async function collectDocuments(
 
   // The original file behind a filed email is read as its `email` item.
   const sources = new Set(
-    (
-      await getDb()
-        .select({ id: emails.rawDocumentId })
-        .from(emails)
-        .where(eq(emails.caseId, caseId))
-    ).map((r) => r.id),
+    (await emailsForCorpus(caseId)).map((r) => r.rawDocumentId),
   );
 
   const wanted = documentIds ? new Set(documentIds) : null;
@@ -251,40 +247,7 @@ async function collectEmails(
   items: CorpusItem[],
   excluded: ExcludedCorpusItem[],
 ): Promise<void> {
-  const rows = await getDb()
-    .select({
-      id: emails.id,
-      subject: emails.subject,
-      fromName: emails.fromName,
-      fromAddress: emails.fromAddress,
-      toAddresses: emails.toAddresses,
-      ccAddresses: emails.ccAddresses,
-      sentAt: emails.sentAt,
-      createdAt: emails.createdAt,
-      direction: emails.direction,
-      bodyText: emails.bodyText,
-      attachmentDocumentIds: emails.attachmentDocumentIds,
-      deletedAt: emails.deletedAt,
-    })
-    .from(emails)
-    .where(eq(emails.caseId, caseId))
-    .orderBy(asc(emails.sentAt));
-
-  // Attachment names give the model the context of what was sent; their text
-  // is already in the corpus as document items.
-  const attachmentIds = [
-    ...new Set(rows.flatMap((r) => r.attachmentDocumentIds)),
-  ];
-  const names = new Map<string, string>();
-  if (attachmentIds.length) {
-    const docs = await getDb()
-      .select({ id: documents.id, name: documents.originalFilename })
-      .from(documents)
-      .where(inArray(documents.id, attachmentIds));
-    for (const d of docs) names.set(d.id, d.name);
-  }
-
-  for (const r of rows) {
+  for (const r of await emailsForCorpus(caseId)) {
     if (r.deletedAt) {
       excluded.push({ id: r.id, type: 'email', reason: 'deleted' });
       continue;
@@ -304,9 +267,7 @@ async function collectEmails(
         sentAt,
         direction: r.direction,
         bodyText: r.bodyText,
-        attachmentNames: r.attachmentDocumentIds
-          .map((id) => names.get(id))
-          .filter((n): n is string => n !== undefined),
+        attachmentNames: r.attachmentNames,
       }),
     });
   }

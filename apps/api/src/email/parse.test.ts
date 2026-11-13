@@ -49,6 +49,26 @@ describe('parseEmailFile (.eml)', () => {
     expect(c.dedupKey).not.toBe(a.dedupKey);
   });
 
+  it('tells apart header-less emails that differ only by their attachment', async () => {
+    const scan = (content: string) =>
+      parseEmailFile(
+        'scan.eml',
+        buildEml({
+          messageId: null,
+          subject: 'Scan',
+          body: '',
+          attachment: {
+            filename: 'Scan.pdf',
+            mimeType: 'application/pdf',
+            content: Buffer.from(content),
+          },
+        }),
+      );
+    expect((await scan('%PDF one')).dedupKey).not.toBe(
+      (await scan('%PDF two')).dedupKey,
+    );
+  });
+
   it('rejects a file that is not an email', async () => {
     await expect(
       parseEmailFile('renamed.eml', Buffer.from('%PDF-1.4\n%binary')),
@@ -94,6 +114,25 @@ describe('parseEmailFile (.msg)', () => {
     const fromMsg = await parseEmailFile('x.msg', msg());
     const fromEml = await parseEmailFile('x.eml', buildEml({}));
     expect(fromMsg.dedupKey).toBe(fromEml.dedupKey);
+  });
+
+  it('reads the Message-ID property of a message saved without headers (Sent Items)', async () => {
+    const sent = await parseEmailFile(
+      'sent.msg',
+      buildMsg({
+        subject: 'Tribunal bundle',
+        senderName: 'Alex Worker',
+        senderSmtp: 'alex.worker@resend.test',
+        body: 'Bundle attached.',
+        sent: new Date('2025-10-02T10:00:00Z'),
+        messageId: '<ABC123@example.org>',
+        messageIdIn: 'property',
+        to: [{ name: 'Sam Parent', smtp: 'sam.parent@example.org' }],
+      }),
+    );
+    const fromEml = await parseEmailFile('x.eml', buildEml({}));
+    expect(sent.messageId).toBe('abc123@example.org');
+    expect(sent.dedupKey).toBe(fromEml.dedupKey);
   });
 
   it('detects an Outlook file by its signature even without the extension', async () => {
