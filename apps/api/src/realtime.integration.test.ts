@@ -73,10 +73,43 @@ run('live updates end to end', () => {
       sql`INSERT INTO case_notes (case_id, author_user_id, entry_date, body) VALUES (${case_id}, ${user_id}, current_date, 'live-update test note')`,
     );
 
-    await waitFor(() => received.some((m) => m.entity === 'case_notes'));
-    const msg = received.find((m) => m.entity === 'case_notes')!;
+    // Other test files add notes concurrently; wait for the message about
+    // THIS case rather than the first note change seen.
+    const isForThisCase = (m: WsMessage): boolean =>
+      m.entity === 'case_notes' &&
+      (m.queryKeys?.some((k) => k[0] === 'timeline' && k[1] === case_id) ??
+        false);
+    await waitFor(() => received.some(isForThisCase));
+    expect(received.find(isForThisCase)).toBeDefined();
+
+    removeConnection(connId);
+    await stop();
+  });
+
+  it("refreshes a case's emails and documents when an email is filed", async () => {
+    const received: WsMessage[] = [];
+    const connId = addConnection((data) =>
+      received.push(JSON.parse(data) as WsMessage),
+    );
+    const stop = await startEntityListener();
+    await new Promise((r) => setTimeout(r, 200));
+
+    const rows = await getDb().execute(sql`SELECT id FROM cases LIMIT 1`);
+    const caseId = (rows as unknown as { id: string }[])[0]!.id;
+    await getDb().execute(
+      sql`INSERT INTO emails (case_id, direction, subject, dedup_key) VALUES (${caseId}, 'inbound', 'live-update test', ${`test:${Date.now()}`})`,
+    );
+
+    const isForThisCase = (m: WsMessage): boolean =>
+      m.entity === 'emails' &&
+      (m.queryKeys?.some((k) => k[0] === 'emails' && k[1] === caseId) ?? false);
+    await waitFor(() => received.some(isForThisCase));
+    const msg = received.find(isForThisCase)!;
     expect(
-      msg.queryKeys?.some((k) => k[0] === 'timeline' && k[1] === case_id),
+      msg.queryKeys?.some((k) => k[0] === 'emails' && k[1] === caseId),
+    ).toBe(true);
+    expect(
+      msg.queryKeys?.some((k) => k[0] === 'documents' && k[1] === caseId),
     ).toBe(true);
 
     removeConnection(connId);

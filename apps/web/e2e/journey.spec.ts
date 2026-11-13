@@ -106,6 +106,35 @@ function directionsStub(documentReference: string) {
   };
 }
 
+/** A small .eml with one attachment, as saved from a mail client. */
+const emailFile = {
+  name: 'Draft EHCP comments.eml',
+  mimeType: 'message/rfc822',
+  buffer: Buffer.from(
+    [
+      'From: Nadia Rahman <nadia.rahman@example.co.uk>',
+      'To: Casework <casework@resend.demo>',
+      'Subject: Draft EHCP comments',
+      'Date: Wed, 01 Oct 2025 09:30:00 +0100',
+      'Message-ID: <journey-email@example.co.uk>',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="b1"',
+      '',
+      '--b1',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Our comments on the draft plan are attached.',
+      '--b1',
+      'Content-Type: text/plain; name="ehcp-comments.txt"',
+      'Content-Disposition: attachment; filename="ehcp-comments.txt"',
+      '',
+      'Section F needs specifying.',
+      '--b1--',
+      '',
+    ].join('\r\n'),
+  ),
+};
+
 test('demonstration journey: sign in, add cases, directions, calendar, review, live reassign', async ({
   page,
   context,
@@ -161,6 +190,32 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await reviewDialog.getByRole('button', { name: 'Apply changes' }).click();
   await expect(reviewDialog).toBeHidden();
   await expect(page.getByText(/Calendar updated/)).toBeVisible();
+
+  // 5b. File an email on the case. It appears under Emails, its attachment is
+  // filed in Documents, and filing the same email again is recognised.
+  await page.getByRole('tab', { name: 'Documents / Emails' }).click();
+  const emailInput = page.locator('input[type="file"][accept*=".eml"]');
+  await emailInput.setInputFiles(emailFile);
+  await expect(page.getByText(/Filed as email/)).toBeVisible();
+  await page.getByRole('button', { name: /Draft EHCP comments/ }).click();
+  await expect(
+    page.getByText('Our comments on the draft plan are attached.'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('listitem').filter({ hasText: 'ehcp-comments.txt' }).first(),
+  ).toBeVisible();
+  await emailInput.setInputFiles(emailFile);
+  await expect(page.getByText('Email already filed')).toBeVisible();
+  // An Outlook .msg (the demo file) is read by the real API too; it was sent by
+  // a staff address, so it is marked Sent.
+  await emailInput.setInputFiles(
+    `${import.meta.dirname}/../../../docs/demo/tribunal-bundle.msg`,
+  );
+  const sentEmail = page
+    .getByRole('button')
+    .filter({ hasText: 'Tribunal bundle - working document' });
+  await expect(sentEmail).toBeVisible();
+  await expect(sentEmail.getByText('Sent', { exact: true })).toBeVisible();
 
   // 6. The applied dates appear on the calendar.
   await page.goto('/calendar');

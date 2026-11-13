@@ -189,7 +189,7 @@ run('case corpus', () => {
     const withEmails = await caseCorpus(caseId, {
       include: ['document', 'email', 'time_entry'],
     });
-    expect(withEmails.registeredEmpty).toEqual(['email', 'time_entry']);
+    expect(withEmails.registeredEmpty).toEqual(['time_entry']);
   });
 
   it('caches and invalidates', async () => {

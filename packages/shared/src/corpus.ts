@@ -25,15 +25,18 @@ export interface ExcludedCorpusItem {
   id: string;
   type: CorpusItemType;
   /** Why it was left out, stated rather than dropped silently. */
-  reason: 'superseded' | 'deleted' | 'no-text';
+  reason: 'superseded' | 'deleted' | 'no-text' | 'email-source';
 }
 
 export interface CorpusResult {
   caseId: string;
   items: CorpusItem[];
-  /** Superseded document versions and soft-deleted rows, named explicitly. */
+  /**
+   * Superseded document versions, soft-deleted rows, and the raw file behind a
+   * filed email (read as its `email` item instead), named explicitly.
+   */
   excluded: ExcludedCorpusItem[];
-  /** Item types that are registered but produce nothing yet (email, time_entry). */
+  /** Item types that are registered but produce nothing yet (time_entry). */
   registeredEmpty: CorpusItemType[];
   /** Delimited serialisation carrying item ids (see serialiseCorpus). */
   serialised: string;

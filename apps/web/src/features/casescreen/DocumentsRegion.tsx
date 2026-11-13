@@ -6,33 +6,15 @@ import {
   formatFileSize,
   isPreviewable,
   type DocumentInfo,
-  type DocumentUploadOutcome,
 } from '@re-send/shared';
 import {
   deleteDocuments,
   documentContentUrl,
   fetchDocumentVersions,
-  uploadDocument,
 } from '../../api/documents';
 import { useDocuments } from '../../hooks/useCaseScreen';
 import { collectDroppedFiles } from './DropZone';
-
-interface Upload {
-  id: string;
-  name: string;
-  status: 'uploading' | 'done' | 'error';
-  progress: number;
-  outcome?: DocumentUploadOutcome;
-  error?: string;
-}
-
-const OUTCOME_LABEL: Record<DocumentUploadOutcome, string> = {
-  created: 'New',
-  version: 'New version',
-  duplicate: 'Already filed',
-};
-
-const CONCURRENCY = 3;
+import { UploadList, useCaseUploads } from './useCaseUploads';
 
 const ALL_FILES = 'All files';
 
@@ -43,7 +25,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
 
   const [customFolders, setCustomFolders] = useState<string[]>([]);
   const [activeFolder, setActiveFolder] = useState<string>(ALL_FILES);
-  const [uploads, setUploads] = useState<Upload[]>([]);
+  const { uploads, onFiles: fileAll, clearFinished } = useCaseUploads(caseId);
   const [preview, setPreview] = useState<DocumentInfo | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -105,54 +87,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
       ? documents
       : documents.filter((d) => d.category === activeFolder);
 
-  const setUpload = (id: string, patch: Partial<Upload>) =>
-    setUploads((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-    );
-
-  const onFiles = (files: File[]) => {
-    if (files.length === 0) return;
-    const queued: Upload[] = files.map((file) => ({
-      id: crypto.randomUUID(),
-      name: file.name,
-      status: 'uploading',
-      progress: 0,
-    }));
-    setUploads((prev) => [...queued, ...prev]);
-    void runPool(files, queued, uploadFolder);
-  };
-
-  // Upload a batch with limited concurrency. Each file is independent: one
-  // failure never discards the others' progress or results.
-  const runPool = async (files: File[], queued: Upload[], folder: string) => {
-    let cursor = 0;
-    const worker = async () => {
-      while (cursor < files.length) {
-        const index = cursor++;
-        const file = files[index]!;
-        const entry = queued[index]!;
-        try {
-          const result = await uploadDocument(caseId, file, folder, (f) =>
-            setUpload(entry.id, { progress: f }),
-          );
-          setUpload(entry.id, {
-            status: 'done',
-            progress: 1,
-            outcome: result.outcome,
-          });
-          await qc.invalidateQueries({ queryKey: ['documents', caseId] });
-        } catch (err) {
-          setUpload(entry.id, {
-            status: 'error',
-            error: err instanceof Error ? err.message : 'Upload failed',
-          });
-        }
-      }
-    };
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker),
-    );
-  };
+  const onFiles = (files: File[]) => fileAll(files, uploadFolder);
 
   const addFolder = () => {
     const name = window.prompt('New folder name')?.trim();
@@ -224,7 +159,10 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
       <p className="mb-3 text-xs text-gray-400">
         Drag files or a folder anywhere in this panel to file them
         {activeFolder === ALL_FILES ? ' under Other' : ` in ${activeFolder}`}.
+        Emails (.eml, .msg) are filed under Emails, with their attachments here.
       </p>
+
+      <UploadList uploads={uploads} onClear={clearFinished} />
 
       {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
       {!isLoading && visible.length === 0 && (
@@ -348,32 +286,6 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
         ))}
       </ul>
 
-      {uploads.length > 0 && (
-        <ul className="mb-4 space-y-1.5">
-          {uploads.map((u) => (
-            <li key={u.id} className="text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-resend-ink">
-                  {u.name}
-                </span>
-                <UploadStatus upload={u} />
-              </div>
-              {u.status === 'uploading' && (
-                <div className="mt-1 h-1 overflow-hidden rounded bg-gray-100">
-                  <div
-                    className="h-full bg-resend-purple transition-[width]"
-                    style={{ width: `${Math.round(u.progress * 100)}%` }}
-                  />
-                </div>
-              )}
-              {u.status === 'error' && (
-                <p className="mt-0.5 text-status-amber">{u.error}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-resend-purple bg-white/85 text-sm font-medium text-resend-purple">
           Drop to file
@@ -485,31 +397,6 @@ function FolderChip({
     >
       {children}
     </button>
-  );
-}
-
-function UploadStatus({ upload }: { upload: Upload }) {
-  if (upload.status === 'uploading') {
-    return (
-      <span className="shrink-0 tabular-nums text-gray-400">
-        {Math.round(upload.progress * 100)}%
-      </span>
-    );
-  }
-  if (upload.status === 'error') {
-    return <span className="shrink-0 text-status-amber">Failed</span>;
-  }
-  const outcome = upload.outcome ?? 'created';
-  return (
-    <span
-      className={`shrink-0 rounded px-1.5 py-0.5 ${
-        outcome === 'duplicate'
-          ? 'border border-status-amber text-resend-ink'
-          : 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {OUTCOME_LABEL[outcome]}
-    </span>
   );
 }
 

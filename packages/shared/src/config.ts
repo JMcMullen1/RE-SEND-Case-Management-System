@@ -248,8 +248,8 @@ export type DocumentCategory = string;
 
 // --- Corpus item types ------------------------------------------------------
 // The kinds of thing the case corpus assembles for AI features. `case_record`,
-// `document` and `note` carry text today; `email` and `time_entry` are
-// registered so adding them later is additive, never a rewrite.
+// `document`, `note` and `email` carry text today; `time_entry` is registered
+// so adding it later is additive, never a rewrite.
 export const CORPUS_ITEM_TYPE_VALUES = [
   'case_record',
   'document',
@@ -265,6 +265,7 @@ export const CORPUS_ACTIVE_ITEM_TYPES = [
   'case_record',
   'document',
   'note',
+  'email',
 ] as const satisfies readonly CorpusItemType[];
 
 // --- AI job outcomes --------------------------------------------------------
@@ -330,6 +331,49 @@ export const KeyDateSourceSchema = z.enum(KEY_DATE_SOURCE_VALUES);
 export const EMAIL_DIRECTION_VALUES = ['inbound', 'outbound'] as const;
 export type EmailDirection = (typeof EMAIL_DIRECTION_VALUES)[number];
 export const EmailDirectionSchema = z.enum(EMAIL_DIRECTION_VALUES);
+/** Label shown for each email direction (as a chip). */
+export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
+  inbound: 'Received',
+  outbound: 'Sent',
+};
+
+// --- Email filing -----------------------------------------------------------
+/** File extensions accepted as a filed email: RFC 822 (.eml) and Outlook (.msg). */
+export const EMAIL_FILE_EXTENSIONS = ['.eml', '.msg'] as const;
+/** Folder an email's attachments are filed into as case documents. */
+export const EMAIL_ATTACHMENT_FOLDER = 'Correspondence' as const;
+/**
+ * Inline images smaller than this (bytes) are treated as signature logos and
+ * not filed as documents. Larger inline images (e.g. a photographed letter
+ * pasted into the body) are kept.
+ */
+export const EMAIL_INLINE_IMAGE_MIN_BYTES = 20 * 1024;
+/**
+ * Public mail providers. A sender on one of these domains is never treated as
+ * staff just because a staff account shares the domain — only an exact address
+ * match counts. A sender on any other domain a staff account uses (the
+ * charity's own) is treated as outbound correspondence.
+ */
+export const EMAIL_PUBLIC_DOMAINS = [
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'hotmail.com',
+  'hotmail.co.uk',
+  'live.com',
+  'live.co.uk',
+  'msn.com',
+  'yahoo.com',
+  'yahoo.co.uk',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'btinternet.com',
+  'sky.com',
+  'virginmedia.com',
+  'protonmail.com',
+  'proton.me',
+] as const;
 
 // --- Note kind --------------------------------------------------------------
 // A note is either a normal case note or a billable. A billable is just a

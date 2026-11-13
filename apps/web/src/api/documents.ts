@@ -25,14 +25,27 @@ export function uploadDocument(
   category: string,
   onProgress?: (fraction: number) => void,
 ): Promise<UploadResult> {
+  return postFileWithProgress<UploadResult>(
+    `/api/cases/${caseId}/documents?category=${encodeURIComponent(category)}`,
+    file,
+    onProgress,
+  );
+}
+
+/**
+ * POST one file as multipart, reporting upload progress. Shared by document
+ * and email filing; rejects with the API's own message on failure.
+ */
+export function postFileWithProgress<T>(
+  url: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append('file', file);
     const xhr = new XMLHttpRequest();
-    xhr.open(
-      'POST',
-      `/api/cases/${caseId}/documents?category=${encodeURIComponent(category)}`,
-    );
+    xhr.open('POST', url);
     const acting = getActingUserId();
     if (acting) xhr.setRequestHeader('x-user-id', acting);
 
@@ -42,7 +55,7 @@ export function uploadDocument(
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(JSON.parse(xhr.responseText) as UploadResult);
+          resolve(JSON.parse(xhr.responseText) as T);
         } catch {
           reject(new Error('Malformed upload response'));
         }

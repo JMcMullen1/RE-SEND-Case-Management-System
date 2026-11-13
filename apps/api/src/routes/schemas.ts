@@ -19,6 +19,7 @@ import {
   KeyDateTypeSchema,
   DirectionPartySchema,
   DirectionsCategorySchema,
+  EmailDirectionSchema,
 } from '@re-send/shared';
 
 /** Mirrors the shared CaseFilters type; validates every facet value. */
@@ -251,6 +252,35 @@ export const DocumentUploadResultSchema = z.object({
   outcome: z.enum(['created', 'version', 'duplicate']),
 });
 
+export const EmailAttachmentInfoSchema = z.object({
+  documentId: z.string(),
+  originalFilename: z.string(),
+  mimeType: z.string(),
+  byteSize: z.number(),
+  category: z.string(),
+});
+
+export const EmailInfoSchema = z.object({
+  id: z.string(),
+  subject: z.string().nullable(),
+  fromName: z.string().nullable(),
+  fromAddress: z.string().nullable(),
+  toAddresses: z.array(z.string()),
+  ccAddresses: z.array(z.string()),
+  sentAt: z.string().nullable(),
+  direction: EmailDirectionSchema,
+  bodyText: z.string().nullable(),
+  attachments: z.array(EmailAttachmentInfoSchema),
+  filedByName: z.string().nullable(),
+  filedAt: z.string(),
+  rawDocumentId: z.string().nullable(),
+});
+
+export const EmailFileResultSchema = z.object({
+  email: EmailInfoSchema,
+  outcome: z.enum(['created', 'duplicate']),
+});
+
 export const CorpusItemSchema = z.object({
   id: z.string(),
   type: CorpusItemTypeSchema,
@@ -442,7 +472,7 @@ export const CorpusResultSchema = z.object({
     z.object({
       id: z.string(),
       type: CorpusItemTypeSchema,
-      reason: z.enum(['superseded', 'deleted', 'no-text']),
+      reason: z.enum(['superseded', 'deleted', 'no-text', 'email-source']),
     }),
   ),
   registeredEmpty: z.array(CorpusItemTypeSchema),

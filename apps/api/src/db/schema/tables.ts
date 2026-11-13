@@ -404,14 +404,21 @@ export const auditLog = pgTable(
   }),
 );
 
-// --- emails (created now; nothing populates it yet) -------------------------
+// --- emails ------------------------------------------------------------------
+// Correspondence filed against a case (.eml or .msg). The original file is kept
+// as a hidden document (`raw_document_id`); attachments are filed as ordinary
+// case documents and listed in `attachment_document_ids`. `dedup_key` is the
+// normalised Message-ID (or a content hash when there is none), unique per case
+// so the same email filed twice — by anyone, in either format — is stored once.
 export const emails = pgTable(
   'emails',
   {
     id: primaryId(),
     internetMessageId: text('internet_message_id'),
     graphMessageId: text('graph_message_id'),
+    dedupKey: text('dedup_key'),
     subject: text('subject'),
+    fromName: text('from_name'),
     fromAddress: text('from_address'),
     toAddresses: text('to_addresses').array(),
     ccAddresses: text('cc_addresses').array(),
@@ -426,6 +433,13 @@ export const emails = pgTable(
     rawDocumentId: uuid('raw_document_id').references(() => documents.id, {
       onDelete: 'set null',
     }),
+    attachmentDocumentIds: uuid('attachment_document_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    filedByUserId: uuid('filed_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
     ...retention,
     ...timestamps,
     ...softDelete,
@@ -433,6 +447,9 @@ export const emails = pgTable(
   (t) => ({
     caseIdIdx: index('idx_emails_case_id').on(t.caseId),
     rawDocumentIdIdx: index('idx_emails_raw_document_id').on(t.rawDocumentId),
+    caseDedupIdx: uniqueIndex('uq_emails_case_dedup_key')
+      .on(t.caseId, t.dedupKey)
+      .where(sql`${t.deletedAt} IS NULL`),
   }),
 );
 

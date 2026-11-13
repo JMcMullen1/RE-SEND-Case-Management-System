@@ -16,7 +16,7 @@ import { invalidateCorpus } from './corpus/cache';
 type QueryKey = (string | number)[];
 
 /** Entities whose changes must drop the cached corpus for their case. */
-const CORPUS_ENTITIES = new Set(['cases', 'case_notes', 'documents']);
+const CORPUS_ENTITIES = new Set(['cases', 'case_notes', 'documents', 'emails']);
 
 interface EntityMapping {
   /** Query keys to invalidate, given the row id and its scope (case) id. */
@@ -25,8 +25,8 @@ interface EntityMapping {
 
 /**
  * Entity type → affected query keys. Adding an entity to live updates is one
- * entry here. `documents`, `emails` and `time_entries` are registered but inert
- * until their tables carry the trigger and their screens read live.
+ * entry here. `time_entries` is registered but inert until its table carries
+ * the trigger and its screen reads live.
  */
 const REGISTRY: Record<string, EntityMapping> = {
   cases: {
@@ -54,8 +54,19 @@ const REGISTRY: Record<string, EntityMapping> = {
         ? [['cases'], ['case-detail', scopeId], ['documents', scopeId]]
         : [],
   },
-  // Inert registry entries — wire a trigger and query keys to switch them on.
-  emails: { keys: () => [] },
+  // A filed email also files its attachments, so the documents list refreshes
+  // with it.
+  emails: {
+    keys: (_id, scopeId) =>
+      scopeId
+        ? [
+            ['emails', scopeId],
+            ['documents', scopeId],
+            ['case-detail', scopeId],
+          ]
+        : [],
+  },
+  // Inert registry entry — wire a trigger and query keys to switch it on.
   time_entries: { keys: () => [] },
 };
 

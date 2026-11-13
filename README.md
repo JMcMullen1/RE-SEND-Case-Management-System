@@ -29,8 +29,8 @@ view.
   for rows that belong to a case, the owning case id. Adding a table to live
   updates is **one `CREATE TRIGGER` line** in a migration — the function is
   never duplicated. It is applied to `cases`, `case_notes`, `key_dates`,
-  `case_reviews` and `documents`; `emails` and `time_entries` are registered as
-  inert entries in the API registry.
+  `case_reviews`, `documents` and `emails`; `time_entries` is registered as an
+  inert entry in the API registry.
 - The API holds a **single `LISTEN` connection** and fans each notification out
   over WebSockets, mapping entity type to the affected TanStack Query keys
   through a registry. Because the notification originates in Postgres, this
@@ -68,10 +68,11 @@ POINT` in `apps/web/src/api/documents.ts` and the S3 provider.
 
 `caseCorpus(caseId, options)` (`apps/api/src/corpus`) is the single reading
 surface for AI features — even one that needs a single document reads through it.
-It returns an ordered set of text items (`case_record`, `document`, `note` today;
-`email` and `time_entry` registered-empty), each with a stable id a model can
-cite. Superseded document versions and soft-deleted rows are excluded
-**explicitly** (reported in `excluded`, not dropped silently). It serialises to a
+It returns an ordered set of text items (`case_record`, `document`, `note` and
+`email` today; `time_entry` registered-empty), each with a stable id a model can
+cite. Superseded document versions, soft-deleted rows and the raw file behind a
+filed email (read as its `email` item instead) are excluded **explicitly**
+(reported in `excluded`, not dropped silently). It serialises to a
 delimited string carrying item ids, reports an estimated token count, takes a
 `select` option, and is cached per case — invalidated whenever a constituent row
 changes, driven by the same Postgres `NOTIFY` as live updates.
@@ -100,6 +101,41 @@ more than one set of conventions.
 - **Switchable without a deploy.** `AI_ENABLED` is a global kill switch; per-job
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
+
+## Email filing
+
+Correspondence is filed against the case it belongs to (Documents / Emails tab,
+`apps/api/src/email`, `apps/api/src/repositories/emails.ts`).
+
+- **Drop it anywhere on the case's files.** An Outlook message saved as `.msg`
+  (drag it from Outlook to the desktop, or File › Save As) or any `.eml` can be
+  dropped on the Emails panel _or_ the Documents panel — several at once. Emails
+  are always filed as emails; any other file is filed as a document, so staff
+  never have to know which panel a file "belongs" to.
+- **Attachments are documents in their own right.** Each attachment is filed in
+  Documents under `Correspondence`, with the usual duplicate check (but never
+  versioned against an unrelated file that happens to share its name), so an expert report sent by email is findable as a report. Small
+  inline images (signature logos) are skipped. The original email file is kept,
+  hidden from the documents list, and downloads through the audited content
+  route.
+- **Nothing filed twice.** An email is identified by its Message-ID (or, when it
+  has none, a hash of sender, send time, subject and body), unique per case — so
+  the same message filed by two people, or once as `.eml` and once as `.msg`, is
+  recorded once and the second filing is reported as already filed.
+- **Sent or received** is worked out, not asked: from a staff address, or from a
+  domain a staff account uses that is not a public mail provider
+  (`EMAIL_PUBLIC_DOMAINS` in `config.ts`), is _Sent_; anything else _Received_.
+- **Safe to read.** Bodies are shown as plain text only — HTML is stored but
+  never rendered, so nothing in an email can run in the browser.
+- **One case history.** Filed emails join the case corpus (with attachment names
+  and headers) for AI features, update live for everyone through the same
+  `NOTIFY` channel, and every filing, duplicate and deletion is audited by
+  identifier. Deleting an email is soft; ticking “also delete its attachments” (for an email filed on the wrong case) removes the attachments that filing added, never a file that was already on the case.
+- **Not yet:** filing straight from Outlook (an add-in or Microsoft Graph) and
+  automatic matching of unplaced email to cases with a review queue. Both build
+  on the same `fileEmail` path; see `docs/roadmap.md`.
+
+Demo files: `docs/demo/parent-email.eml` and `docs/demo/tribunal-bundle.msg`.
 
 ## Smart fill (JotForm intake)
 

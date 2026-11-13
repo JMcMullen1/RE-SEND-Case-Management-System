@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import {
   CORPUS_ITEM_TYPE_VALUES,
+  renderEmailText,
   estimateTokenCount,
   renderCaseRecordText,
   serialiseCorpus,
@@ -13,6 +14,7 @@ import {
 import { getDb } from '../db/client';
 import { caseNotes, documents, users } from '../db/schema';
 import { getCaseDetail } from '../repositories/case-detail';
+import { emailsForCorpus } from '../repositories/emails';
 import { getCachedCorpus, setCachedCorpus } from './cache';
 
 export interface CorpusOptions {
@@ -58,8 +60,13 @@ export function singleDocumentCorpus(doc: SingleDocument): CorpusResult {
   };
 }
 
-const PRODUCING: CorpusItemType[] = ['case_record', 'document', 'note'];
-const REGISTERED_EMPTY: CorpusItemType[] = ['email', 'time_entry'];
+const PRODUCING: CorpusItemType[] = [
+  'case_record',
+  'document',
+  'note',
+  'email',
+];
+const REGISTERED_EMPTY: CorpusItemType[] = ['time_entry'];
 
 /**
  * Assemble the case corpus: an ordered set of text items a model can read and
@@ -94,6 +101,9 @@ export async function caseCorpus(
   }
   if (want('document')) {
     await collectDocuments(caseId, options.documentIds, items, excluded);
+  }
+  if (want('email')) {
+    await collectEmails(caseId, items, excluded);
   }
 
   sortChronologically(items);
@@ -204,10 +214,17 @@ async function collectDocuments(
     .where(eq(documents.caseId, caseId))
     .orderBy(asc(documents.uploadedAt));
 
+  // The original file behind a filed email is read as its `email` item.
+  const sources = new Set(
+    (await emailsForCorpus(caseId)).map((r) => r.rawDocumentId),
+  );
+
   const wanted = documentIds ? new Set(documentIds) : null;
   for (const r of rows) {
     if (wanted && !wanted.has(r.id)) continue;
-    if (r.deletedAt) {
+    if (sources.has(r.id)) {
+      excluded.push({ id: r.id, type: 'document', reason: 'email-source' });
+    } else if (r.deletedAt) {
       excluded.push({ id: r.id, type: 'document', reason: 'deleted' });
     } else if (r.supersededById) {
       excluded.push({ id: r.id, type: 'document', reason: 'superseded' });
@@ -222,6 +239,37 @@ async function collectDocuments(
         text: r.extractedText,
       });
     }
+  }
+}
+
+async function collectEmails(
+  caseId: string,
+  items: CorpusItem[],
+  excluded: ExcludedCorpusItem[],
+): Promise<void> {
+  for (const r of await emailsForCorpus(caseId)) {
+    if (r.deletedAt) {
+      excluded.push({ id: r.id, type: 'email', reason: 'deleted' });
+      continue;
+    }
+    const sentAt = (r.sentAt ?? r.createdAt).toISOString();
+    items.push({
+      id: r.id,
+      type: 'email',
+      title: `Email — ${r.subject ?? '(no subject)'}`,
+      date: sentAt.slice(0, 10),
+      text: renderEmailText({
+        subject: r.subject,
+        fromName: r.fromName,
+        fromAddress: r.fromAddress,
+        toAddresses: r.toAddresses ?? [],
+        ccAddresses: r.ccAddresses ?? [],
+        sentAt,
+        direction: r.direction,
+        bodyText: r.bodyText,
+        attachmentNames: r.attachmentNames,
+      }),
+    });
   }
 }
 

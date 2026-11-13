@@ -10,3 +10,4 @@ export * from './bank-holidays-snapshot';
 export * from './working-days';
 export * from './directions';
 export * from './calendar';
+export * from './email';
