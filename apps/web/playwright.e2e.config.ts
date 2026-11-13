@@ -13,7 +13,7 @@ const executablePath = process.env.PW_CHROMIUM || undefined;
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['journey.spec.ts', 'a11y.spec.ts'],
+  testMatch: ['journey.spec.ts', 'a11y.spec.ts', 'mobile.spec.ts'],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

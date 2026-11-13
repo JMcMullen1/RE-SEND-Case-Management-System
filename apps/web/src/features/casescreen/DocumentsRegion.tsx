@@ -163,7 +163,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
 
   return (
     <div
-      className="relative flex h-full flex-col"
+      className="relative flex flex-col md:h-full"
       onDragOver={(e) => {
         e.preventDefault();
         setDragging(true);
@@ -276,7 +276,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
         </div>
       )}
 
-      <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-auto">
+      <ul className="divide-y divide-gray-100 md:min-h-0 md:flex-1 md:overflow-auto">
         {visible.map((doc) => (
           <li key={doc.id} className="py-2">
             <div className="flex items-center justify-between gap-3">

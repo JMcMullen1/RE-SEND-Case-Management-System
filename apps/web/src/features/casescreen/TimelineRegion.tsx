@@ -48,7 +48,7 @@ export function TimelineRegion({
   const singular = kind === 'billable' ? 'billable' : 'note';
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col md:h-full">
       <div className="mb-3">
         <textarea
           value={draft}
@@ -113,7 +113,7 @@ export function TimelineRegion({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="md:min-h-0 md:flex-1 md:overflow-auto">
         {timeline.isLoading && (
           <p className="text-sm text-gray-400">Loading…</p>
         )}

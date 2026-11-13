@@ -11,7 +11,7 @@ const executablePath = process.env.PW_CHROMIUM || undefined;
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['journey.spec.ts', 'a11y.spec.ts'],
+  testIgnore: ['journey.spec.ts', 'a11y.spec.ts', 'mobile.spec.ts'],
   use: {
     baseURL: 'http://localhost:5173',
     launchOptions: executablePath ? { executablePath } : undefined,

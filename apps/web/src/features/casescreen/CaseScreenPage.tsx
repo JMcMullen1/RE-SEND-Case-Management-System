@@ -115,7 +115,7 @@ export function CaseScreenPage() {
   const detail = detailQuery.data;
 
   const detailSection = (
-    <section className="h-full overflow-auto p-5">
+    <section className="p-5 md:h-full md:overflow-auto">
       <RegionHeading>Case detail</RegionHeading>
       <DetailPanel
         detail={detail}
@@ -127,20 +127,20 @@ export function CaseScreenPage() {
     </section>
   );
   const docsEmailsSection = (
-    <div className="grid h-full min-h-0 divide-x divide-gray-100 md:grid-cols-2">
-      <section className="h-full overflow-auto p-5">
+    <div className="grid divide-y divide-gray-100 md:h-full md:min-h-0 md:grid-cols-2 md:divide-x md:divide-y-0">
+      <section className="p-5 md:h-full md:overflow-auto">
         <RegionHeading>Documents</RegionHeading>
         <DocumentsRegion caseId={caseId} />
       </section>
-      <section className="h-full overflow-auto p-5">
+      <section className="p-5 md:h-full md:overflow-auto">
         <RegionHeading>Emails</RegionHeading>
         <EmailsRegion />
       </section>
     </div>
   );
   const billablesSection = (
-    <section className="flex h-full flex-col overflow-hidden p-5">
-      <div className="min-h-0 flex-1">
+    <section className="p-5 md:flex md:h-full md:flex-col md:overflow-hidden">
+      <div className="md:min-h-0 md:flex-1">
         <TimelineRegion
           caseId={caseId}
           users={users}
@@ -152,8 +152,8 @@ export function CaseScreenPage() {
     </section>
   );
   const notesSection = (
-    <section className="flex h-full flex-col overflow-hidden p-5">
-      <div className="min-h-0 flex-1">
+    <section className="p-5 md:flex md:h-full md:flex-col md:overflow-hidden">
+      <div className="md:min-h-0 md:flex-1">
         <TimelineRegion
           caseId={caseId}
           users={users}
@@ -167,7 +167,7 @@ export function CaseScreenPage() {
   // The "All" tab shows every region at once on one scrollable page, the way
   // the case screen read before it was split into tabs.
   const allSection = (
-    <section className="h-full space-y-8 overflow-auto p-5">
+    <section className="space-y-8 p-5 md:h-full md:overflow-auto">
       <div>
         <RegionHeading>Case detail</RegionHeading>
         <DetailPanel
@@ -189,9 +189,9 @@ export function CaseScreenPage() {
         </div>
       </div>
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="flex h-[32rem] flex-col">
+        <div className="flex flex-col md:h-[32rem]">
           <RegionHeading>Billables</RegionHeading>
-          <div className="min-h-0 flex-1">
+          <div className="md:min-h-0 md:flex-1">
             <TimelineRegion
               caseId={caseId}
               users={users}
@@ -201,9 +201,9 @@ export function CaseScreenPage() {
             />
           </div>
         </div>
-        <div className="flex h-[32rem] flex-col">
+        <div className="flex flex-col md:h-[32rem]">
           <RegionHeading>Case notes</RegionHeading>
-          <div className="min-h-0 flex-1">
+          <div className="md:min-h-0 md:flex-1">
             <TimelineRegion
               caseId={caseId}
               users={users}
@@ -218,7 +218,9 @@ export function CaseScreenPage() {
   );
 
   return (
-    <div className="flex h-screen flex-col bg-white text-resend-ink">
+    // Below `md` the page grows with its content and the window scrolls; from
+    // `md` up it is pinned to the viewport and each region scrolls on its own.
+    <div className="flex min-h-screen flex-col bg-white text-resend-ink md:h-screen">
       {justCreated && (
         <div className="flex items-center justify-between gap-3 border-l-4 border-resend-green bg-gray-50 px-6 py-2 text-sm">
           <span className="text-resend-ink">
@@ -277,7 +279,7 @@ export function CaseScreenPage() {
       <div
         role="tablist"
         aria-label="Case regions"
-        className="flex gap-1 border-b border-gray-200 px-4"
+        className="flex gap-1 overflow-x-auto border-b border-gray-200 px-4"
       >
         {TABS.map((t) => (
           <button
@@ -285,7 +287,7 @@ export function CaseScreenPage() {
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
               tab === t.id
                 ? 'border-b-2 border-resend-purple text-resend-purple'
                 : 'text-gray-500 hover:text-resend-ink'
@@ -296,7 +298,7 @@ export function CaseScreenPage() {
         ))}
       </div>
 
-      <main className="min-h-0 flex-1">
+      <main className="md:min-h-0 md:flex-1">
         {tab === 'details' && detailSection}
         {tab === 'docs-emails' && docsEmailsSection}
         {tab === 'billables' && billablesSection}
