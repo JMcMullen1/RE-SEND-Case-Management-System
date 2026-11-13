@@ -134,7 +134,7 @@ export function CaseScreenPage() {
       </section>
       <section className="h-full overflow-auto p-5">
         <RegionHeading>Emails</RegionHeading>
-        <EmailsRegion />
+        <EmailsRegion caseId={caseId} />
       </section>
     </div>
   );
@@ -185,7 +185,7 @@ export function CaseScreenPage() {
         </div>
         <div>
           <RegionHeading>Emails</RegionHeading>
-          <EmailsRegion />
+          <EmailsRegion caseId={caseId} />
         </div>
       </div>
       <div className="grid gap-8 md:grid-cols-2">

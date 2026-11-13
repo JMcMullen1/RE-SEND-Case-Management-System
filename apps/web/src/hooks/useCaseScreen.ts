@@ -16,6 +16,7 @@ import {
   patchKeyDate,
   setCaseTeams,
 } from '../api/caseScreen';
+import { fetchEmails } from '../api/emails';
 
 type OwnerTarget =
   { ownerUserId: string } | { ownerQueue: 'Enquiries' | 'TSA Team' };
@@ -41,6 +42,13 @@ export function useTimeline(
   return useQuery({
     queryKey: ['timeline', id, filters],
     queryFn: () => fetchTimeline(id, filters),
+  });
+}
+
+export function useEmails(id: string) {
+  return useQuery({
+    queryKey: ['emails', id],
+    queryFn: () => fetchEmails(id),
   });
 }
 

@@ -7,10 +7,15 @@ import type {
   DocumentVersionInfo,
 } from '@re-send/shared';
 import { getDb } from '../db/client';
-import { documents, users } from '../db/schema';
+import { documents, emails, users } from '../db/schema';
 import { extractText } from '../documents/extract';
 import { getStorageProvider, keyFor } from '../storage';
 import { recordAudit } from './audit';
+
+/** Excludes the hidden original file behind a filed email. */
+const notEmailSource = sql`NOT EXISTS (
+  SELECT 1 FROM ${emails} e WHERE e.raw_document_id = ${documents.id}
+)`;
 
 export interface UploadResult {
   document: DocumentInfo;
@@ -118,6 +123,7 @@ export async function createDocument(
         eq(documents.caseId, caseId),
         eq(documents.sha256, sha256),
         isNull(documents.deletedAt),
+        notEmailSource,
       ),
     )
     .orderBy(desc(documents.version))
@@ -146,6 +152,7 @@ export async function createDocument(
         eq(documents.originalFilename, input.filename),
         isNull(documents.deletedAt),
         isNull(documents.supersededById),
+        notEmailSource,
       ),
     )
     .limit(1);
@@ -211,6 +218,52 @@ export async function createDocument(
   };
 }
 
+/**
+ * Store the original file behind a filed email (.eml/.msg) as a document row so
+ * it can be downloaded through the audited content route. It is never shown in
+ * the documents list (the email is shown instead), never versioned against
+ * another file of the same name (Outlook names exports after the subject, so
+ * two different emails often share a filename), and its text reaches the corpus
+ * as the `email` item rather than as a document.
+ */
+export async function storeEmailSource(
+  caseId: string,
+  input: { filename: string; mimeType: string; bytes: Buffer },
+  actor: string | null,
+): Promise<string> {
+  const db = getDb();
+  const uploader = actor ?? (await anyUserId());
+  const storageKey = keyFor(caseId, randomUUID());
+  await getStorageProvider().put({
+    key: storageKey,
+    body: input.bytes,
+    contentType: input.mimeType,
+  });
+  const [row] = await db
+    .insert(documents)
+    .values({
+      storageKey,
+      originalFilename: input.filename,
+      mimeType: input.mimeType,
+      byteSize: input.bytes.byteLength,
+      sha256: createHash('sha256').update(input.bytes).digest('hex'),
+      uploadedByUserId: uploader,
+      category: 'Correspondence',
+      caseId,
+      documentGroupId: randomUUID(),
+      version: 1,
+    })
+    .returning({ id: documents.id });
+  await recordAudit(db, {
+    actorUserId: actor,
+    action: 'document.upload',
+    entityType: 'document',
+    entityId: row!.id,
+    after: { caseId, source: 'email', byteSize: input.bytes.byteLength },
+  });
+  return row!.id;
+}
+
 /** The current version of every document on a case, newest upload first. */
 export async function listDocuments(caseId: string): Promise<DocumentInfo[]> {
   const db = getDb();
@@ -238,6 +291,7 @@ export async function listDocuments(caseId: string): Promise<DocumentInfo[]> {
         eq(documents.caseId, caseId),
         isNull(documents.deletedAt),
         isNull(documents.supersededById),
+        notEmailSource,
       ),
     )
     .orderBy(desc(documents.uploadedAt));

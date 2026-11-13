@@ -26,6 +26,7 @@ import { registerCaseScreenRoutes } from './routes/case-screen';
 import { registerCorpusRoutes } from './routes/corpus';
 import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
+import { registerEmailRoutes } from './routes/emails';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -150,6 +151,7 @@ export async function buildServer() {
   registerCaseRoutes(app);
   registerCaseScreenRoutes(app);
   registerDocumentRoutes(app);
+  registerEmailRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);

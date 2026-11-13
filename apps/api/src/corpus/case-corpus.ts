@@ -1,6 +1,7 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import {
   CORPUS_ITEM_TYPE_VALUES,
+  renderEmailText,
   estimateTokenCount,
   renderCaseRecordText,
   serialiseCorpus,
@@ -11,7 +12,7 @@ import {
   type ExcludedCorpusItem,
 } from '@re-send/shared';
 import { getDb } from '../db/client';
-import { caseNotes, documents, users } from '../db/schema';
+import { caseNotes, documents, emails, users } from '../db/schema';
 import { getCaseDetail } from '../repositories/case-detail';
 import { getCachedCorpus, setCachedCorpus } from './cache';
 
@@ -58,8 +59,13 @@ export function singleDocumentCorpus(doc: SingleDocument): CorpusResult {
   };
 }
 
-const PRODUCING: CorpusItemType[] = ['case_record', 'document', 'note'];
-const REGISTERED_EMPTY: CorpusItemType[] = ['email', 'time_entry'];
+const PRODUCING: CorpusItemType[] = [
+  'case_record',
+  'document',
+  'note',
+  'email',
+];
+const REGISTERED_EMPTY: CorpusItemType[] = ['time_entry'];
 
 /**
  * Assemble the case corpus: an ordered set of text items a model can read and
@@ -94,6 +100,9 @@ export async function caseCorpus(
   }
   if (want('document')) {
     await collectDocuments(caseId, options.documentIds, items, excluded);
+  }
+  if (want('email')) {
+    await collectEmails(caseId, items, excluded);
   }
 
   sortChronologically(items);
@@ -204,10 +213,22 @@ async function collectDocuments(
     .where(eq(documents.caseId, caseId))
     .orderBy(asc(documents.uploadedAt));
 
+  // The original file behind a filed email is read as its `email` item.
+  const sources = new Set(
+    (
+      await getDb()
+        .select({ id: emails.rawDocumentId })
+        .from(emails)
+        .where(eq(emails.caseId, caseId))
+    ).map((r) => r.id),
+  );
+
   const wanted = documentIds ? new Set(documentIds) : null;
   for (const r of rows) {
     if (wanted && !wanted.has(r.id)) continue;
-    if (r.deletedAt) {
+    if (sources.has(r.id)) {
+      excluded.push({ id: r.id, type: 'document', reason: 'email-source' });
+    } else if (r.deletedAt) {
       excluded.push({ id: r.id, type: 'document', reason: 'deleted' });
     } else if (r.supersededById) {
       excluded.push({ id: r.id, type: 'document', reason: 'superseded' });
@@ -222,6 +243,72 @@ async function collectDocuments(
         text: r.extractedText,
       });
     }
+  }
+}
+
+async function collectEmails(
+  caseId: string,
+  items: CorpusItem[],
+  excluded: ExcludedCorpusItem[],
+): Promise<void> {
+  const rows = await getDb()
+    .select({
+      id: emails.id,
+      subject: emails.subject,
+      fromName: emails.fromName,
+      fromAddress: emails.fromAddress,
+      toAddresses: emails.toAddresses,
+      ccAddresses: emails.ccAddresses,
+      sentAt: emails.sentAt,
+      createdAt: emails.createdAt,
+      direction: emails.direction,
+      bodyText: emails.bodyText,
+      attachmentDocumentIds: emails.attachmentDocumentIds,
+      deletedAt: emails.deletedAt,
+    })
+    .from(emails)
+    .where(eq(emails.caseId, caseId))
+    .orderBy(asc(emails.sentAt));
+
+  // Attachment names give the model the context of what was sent; their text
+  // is already in the corpus as document items.
+  const attachmentIds = [
+    ...new Set(rows.flatMap((r) => r.attachmentDocumentIds)),
+  ];
+  const names = new Map<string, string>();
+  if (attachmentIds.length) {
+    const docs = await getDb()
+      .select({ id: documents.id, name: documents.originalFilename })
+      .from(documents)
+      .where(inArray(documents.id, attachmentIds));
+    for (const d of docs) names.set(d.id, d.name);
+  }
+
+  for (const r of rows) {
+    if (r.deletedAt) {
+      excluded.push({ id: r.id, type: 'email', reason: 'deleted' });
+      continue;
+    }
+    const sentAt = (r.sentAt ?? r.createdAt).toISOString();
+    items.push({
+      id: r.id,
+      type: 'email',
+      title: `Email — ${r.subject ?? '(no subject)'}`,
+      date: sentAt.slice(0, 10),
+      text: renderEmailText({
+        subject: r.subject,
+        fromName: r.fromName,
+        fromAddress: r.fromAddress,
+        toAddresses: r.toAddresses ?? [],
+        ccAddresses: r.ccAddresses ?? [],
+        sentAt,
+        direction: r.direction,
+        bodyText: r.bodyText,
+        attachmentNames: r.attachmentDocumentIds
+          .map((id) => names.get(id))
+          .filter((n): n is string => n !== undefined),
+      }),
+    });
   }
 }
 
