@@ -297,4 +297,181 @@ run('time recording API', () => {
     }
     await app.close();
   });
+
+  it('only lets caseworkers and admins record time', async () => {
+    const app = await buildServer();
+    const finance = users.find((u) => u.role === 'finance')!;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/notes`,
+      headers: as(finance),
+      payload: { body: 'Invoice query', kind: 'billable', minutes: 15 },
+    });
+    expect(res.statusCode).toBe(403);
+    // A plain case note is still fine.
+    const note = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/notes`,
+      headers: as(finance),
+      payload: { body: 'Spoke to parent about invoice' },
+    });
+    expect(note.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('accepts a backdated billable, refuses a future one, and re-dates on edit', async () => {
+    const app = await buildServer();
+    const worker = workers()[0]!;
+    const shift = (n: number) => {
+      const d = new Date(`${today}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+    const future = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/notes`,
+      headers: as(worker),
+      payload: {
+        body: 'x',
+        kind: 'billable',
+        minutes: 15,
+        entryDate: shift(1),
+      },
+    });
+    expect(future.statusCode).toBe(400);
+    const tooOld = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/notes`,
+      headers: as(worker),
+      payload: {
+        body: 'x',
+        kind: 'billable',
+        minutes: 15,
+        entryDate: shift(-40),
+      },
+    });
+    expect(tooOld.statusCode).toBe(400);
+
+    const ok = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/cases/${caseId}/notes`,
+        headers: as(worker),
+        payload: {
+          body: 'Yesterday call',
+          kind: 'billable',
+          minutes: 30,
+          entryDate: shift(-1),
+        },
+      })
+    ).json().item;
+    expect(ok.occurredOn).toBe(shift(-1));
+
+    const moved = await app.inject({
+      method: 'PATCH',
+      url: `/api/notes/${ok.id}`,
+      headers: as(worker),
+      payload: { entryDate: shift(-2) },
+    });
+    expect(moved.json().item.occurredOn).toBe(shift(-2));
+    const [entry] = (await getDb().execute(
+      sql`SELECT entry_date::text AS d FROM time_entries WHERE note_id = ${ok.id}`,
+    )) as unknown as { d: string }[];
+    expect(entry!.d).toBe(shift(-2));
+    await app.close();
+  });
+
+  it('keeps time on a case deleted later, and lets an admin see leavers and fix rates', async () => {
+    const app = await buildServer();
+    const worker = workers()[0]!;
+    // A throwaway case with time on it, then deleted.
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/cases',
+      headers: as(admin()),
+      payload: {
+        client: { fullName: 'Temp Parent' },
+        child: { fullName: 'Temp Child' },
+        case: { currentWork: 'Section Appeal' },
+      },
+    });
+    const tempCase = created.json().caseId;
+    expect(tempCase).toBeTruthy();
+    const note = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/cases/${tempCase}/notes`,
+        headers: as(worker),
+        payload: { body: 'Work on temp case', kind: 'billable', minutes: 15 },
+      })
+    ).json().item;
+    await getDb().execute(
+      sql`UPDATE cases SET deleted_at = now() WHERE id = ${tempCase}`,
+    );
+    const report = (
+      await app.inject({
+        method: 'GET',
+        url: `/api/time?from=${today}&to=${today}`,
+        headers: as(worker),
+      })
+    ).json();
+    const entry = report.entries.find(
+      (e: { noteId: string }) => e.noteId === note.id,
+    );
+    expect(entry?.caseDeleted).toBe(true);
+
+    // People: admin only, leavers included.
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/admin/people',
+          headers: as(worker),
+        })
+      ).statusCode,
+    ).toBe(403);
+    const people = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/admin/people',
+        headers: as(admin()),
+      })
+    ).json().users as { active: boolean }[];
+    expect(people.length).toBeGreaterThanOrEqual(users.length);
+
+    // An upcoming rate shows in history and can be removed.
+    const far = '2099-01-01';
+    const set = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/admin/rates',
+        headers: as(admin()),
+        payload: {
+          userId: worker.id,
+          kind: 'work',
+          ratePence: 4500,
+          effectiveFrom: far,
+        },
+      })
+    ).json().staff as {
+      userId: string;
+      history: { id: string; kind: string; effectiveFrom: string }[];
+    }[];
+    const row = set
+      .find((s) => s.userId === worker.id)!
+      .history.find((h) => h.kind === 'work' && h.effectiveFrom === far)!;
+    expect(row).toBeTruthy();
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/rates/${row.id}`,
+      headers: as(admin()),
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(
+      (removed.json().staff as typeof set)
+        .find((s) => s.userId === worker.id)!
+        .history.some((h) => h.id === row.id),
+    ).toBe(false);
+    await app.close();
+  });
 });

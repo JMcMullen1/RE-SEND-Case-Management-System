@@ -601,6 +601,8 @@ export const NoteCreateSchema = z
     body: z.string().trim().min(1),
     kind: NoteKindSchema.default('note'),
     minutes: MinutesSchema.optional(),
+    /** The day the work was done; defaults to today (London). */
+    entryDate: z.string().optional(),
   })
   .refine((v) => v.kind !== 'billable' || v.minutes !== undefined, {
     message: 'A billable needs the time spent.',
@@ -614,10 +616,17 @@ export const NoteEditSchema = z
   .object({
     body: z.string().trim().min(1).optional(),
     minutes: MinutesSchema.optional(),
+    entryDate: z.string().optional(),
   })
-  .refine((v) => v.body !== undefined || v.minutes !== undefined, {
-    message: 'Nothing to change.',
-  });
+  .refine(
+    (v) =>
+      v.body !== undefined ||
+      v.minutes !== undefined ||
+      v.entryDate !== undefined,
+    {
+      message: 'Nothing to change.',
+    },
+  );
 export const SetTeamsSchema = z.object({ team: z.array(TeamSchema) });
 
 // --- Create case ------------------------------------------------------------
@@ -773,6 +782,7 @@ export const TimeReportSchema = z.object({
       minutes: z.number().int(),
       narrative: z.string().nullable(),
       earningsPence: z.number().int().nullable(),
+      caseDeleted: z.boolean(),
     }),
   ),
   missingTime: z.array(
@@ -807,6 +817,14 @@ export const StaffRatesSchema = z.object({
   role: z.string(),
   pay: CurrentRateSchema,
   work: CurrentRateSchema,
+  history: z.array(
+    z.object({
+      id: z.string(),
+      kind: RateKindSchema,
+      ratePence: z.number().int(),
+      effectiveFrom: z.string(),
+    }),
+  ),
 });
 
 export const SetRateSchema = z.object({

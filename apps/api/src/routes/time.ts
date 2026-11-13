@@ -3,12 +3,19 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { londonToday } from '@re-send/shared';
 import { resolveActingUser } from '../auth/context';
-import { listStaffRates, setRate, timeReport } from '../repositories/time';
+import { listAllUsers } from '../repositories/users';
+import {
+  deleteRate,
+  listStaffRates,
+  setRate,
+  timeReport,
+} from '../repositories/time';
 import {
   SetRateSchema,
   StaffRatesSchema,
   TimeReportQuerySchema,
   TimeReportSchema,
+  UserSummarySchema,
 } from './schemas';
 
 const Message = z.object({ message: z.string() });
@@ -86,6 +93,48 @@ export function registerTimeRoutes(fastify: FastifyInstance): void {
         return reply.code(403).send({ message: 'Admins only.' });
       await setRate(request.body, current.id);
       return { staff: await listStaffRates(londonToday(new Date())) };
+    },
+  );
+
+  app.delete(
+    '/api/admin/rates/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ staff: z.array(StaffRatesSchema) }),
+          403: Message,
+          404: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const current = await resolveActingUser(request);
+      if (!current || current.role !== 'admin')
+        return reply.code(403).send({ message: 'Admins only.' });
+      if (!(await deleteRate(request.params.id, current.id)))
+        return reply.code(404).send({ message: 'Rate not found' });
+      return { staff: await listStaffRates(londonToday(new Date())) };
+    },
+  );
+
+  // Everyone who has ever had an account, leavers included, so an admin can
+  // still see a leaver's time (e.g. for their final pay). Admin only.
+  app.get(
+    '/api/admin/people',
+    {
+      schema: {
+        response: {
+          200: z.object({ users: z.array(UserSummarySchema) }),
+          403: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const current = await resolveActingUser(request);
+      if (current?.role !== 'admin')
+        return reply.code(403).send({ message: 'Admins only.' });
+      return { users: await listAllUsers() };
     },
   );
 }

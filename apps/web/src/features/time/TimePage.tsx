@@ -11,8 +11,8 @@ import {
   type TimePeriod,
   type TimeEntryRow,
 } from '@re-send/shared';
-import { fetchTimeReport } from '../../api/time';
-import { useMe, useUsers } from '../../hooks/useCaseData';
+import { fetchPeople, fetchTimeReport } from '../../api/time';
+import { useMe } from '../../hooks/useCaseData';
 import { useToday } from '../../hooks/useToday';
 
 const PERIOD_LABELS: Record<TimePeriod, string> = {
@@ -41,7 +41,13 @@ export function TimePage() {
   const today = useToday();
   const me = useMe().data;
   const isAdmin = me?.role === 'admin';
-  const staff = useUsers().data?.users ?? [];
+  // Admins can pick anyone with an account, leavers included (final pay).
+  const people =
+    useQuery({
+      queryKey: ['people'],
+      queryFn: fetchPeople,
+      enabled: isAdmin,
+    }).data?.users ?? [];
 
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [anchor, setAnchor] = useState(today);
@@ -151,11 +157,12 @@ export function TimePage() {
               className="ml-auto rounded-md border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
             >
               <option value="">My time</option>
-              {staff
+              {people
                 .filter((u) => u.id !== me?.id)
                 .map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.displayName}
+                    {u.active ? '' : ' (left)'}
                   </option>
                 ))}
             </select>
@@ -253,12 +260,21 @@ export function TimePage() {
                           key={e.id}
                           className="flex items-baseline gap-3 py-1.5 text-sm"
                         >
-                          <a
-                            href={`/cases/${e.caseId}`}
-                            className="shrink-0 font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-                          >
-                            {e.caseReference}
-                          </a>
+                          {e.caseDeleted ? (
+                            <span className="shrink-0 font-medium text-gray-600">
+                              {e.caseReference}{' '}
+                              <span className="font-normal">
+                                (case deleted)
+                              </span>
+                            </span>
+                          ) : (
+                            <a
+                              href={`/cases/${e.caseId}`}
+                              className="shrink-0 font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                            >
+                              {e.caseReference}
+                            </a>
+                          )}
                           <span className="min-w-0 flex-1 truncate text-gray-600">
                             {e.childName ? `${e.childName} · ` : ''}
                             {e.narrative}

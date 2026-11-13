@@ -1,4 +1,5 @@
 import type { RateKind, StaffRates, TimeReport } from '@re-send/shared';
+import type { UserSummary } from './client';
 import { request } from './client';
 
 export function fetchTimeReport(params: {
@@ -25,4 +26,13 @@ export function setStaffRate(input: {
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export function deleteStaffRate(id: string): Promise<{ staff: StaffRates[] }> {
+  return request(`/api/admin/rates/${id}`, { method: 'DELETE' });
+}
+
+/** Everyone with an account, leavers included (admins only). */
+export function fetchPeople(): Promise<{ users: UserSummary[] }> {
+  return request('/api/admin/people');
 }

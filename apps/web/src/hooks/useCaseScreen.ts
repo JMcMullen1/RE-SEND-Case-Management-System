@@ -120,13 +120,26 @@ export function useCaseMutations(id: string) {
       ...opts,
     }),
     addNote: useMutation({
-      mutationFn: (v: { body: string; kind: NoteKind; minutes?: number }) =>
-        addNote(id, v.body, v.kind, v.minutes),
+      mutationFn: (v: {
+        body: string;
+        kind: NoteKind;
+        minutes?: number;
+        entryDate?: string;
+      }) => addNote(id, v.body, v.kind, v.minutes, v.entryDate),
       ...opts,
     }),
     editNote: useMutation({
-      mutationFn: (v: { id: string; body?: string; minutes?: number }) =>
-        editNote(v.id, { body: v.body, minutes: v.minutes }),
+      mutationFn: (v: {
+        id: string;
+        body?: string;
+        minutes?: number;
+        entryDate?: string;
+      }) =>
+        editNote(v.id, {
+          body: v.body,
+          minutes: v.minutes,
+          entryDate: v.entryDate,
+        }),
       ...opts,
     }),
     deleteNote: useMutation({

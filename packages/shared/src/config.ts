@@ -340,6 +340,10 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
 // --- Time recording ---------------------------------------------------------
 /** Time is recorded in units of this many minutes; entries round UP to a unit. */
 export const TIME_UNIT_MINUTES = 15;
+/** Roles that record their own time (billables). Finance and read-only do not. */
+export const TIME_RECORDING_ROLES = ['admin', 'caseworker'] as const;
+/** The furthest back a billable may be dated, in days, to catch typos. */
+export const TIME_ENTRY_MAX_BACKDATE_DAYS = 31;
 /** The most time one entry may carry (a sanity bound against typos). */
 export const TIME_ENTRY_MAX_MINUTES = 12 * 60;
 /**

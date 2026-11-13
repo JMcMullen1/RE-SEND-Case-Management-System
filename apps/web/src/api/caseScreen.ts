@@ -102,16 +102,17 @@ export function addNote(
   body: string,
   kind: NoteKind,
   minutes?: number,
+  entryDate?: string,
 ): Promise<{ item: TimelineItem }> {
   return request(`/api/cases/${caseId}/notes`, {
     method: 'POST',
-    body: JSON.stringify({ body, kind, minutes }),
+    body: JSON.stringify({ body, kind, minutes, entryDate }),
   });
 }
 
 export function editNote(
   noteId: string,
-  patch: { body?: string; minutes?: number },
+  patch: { body?: string; minutes?: number; entryDate?: string },
 ): Promise<{ item: TimelineItem }> {
   return request(`/api/notes/${noteId}`, {
     method: 'PATCH',

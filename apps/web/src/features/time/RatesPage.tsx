@@ -10,7 +10,7 @@ import {
   type RateKind,
   type StaffRates,
 } from '@re-send/shared';
-import { fetchStaffRates, setStaffRate } from '../../api/time';
+import { deleteStaffRate, fetchStaffRates, setStaffRate } from '../../api/time';
 import { useMe } from '../../hooks/useCaseData';
 import { useToday } from '../../hooks/useToday';
 
@@ -74,7 +74,8 @@ export function RatesPage() {
               they see it on their Time page. <strong>Work rate</strong> is what
               the work will be charged at in QuickBooks — leave it empty until
               it is agreed. A new rate applies from the date you choose, so time
-              already recorded keeps the rate in force when it was worked.
+              already recorded keeps the rate in force when it was worked. To
+              correct a mistake, remove the wrong rate under History.
             </p>
             {rates.isLoading && (
               <p className="text-sm text-gray-500">Loading…</p>
@@ -141,7 +142,25 @@ function RateCell({
   kind: RateKind;
   onEdit: () => void;
 }) {
+  const qc = useQueryClient();
+  const today = useToday();
+  const [showHistory, setShowHistory] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const rate = staff[kind];
+  const history = staff.history.filter((h) => h.kind === kind);
+  const upcoming = history
+    .filter((h) => h.effectiveFrom > today)
+    .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1));
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteStaffRate(id),
+    onSuccess: (data) => {
+      qc.setQueryData(['staff-rates'], data);
+      void qc.invalidateQueries({ queryKey: ['time'] });
+      setConfirmId(null);
+    },
+  });
+  const label = `${RATE_KIND_LABELS[kind].toLowerCase()} for ${staff.displayName}`;
+
   return (
     <div>
       {rate ? (
@@ -154,14 +173,82 @@ function RateCell({
       ) : (
         <p className="text-gray-500">Not set</p>
       )}
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`${rate ? 'Change' : 'Set'} ${RATE_KIND_LABELS[kind].toLowerCase()} for ${staff.displayName}`}
-        className="mt-0.5 text-xs text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-      >
-        {rate ? 'Change' : 'Set'}
-      </button>
+      {upcoming.map((u) => (
+        <p key={u.id} className="text-xs text-resend-ink">
+          Then {formatPence(u.ratePence)} / hour from{' '}
+          {formatCivilDate(u.effectiveFrom)}
+        </p>
+      ))}
+      <div className="mt-0.5 flex gap-3">
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`${rate || upcoming.length ? 'Change' : 'Set'} ${label}`}
+          className="text-xs text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        >
+          {rate || upcoming.length ? 'Change' : 'Set'}
+        </button>
+        {history.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            aria-expanded={showHistory}
+            aria-label={`History of ${label}`}
+            className="text-xs text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            History ({history.length})
+          </button>
+        )}
+      </div>
+      {showHistory && (
+        <ul className="mt-1 space-y-1 border-l-2 border-gray-100 pl-2 text-xs">
+          {history.map((h) => (
+            <li key={h.id} className="flex flex-wrap items-center gap-2">
+              <span className="tabular-nums">
+                {formatPence(h.ratePence)} from{' '}
+                {formatCivilDate(h.effectiveFrom)}
+              </span>
+              {confirmId === h.id ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(h.id)}
+                    disabled={remove.isPending}
+                    className="font-semibold text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                  >
+                    Yes, remove
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmId(null)}
+                    className="text-gray-600 hover:underline"
+                  >
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmId(h.id)}
+                  className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+          {confirmId && (
+            <li className="text-gray-600">
+              Time this rate applied to falls back to the rate before it.
+            </li>
+          )}
+          {remove.isError && (
+            <li role="alert" className="text-status-amber">
+              Could not remove. Try again.
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

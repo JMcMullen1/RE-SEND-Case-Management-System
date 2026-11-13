@@ -24,6 +24,7 @@ import {
   NoteInvalid,
 } from '../repositories/notes';
 import { caseTimeSummary } from '../repositories/time';
+import { entryDateProblem } from '@re-send/shared';
 import { recordReview } from '../repositories/reviews';
 import { resolveActingUser } from '../auth/context';
 import {
@@ -303,25 +304,38 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
         response: {
           200: z.object({ item: TimelineItemSchema }),
           400: z.object({ message: z.string() }),
+          403: z.object({ message: z.string() }),
         },
       },
     },
     async (request, reply) => {
       const current = await resolveActingUser(request);
       if (!current) return reply.code(400).send({ message: 'No acting user' });
-      const item = await addNote(
-        request.params.id,
-        request.body.body,
-        request.body.kind,
-        londonToday(new Date()),
-        {
-          id: current.id,
-          displayName: current.displayName,
-          role: current.role,
-        },
-        request.body.minutes,
-      );
-      return { item };
+      const today = londonToday(new Date());
+      const entryDate = request.body.entryDate ?? today;
+      const dateProblem = entryDateProblem(entryDate, today);
+      if (dateProblem) return reply.code(400).send({ message: dateProblem });
+      try {
+        const item = await addNote(
+          request.params.id,
+          request.body.body,
+          request.body.kind,
+          entryDate,
+          {
+            id: current.id,
+            displayName: current.displayName,
+            role: current.role,
+          },
+          request.body.minutes,
+        );
+        return { item };
+      } catch (error) {
+        if (error instanceof NoteForbidden)
+          return reply.code(403).send({ message: error.message });
+        if (error instanceof NoteInvalid)
+          return reply.code(400).send({ message: error.message });
+        throw error;
+      }
     },
   );
 
@@ -387,6 +401,13 @@ export function registerCaseScreenRoutes(fastify: FastifyInstance): void {
     async (request, reply) => {
       const current = await resolveActingUser(request);
       if (!current) return reply.code(403).send({ message: 'No acting user' });
+      if (request.body.entryDate !== undefined) {
+        const problem = entryDateProblem(
+          request.body.entryDate,
+          londonToday(new Date()),
+        );
+        if (problem) return reply.code(400).send({ message: problem });
+      }
       try {
         const result = await editNote(request.params.id, request.body, {
           id: current.id,

@@ -100,6 +100,7 @@ export async function timeReport(
         string | null
       >`coalesce(${timeEntries.narrative}, ${caseNotes.body})`,
       payRate: payRateAtEntry,
+      caseDeleted: sql<boolean>`${cases.deletedAt} IS NOT NULL`,
     })
     .from(timeEntries)
     .innerJoin(cases, eq(cases.id, timeEntries.caseId))
@@ -109,7 +110,7 @@ export async function timeReport(
       and(
         eq(timeEntries.userId, userId),
         liveEntry,
-        isNull(cases.deletedAt),
+        // Time on a case deleted since still counts: the work was done.
         gte(timeEntries.entryDate, from),
         lte(timeEntries.entryDate, to),
       ),
@@ -161,7 +162,10 @@ export async function timeReport(
   };
 }
 
-/** Every active member of staff with the rates in force today. */
+/**
+ * Every active member of staff with the rates in force today, and their full
+ * rate history (upcoming rates included, newest first).
+ */
 export async function listStaffRates(today: string): Promise<StaffRates[]> {
   const db = getDb();
   const staff = await db
@@ -172,11 +176,12 @@ export async function listStaffRates(today: string): Promise<StaffRates[]> {
   const rates = await db
     .select()
     .from(userRates)
-    .where(lte(userRates.effectiveFrom, today))
     .orderBy(desc(userRates.effectiveFrom));
 
   const current = (userId: string, kind: RateKind) => {
-    const r = rates.find((x) => x.userId === userId && x.kind === kind);
+    const r = rates.find(
+      (x) => x.userId === userId && x.kind === kind && x.effectiveFrom <= today,
+    );
     return r
       ? { ratePence: r.ratePence, effectiveFrom: r.effectiveFrom }
       : null;
@@ -187,7 +192,42 @@ export async function listStaffRates(today: string): Promise<StaffRates[]> {
     role: u.role,
     pay: current(u.id, 'pay'),
     work: current(u.id, 'work'),
+    history: rates
+      .filter((r) => r.userId === u.id)
+      .map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        ratePence: r.ratePence,
+        effectiveFrom: r.effectiveFrom,
+      })),
   }));
+}
+
+/**
+ * Remove a rate set in error (audited). Time it applied to falls back to the
+ * rate before it, if any. Returns false when there was no such rate.
+ */
+export async function deleteRate(id: string, actor: string): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const [removed] = await tx
+      .delete(userRates)
+      .where(eq(userRates.id, id))
+      .returning();
+    if (!removed) return false;
+    await recordAudit(tx, {
+      actorUserId: actor,
+      action: 'rate.delete',
+      entityType: 'user_rate',
+      entityId: id,
+      before: {
+        userId: removed.userId,
+        kind: removed.kind,
+        ratePence: removed.ratePence,
+        effectiveFrom: removed.effectiveFrom,
+      },
+    });
+    return true;
+  });
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   durationProblem,
+  entryDateProblem,
   earningsPence,
   formatMinutes,
   formatPence,
@@ -24,16 +25,19 @@ describe('parseDuration', () => {
     ['1:30', 90],
     ['1.5', 90],
     ['1.5h', 90],
-    ['2', 120],
+    ['15', 15],
     ['0.25', 15],
     ['  1H 15M ', 75],
   ])('reads %j as %i minutes', (input, minutes) => {
     expect(parseDuration(input)).toBe(minutes);
   });
 
-  it.each(['', 'abc', '0', '1:75', '-1', 'h'])('rejects %j', (input) => {
-    expect(parseDuration(input)).toBeNull();
-  });
+  it.each(['', 'abc', '0', '1:75', '-1', 'h', '2', '5', '14'])(
+    'rejects %j',
+    (input) => {
+      expect(parseDuration(input)).toBeNull();
+    },
+  );
 });
 
 describe('roundUpToUnit', () => {
@@ -50,6 +54,7 @@ describe('durationProblem', () => {
     expect(durationProblem(null)).toMatch(/Enter the time/);
     expect(durationProblem(13 * 60)).toMatch(/at most 12h/);
     expect(durationProblem(45)).toBeNull();
+    expect(durationProblem(null, '5')).toBe('Hours or minutes? Type 5h or 5m.');
   });
 });
 
@@ -93,5 +98,14 @@ describe('periods', () => {
     expect(shiftPeriod('day', '2026-11-01', -1)).toBe('2026-10-31');
     expect(shiftPeriod('week', '2026-11-13', 1)).toBe('2026-11-20');
     expect(shiftPeriod('month', '2026-01-31', 1)).toBe('2026-02-01');
+  });
+});
+
+describe('entryDateProblem', () => {
+  it('allows today and up to 31 days back, never the future', () => {
+    expect(entryDateProblem('2026-11-13', '2026-11-13')).toBeNull();
+    expect(entryDateProblem('2026-10-13', '2026-11-13')).toBeNull();
+    expect(entryDateProblem('2026-10-12', '2026-11-13')).toMatch(/31 days/);
+    expect(entryDateProblem('2026-11-14', '2026-11-13')).toMatch(/future/);
   });
 });

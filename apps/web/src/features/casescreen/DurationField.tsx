@@ -32,7 +32,8 @@ export function DurationField({
 }) {
   const id = useId();
   const minutes = parseDuration(value);
-  const problem = value.trim() || showProblem ? durationProblem(minutes) : null;
+  const problem =
+    value.trim() || showProblem ? durationProblem(minutes, value) : null;
   const recorded = problem || minutes === null ? null : roundUpToUnit(minutes);
 
   return (

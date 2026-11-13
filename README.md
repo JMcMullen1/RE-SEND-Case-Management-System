@@ -113,12 +113,17 @@ Time is recorded where the work is written up, ready for QuickBooks later
   `config.ts`); the field says exactly what will be recorded before it is.
   Billables written before time recording show **No time recorded** with an
   _Add time_ action, and are listed on the writer's Time page until fixed.
-- **Who can change it.** A note's author or an admin may edit its text and time,
-  or delete it (soft; a billable's time goes with it). Every create, edit and
-  delete is audited.
+- **Who records time.** Caseworkers and admins (`TIME_RECORDING_ROLES`);
+  finance and read-only users write case notes only. A billable can be dated up
+  to 31 days back (never in the future), for yesterday's call.
+- **Who can change it.** A note's author or an admin may edit its text, time and
+  date, or delete it (soft; a billable's time goes with it). Every create, edit
+  and delete is audited; the note is locked while it changes.
 - **Case totals.** The Billables tab shows the time on the case, by person.
 - **My time** (`/time`): a person's recorded time by day, week or month, and
   what it earned. Everyone sees their own; admins can choose anyone.
+- **Leavers.** Admins can still pick a leaver on the Time page (final pay), and
+  time on a case deleted later still counts, marked as such.
 - **Staff rates** (`/admin/rates`, admins only). Each member of staff has an
   hourly **pay rate** (what their time earns) and a **work rate** (what the work
   will be charged at in QuickBooks — empty until agreed). Rates are dated
@@ -273,6 +278,12 @@ breaks WebSockets and live updates).
   liveness.
 - **Secrets** are named — never valued — in `.env.example`: `ANTHROPIC_API_KEY`,
   `SESSION_SECRET`, `DATABASE_URL`, `ENCRYPTION_KEY` and the storage credentials.
+- **Sign-in is enforced.** On the demo deployment and in production every
+  `/api` route (the live-updates WebSocket included) requires a valid session
+  for an active user; only sign-in, health checks and the token-protected iCal
+  feed are public. The `x-user-id` header and the first-user fallback exist for
+  local development and tests only, and are ignored wherever sign-in is
+  enforced (`apps/api/src/auth/gate.ts`).
 - **Security.** Helmet sets the security headers on every response, the served
   front end included; the CSP has **`script-src 'self'` with no `unsafe-inline`**
   (the XSS-critical directive), `connect-src 'self'`, and HSTS. Rate limiting is

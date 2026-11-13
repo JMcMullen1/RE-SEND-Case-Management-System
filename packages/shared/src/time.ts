@@ -6,20 +6,29 @@
 
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from './calendar';
 import {
+  TIME_ENTRY_MAX_BACKDATE_DAYS,
   TIME_ENTRY_MAX_MINUTES,
+  TIME_RECORDING_ROLES,
   TIME_UNIT_MINUTES,
+  type RateKind,
   type TimePeriod,
 } from './config';
 
+/** Whether a role records its own time (writes billables). */
+export function canRecordTime(role: string | undefined): boolean {
+  return (TIME_RECORDING_ROLES as readonly string[]).includes(role ?? '');
+}
+
 /**
  * Read a duration as people type it: "45", "45m", "1h", "1h 30m", "1h30",
- * "1:30", "1.5", "1.5h", "90 mins", "2 hours". A bare whole number of 10 or
- * more is minutes ("45"); a bare small number or a decimal is hours ("2",
- * "1.5"). Returns whole minutes, or null when it cannot be read or is zero.
+ * "1:30", "1.5", "1.5h", "90 mins", "2 hours". A bare whole number of 15 or
+ * more is minutes ("45", "90"); a decimal is hours ("1.5"). A bare small whole
+ * number ("2", "5") is ambiguous — hours or minutes? — so it is not read; see
+ * `isAmbiguousDuration`. Returns whole minutes, or null.
  */
 export function parseDuration(input: string): number | null {
   const s = input.trim().toLowerCase().replace(/\s+/g, ' ');
-  if (!s) return null;
+  if (!s || isAmbiguousDuration(s)) return null;
 
   let minutes: number | null = null;
   const colon = s.match(/^(\d+):([0-5]\d)$/);
@@ -30,7 +39,7 @@ export function parseDuration(input: string): number | null {
     minutes = Number(colon[1]) * 60 + Number(colon[2]);
   } else if (/^\d+(\.\d+)?$/.test(s)) {
     const n = Number(s);
-    minutes = s.includes('.') || n < 10 ? n * 60 : n;
+    minutes = s.includes('.') ? n * 60 : n;
   } else if (hm && (hm[1] || hm[2])) {
     minutes = (hm[1] ? Number(hm[1]) * 60 : 0) + (hm[2] ? Number(hm[2]) : 0);
   }
@@ -39,16 +48,43 @@ export function parseDuration(input: string): number | null {
   return whole > 0 ? whole : null;
 }
 
+/** A bare whole number under 15 ("2", "5"): hours or minutes cannot be told. */
+export function isAmbiguousDuration(input: string): boolean {
+  const s = input.trim();
+  return /^\d+$/.test(s) && Number(s) > 0 && Number(s) < 15;
+}
+
 /** Round up to the recording unit (15 minutes): 1 → 15, 15 → 15, 16 → 30. */
 export function roundUpToUnit(minutes: number): number {
   return Math.ceil(minutes / TIME_UNIT_MINUTES) * TIME_UNIT_MINUTES;
 }
 
 /** Why a duration cannot be recorded, or null when it can. */
-export function durationProblem(minutes: number | null): string | null {
+export function durationProblem(
+  minutes: number | null,
+  input = '',
+): string | null {
+  if (isAmbiguousDuration(input)) {
+    const n = input.trim();
+    return `Hours or minutes? Type ${n}h or ${n}m.`;
+  }
   if (minutes === null) return 'Enter the time spent, e.g. 45m or 1h 30m.';
   if (roundUpToUnit(minutes) > TIME_ENTRY_MAX_MINUTES)
     return `One entry can be at most ${formatMinutes(TIME_ENTRY_MAX_MINUTES)}.`;
+  return null;
+}
+
+/**
+ * Why a billable cannot be dated `date`, or null when it can: never in the
+ * future, and at most TIME_ENTRY_MAX_BACKDATE_DAYS back (to catch typos).
+ */
+export function entryDateProblem(date: string, today: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Enter a valid date.';
+  if (date > today) return 'Time cannot be recorded for a future date.';
+  const earliest = new Date(`${today}T00:00:00Z`);
+  earliest.setUTCDate(earliest.getUTCDate() - TIME_ENTRY_MAX_BACKDATE_DAYS);
+  if (date < earliest.toISOString().slice(0, 10))
+    return `Time can be dated at most ${TIME_ENTRY_MAX_BACKDATE_DAYS} days back.`;
   return null;
 }
 
@@ -125,6 +161,8 @@ export interface TimeEntryRow {
   narrative: string | null;
   /** Earnings at the pay rate in force on the entry date; null if none set. */
   earningsPence: number | null;
+  /** The case has since been deleted; the time still counts, it was worked. */
+  caseDeleted: boolean;
 }
 
 /** A billable written by this person that has no time recorded yet. */
@@ -163,4 +201,13 @@ export interface StaffRates {
   role: string;
   pay: { ratePence: number; effectiveFrom: string } | null;
   work: { ratePence: number; effectiveFrom: string } | null;
+  /** Every rate set for this person, newest first, including upcoming ones. */
+  history: StaffRateRow[];
+}
+
+export interface StaffRateRow {
+  id: string;
+  kind: RateKind;
+  ratePence: number;
+  effectiveFrom: string;
 }
