@@ -29,8 +29,7 @@ view.
   for rows that belong to a case, the owning case id. Adding a table to live
   updates is **one `CREATE TRIGGER` line** in a migration — the function is
   never duplicated. It is applied to `cases`, `case_notes`, `key_dates`,
-  `case_reviews`, `documents` and `emails`; `time_entries` is registered as an
-  inert entry in the API registry.
+  `case_reviews`, `documents`, `emails` and `time_entries`.
 - The API holds a **single `LISTEN` connection** and fans each notification out
   over WebSockets, mapping entity type to the affected TanStack Query keys
   through a registry. Because the notification originates in Postgres, this
@@ -101,6 +100,32 @@ more than one set of conventions.
 - **Switchable without a deploy.** `AI_ENABLED` is a global kill switch; per-job
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
+
+## Time recording
+
+Time is recorded where the work is written up, ready for QuickBooks later
+(`apps/api/src/repositories/time.ts`, `apps/web/src/features/time`).
+
+- **A billable is a note plus its time.** Writing a billable on a case's
+  Billables tab requires the time spent; plain case notes never carry time. Time
+  is typed as people say it (`45m`, `1h 30`, `1.5`) or picked from quick
+  buttons, and is **rounded up to 15-minute units** (`TIME_UNIT_MINUTES` in
+  `config.ts`); the field says exactly what will be recorded before it is.
+  Billables written before time recording show **No time recorded** with an
+  _Add time_ action, and are listed on the writer's Time page until fixed.
+- **Who can change it.** A note's author or an admin may edit its text and time,
+  or delete it (soft; a billable's time goes with it). Every create, edit and
+  delete is audited.
+- **Case totals.** The Billables tab shows the time on the case, by person.
+- **My time** (`/time`): a person's recorded time by day, week or month, and
+  what it earned. Everyone sees their own; admins can choose anyone.
+- **Staff rates** (`/admin/rates`, admins only). Each member of staff has an
+  hourly **pay rate** (what their time earns) and a **work rate** (what the work
+  will be charged at in QuickBooks — empty until agreed). Rates are dated
+  (`user_rates.effective_from`): each entry earns at the rate in force on its
+  date, so a change never rewrites the past and a first rate can be backdated.
+- **QuickBooks-ready.** `time_entries` already carries `external_sync_status`,
+  `external_id` and `rate_snapshot` for the sync, which is not built yet.
 
 ## Email filing
 

@@ -38,6 +38,12 @@ export interface NoteTimelineItem extends TimelineItemBase {
   canEdit: boolean;
   /** True when the note has been edited since it was written. */
   edited: boolean;
+  /**
+   * For a billable: the time recorded with it, in minutes, or null when none
+   * has been recorded yet (a billable written before time recording). Always
+   * null for a case note.
+   */
+  minutes: number | null;
 }
 
 // --- Registered but not yet emitted -----------------------------------------

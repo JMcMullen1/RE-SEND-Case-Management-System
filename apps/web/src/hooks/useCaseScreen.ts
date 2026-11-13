@@ -5,6 +5,8 @@ import { reassignCase, type UserSummary } from '../api/client';
 import {
   addNote,
   createKeyDate,
+  deleteNote,
+  fetchCaseTimeSummary,
   deleteKeyDate,
   editNote,
   fetchCaseDetail,
@@ -52,6 +54,13 @@ export function useEmails(id: string) {
   });
 }
 
+export function useCaseTimeSummary(id: string) {
+  return useQuery({
+    queryKey: ['time-summary', id],
+    queryFn: () => fetchCaseTimeSummary(id),
+  });
+}
+
 export function useDocuments(id: string) {
   return useQuery({
     queryKey: ['documents', id],
@@ -65,6 +74,8 @@ function useCaseInvalidation(id: string) {
   return useCallback(() => {
     qc.invalidateQueries({ queryKey: ['case-detail', id] });
     qc.invalidateQueries({ queryKey: ['timeline', id] });
+    qc.invalidateQueries({ queryKey: ['time-summary', id] });
+    qc.invalidateQueries({ queryKey: ['time'] });
     qc.invalidateQueries({ queryKey: ['documents', id] });
     qc.invalidateQueries({ queryKey: ['cases'] });
   }, [qc, id]);
@@ -109,12 +120,17 @@ export function useCaseMutations(id: string) {
       ...opts,
     }),
     addNote: useMutation({
-      mutationFn: (v: { body: string; kind: NoteKind }) =>
-        addNote(id, v.body, v.kind),
+      mutationFn: (v: { body: string; kind: NoteKind; minutes?: number }) =>
+        addNote(id, v.body, v.kind, v.minutes),
       ...opts,
     }),
     editNote: useMutation({
-      mutationFn: (v: { id: string; body: string }) => editNote(v.id, v.body),
+      mutationFn: (v: { id: string; body?: string; minutes?: number }) =>
+        editNote(v.id, { body: v.body, minutes: v.minutes }),
+      ...opts,
+    }),
+    deleteNote: useMutation({
+      mutationFn: (noteId: string) => deleteNote(noteId),
       ...opts,
     }),
     // Optimistic owner reassignment with rollback on error.

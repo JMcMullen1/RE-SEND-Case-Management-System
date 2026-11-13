@@ -56,4 +56,16 @@ test('the app screens have no serious accessibility violations', async ({
   await page.goto('/calendar');
   await expect(page.getByRole('tab', { name: 'Agenda' })).toBeVisible();
   await scan(page, 'calendar');
+
+  await page.goto('/time');
+  await expect(page.getByRole('tab', { name: 'Week' })).toBeVisible();
+  await scan(page, 'my time');
+
+  await page.goto('/admin/rates');
+  await expect(page.getByRole('columnheader', { name: 'Staff' })).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Set pay rate for/ })
+    .first()
+    .click();
+  await scan(page, 'staff rates (editing)');
 });

@@ -40,6 +40,7 @@ describe('sortTimeline', () => {
         body: 'old',
         canEdit: false,
         edited: false,
+        minutes: null,
       },
       {
         id: 'b',
@@ -52,6 +53,7 @@ describe('sortTimeline', () => {
         body: 'new',
         canEdit: false,
         edited: false,
+        minutes: null,
       },
       {
         id: 'c',
@@ -64,6 +66,7 @@ describe('sortTimeline', () => {
         body: 'newer same day',
         canEdit: false,
         edited: false,
+        minutes: null,
       },
     ];
     expect(sortTimeline(items).map((i) => i.id)).toEqual(['c', 'b', 'a']);

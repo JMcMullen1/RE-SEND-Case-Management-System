@@ -20,6 +20,8 @@ import {
   DirectionPartySchema,
   DirectionsCategorySchema,
   EmailDirectionSchema,
+  RateKindSchema,
+  TIME_ENTRY_MAX_MINUTES,
 } from '@re-send/shared';
 
 /** Mirrors the shared CaseFilters type; validates every facet value. */
@@ -496,6 +498,7 @@ export const TimelineItemSchema = z.discriminatedUnion('type', [
     body: z.string(),
     canEdit: z.boolean(),
     edited: z.boolean(),
+    minutes: z.number().int().nullable(),
   }),
   z.object({
     ...TimelineBase,
@@ -590,11 +593,31 @@ export const KeyDateCreateSchema = z.object({
 
 export const KeyDatePatchSchema = KeyDateCreateSchema.partial();
 
-export const NoteCreateSchema = z.object({
-  body: z.string().min(1),
-  kind: NoteKindSchema.default('note'),
-});
-export const NoteEditSchema = z.object({ body: z.string().min(1) });
+const MinutesSchema = z.number().int().positive().max(TIME_ENTRY_MAX_MINUTES);
+
+/** A billable must carry its time; a case note never does. */
+export const NoteCreateSchema = z
+  .object({
+    body: z.string().trim().min(1),
+    kind: NoteKindSchema.default('note'),
+    minutes: MinutesSchema.optional(),
+  })
+  .refine((v) => v.kind !== 'billable' || v.minutes !== undefined, {
+    message: 'A billable needs the time spent.',
+    path: ['minutes'],
+  })
+  .refine((v) => v.kind !== 'note' || v.minutes === undefined, {
+    message: 'Time is recorded on billables, not case notes.',
+    path: ['minutes'],
+  });
+export const NoteEditSchema = z
+  .object({
+    body: z.string().trim().min(1).optional(),
+    minutes: MinutesSchema.optional(),
+  })
+  .refine((v) => v.body !== undefined || v.minutes !== undefined, {
+    message: 'Nothing to change.',
+  });
 export const SetTeamsSchema = z.object({ team: z.array(TeamSchema) });
 
 // --- Create case ------------------------------------------------------------
@@ -719,4 +742,76 @@ export const MatchResultSchema = z.object({
       ),
     }),
   ),
+});
+
+// --- Time recording -----------------------------------------------------------
+
+const DateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+export const TimeReportQuerySchema = z.object({
+  from: DateString,
+  to: DateString,
+  userId: z.string().uuid().optional(),
+});
+
+export const TimeReportSchema = z.object({
+  userId: z.string(),
+  userName: z.string(),
+  from: z.string(),
+  to: z.string(),
+  totalMinutes: z.number().int(),
+  totalEarningsPence: z.number().int().nullable(),
+  entriesWithoutRate: z.number().int(),
+  entries: z.array(
+    z.object({
+      id: z.string(),
+      noteId: z.string().nullable(),
+      caseId: z.string(),
+      caseReference: z.string(),
+      childName: z.string().nullable(),
+      entryDate: z.string(),
+      minutes: z.number().int(),
+      narrative: z.string().nullable(),
+      earningsPence: z.number().int().nullable(),
+    }),
+  ),
+  missingTime: z.array(
+    z.object({
+      noteId: z.string(),
+      caseId: z.string(),
+      caseReference: z.string(),
+      entryDate: z.string(),
+    }),
+  ),
+});
+
+export const CaseTimeSummarySchema = z.object({
+  totalMinutes: z.number().int(),
+  byPerson: z.array(
+    z.object({
+      userId: z.string(),
+      name: z.string(),
+      minutes: z.number().int(),
+    }),
+  ),
+  missingTimeCount: z.number().int(),
+});
+
+const CurrentRateSchema = z
+  .object({ ratePence: z.number().int(), effectiveFrom: z.string() })
+  .nullable();
+
+export const StaffRatesSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  role: z.string(),
+  pay: CurrentRateSchema,
+  work: CurrentRateSchema,
+});
+
+export const SetRateSchema = z.object({
+  userId: z.string().uuid(),
+  kind: RateKindSchema,
+  ratePence: z.number().int().min(0).max(100_000),
+  effectiveFrom: DateString,
 });

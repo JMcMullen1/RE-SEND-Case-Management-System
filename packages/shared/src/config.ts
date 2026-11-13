@@ -337,6 +337,28 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
   outbound: 'Sent',
 };
 
+// --- Time recording ---------------------------------------------------------
+/** Time is recorded in units of this many minutes; entries round UP to a unit. */
+export const TIME_UNIT_MINUTES = 15;
+/** The most time one entry may carry (a sanity bound against typos). */
+export const TIME_ENTRY_MAX_MINUTES = 12 * 60;
+/**
+ * The two hourly rates an admin sets per member of staff. `pay` is what the
+ * person earns for their recorded time; `work` is what the work is charged at,
+ * for QuickBooks later. Each is dated, so a change never rewrites the past.
+ */
+export const RATE_KIND_VALUES = ['pay', 'work'] as const;
+export type RateKind = (typeof RATE_KIND_VALUES)[number];
+export const RateKindSchema = z.enum(RATE_KIND_VALUES);
+export const RATE_KIND_LABELS: Record<RateKind, string> = {
+  pay: 'Pay rate',
+  work: 'Work rate (QuickBooks)',
+};
+/** Periods the "My time" page totals by. */
+export const TIME_PERIOD_VALUES = ['day', 'week', 'month'] as const;
+export type TimePeriod = (typeof TIME_PERIOD_VALUES)[number];
+export const TimePeriodSchema = z.enum(TIME_PERIOD_VALUES);
+
 // --- Email filing -----------------------------------------------------------
 /** File extensions accepted as a filed email: RFC 822 (.eml) and Outlook (.msg). */
 export const EMAIL_FILE_EXTENSIONS = ['.eml', '.msg'] as const;
