@@ -121,6 +121,10 @@ const REGISTRY: Record<string, EntityMapping> = {
 
 interface Connection {
   send: (data: string) => void;
+  /** Closes the socket (used when its signed-in user is marked as left). */
+  close?: () => void;
+  /** The signed-in user the socket was opened for (from the session). */
+  sessionUserId?: string | null;
   userId?: string;
   displayName?: string;
   caseId?: string;
@@ -129,10 +133,37 @@ interface Connection {
 const connections = new Map<number, Connection>();
 let sequence = 0;
 
-export function addConnection(send: (data: string) => void): number {
+export function addConnection(
+  send: (data: string) => void,
+  opts: { close?: () => void; sessionUserId?: string | null } = {},
+): number {
   const id = (sequence += 1);
-  connections.set(id, { send });
+  connections.set(id, { send, ...opts });
   return id;
+}
+
+/** Record the signed-in user behind a connection (resolved after upgrade). */
+export function setConnectionUser(id: number, userId: string | null): void {
+  const conn = connections.get(id);
+  if (conn) conn.sessionUserId = userId;
+}
+
+/**
+ * Close every live connection opened by a user (on this instance) — e.g. when
+ * they are marked as having left, so an open tab stops receiving updates.
+ * Other instances drop theirs when the session gate refuses the reconnect.
+ */
+export function disconnectUser(userId: string): number {
+  let closed = 0;
+  for (const [id, conn] of connections) {
+    if (conn.sessionUserId === userId) {
+      connections.delete(id);
+      if (conn.caseId) broadcastPresence(conn.caseId);
+      conn.close?.();
+      closed += 1;
+    }
+  }
+  return closed;
 }
 
 export function removeConnection(id: number): void {

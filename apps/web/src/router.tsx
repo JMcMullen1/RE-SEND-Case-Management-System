@@ -13,6 +13,7 @@ import { RatesPage } from './features/time/RatesPage';
 import { TimePage } from './features/time/TimePage';
 import { SchoolPage } from './features/schools/SchoolPage';
 import { SchoolsPage } from './features/schools/SchoolsPage';
+import { StaffPage } from './features/admin/StaffPage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -72,6 +73,12 @@ const schoolRoute = createRoute({
   component: SchoolPage,
 });
 
+const staffRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/staff',
+  component: StaffPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   newCaseRoute,
@@ -82,6 +89,7 @@ const routeTree = rootRoute.addChildren([
   ratesRoute,
   schoolsRoute,
   schoolRoute,
+  staffRoute,
 ]);
 
 export const router = createRouter({ routeTree });

@@ -1,14 +1,11 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import {
-  DEMO_ACCOUNTS,
-  demoPasswordMatches,
-  demoUserByEmail,
-} from '../auth/demo-accounts';
+import { demoPasswordMatches, demoUserByEmail } from '../auth/demo-accounts';
 import { SESSION_COOKIE, signSession } from '../auth/session';
 import { resolveActingUser } from '../auth/context';
 import { env } from '../env';
+import { listActiveUserEmails } from '../repositories/users';
 import { UserSummarySchema } from './schemas';
 
 const SESSION_MAX_AGE = 60 * 60 * 8; // 8 hours
@@ -47,14 +44,11 @@ export function registerAuthRoutes(fastify: FastifyInstance): void {
         },
       },
     },
+    // Built from active users (invariant 5), so staff an admin adds can sign
+    // in and leavers drop off the list.
     async () => ({
       demoMode: env.DEMO_MODE,
-      accounts: env.DEMO_MODE
-        ? DEMO_ACCOUNTS.map((a) => ({
-            email: a.email,
-            displayName: a.displayName,
-          }))
-        : [],
+      accounts: env.DEMO_MODE ? await listActiveUserEmails() : [],
     }),
   );
 

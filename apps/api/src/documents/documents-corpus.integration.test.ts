@@ -38,7 +38,7 @@ run('documents: dedup + versioning', () => {
       {
         filename: name,
         mimeType: 'text/plain',
-        bytes: Buffer.from('Original plan text', 'utf8'),
+        bytes: Buffer.from(`Original plan text ${name}`, 'utf8'),
         category: 'Working Document',
       },
       userId,
@@ -52,7 +52,7 @@ run('documents: dedup + versioning', () => {
       {
         filename: name,
         mimeType: 'text/plain',
-        bytes: Buffer.from('Original plan text', 'utf8'),
+        bytes: Buffer.from(`Original plan text ${name}`, 'utf8'),
         category: 'Working Document',
       },
       userId,
@@ -66,7 +66,7 @@ run('documents: dedup + versioning', () => {
       {
         filename: name,
         mimeType: 'text/plain',
-        bytes: Buffer.from('Revised plan text', 'utf8'),
+        bytes: Buffer.from(`Revised plan text ${name}`, 'utf8'),
         category: 'Working Document',
       },
       userId,
@@ -145,7 +145,7 @@ run('case corpus', () => {
       {
         filename: name,
         mimeType: 'text/plain',
-        bytes: Buffer.from('Evidence version one', 'utf8'),
+        bytes: Buffer.from(`Evidence version one ${name}`, 'utf8'),
         category: 'Evidence',
       },
       userId,
@@ -155,7 +155,7 @@ run('case corpus', () => {
       {
         filename: name,
         mimeType: 'text/plain',
-        bytes: Buffer.from('Evidence version two', 'utf8'),
+        bytes: Buffer.from(`Evidence version two ${name}`, 'utf8'),
         category: 'Evidence',
       },
       userId,

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { provisionDemoAccounts } from '../auth/demo-accounts';
+import { restoreDemoAccounts } from '../auth/demo-accounts';
 import { resolveActingUser } from '../auth/context';
 import { resetDemoData } from '../repositories/demo';
 import { env } from '../env';
@@ -34,7 +34,7 @@ export function registerDemoRoutes(fastify: FastifyInstance): void {
       if (!user) return reply.code(401).send({ message: 'Not signed in' });
 
       await resetDemoData();
-      await provisionDemoAccounts();
+      await restoreDemoAccounts();
       request.log.info({ actor: user.id }, 'demo data reset');
       return { ok: true as const };
     },

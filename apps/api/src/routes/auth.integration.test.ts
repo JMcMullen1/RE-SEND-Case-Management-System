@@ -193,6 +193,105 @@ run('demo auth + reset', () => {
     });
     expect(reLogin.statusCode).toBe(200);
 
+    // A joiner an admin adds appears on the sign-in list and can sign in;
+    // once marked as having left, their session stops working at once.
+    const joiner = await app.inject({
+      method: 'POST',
+      url: '/api/admin/staff',
+      headers: { cookie: session },
+      payload: {
+        displayName: 'New Joiner',
+        email: 'new.joiner@resend.demo',
+        role: 'caseworker',
+      },
+    });
+    expect(joiner.statusCode).toBe(200);
+    const listed = (
+      await app.inject({ method: 'GET', url: '/api/auth/accounts' })
+    ).json().accounts as { email: string }[];
+    expect(listed.some((a) => a.email === 'new.joiner@resend.demo')).toBe(true);
+    const joinerLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'new.joiner@resend.demo', password: 'resend-demo' },
+    });
+    const joinerSession = `resend_session=${
+      joinerLogin.cookies.find((c) => c.name === 'resend_session')!.value
+    }`;
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/cases?limit=1',
+          headers: { cookie: joinerSession },
+        })
+      ).statusCode,
+    ).toBe(200);
+    // A restart keeps an admin-added account as it is.
+    const { provisionDemoAccounts: restart } =
+      await import('../auth/demo-accounts');
+    await restart();
+    expect(
+      (
+        (await app.inject({ method: 'GET', url: '/api/auth/accounts' })).json()
+          .accounts as { email: string }[]
+      ).some((a) => a.email === 'new.joiner@resend.demo'),
+    ).toBe(true);
+    await app.inject({
+      method: 'POST',
+      url: `/api/admin/staff/${joiner.json().id}/deactivate`,
+      headers: { cookie: session },
+      payload: { handover: { kind: 'none' } },
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/cases?limit=1',
+          headers: { cookie: joinerSession },
+        })
+      ).statusCode,
+    ).toBe(401);
+    // ...and a restart does not bring them back.
+    const { provisionDemoAccounts: reprovision } =
+      await import('../auth/demo-accounts');
+    await reprovision();
+    const afterRestart = (
+      await app.inject({ method: 'GET', url: '/api/auth/accounts' })
+    ).json().accounts as { email: string }[];
+    expect(afterRestart.some((a) => a.email === 'new.joiner@resend.demo')).toBe(
+      false,
+    );
+
+    // Reset demo puts the named demo staff back, whatever a visitor did.
+    const staffList = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/admin/staff',
+        headers: { cookie: session },
+      })
+    ).json().staff as { id: string; email: string }[];
+    const abbie = staffList.find(
+      (p) => p.email === 'abbie.holland@resend.demo',
+    )!;
+    await app.inject({
+      method: 'POST',
+      url: `/api/admin/staff/${abbie.id}/deactivate`,
+      headers: { cookie: session },
+      payload: { handover: { kind: 'none' } },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/demo/reset',
+      headers: { cookie: session },
+    });
+    expect(
+      (
+        (await app.inject({ method: 'GET', url: '/api/auth/accounts' })).json()
+          .accounts as { email: string }[]
+      ).some((a) => a.email === 'abbie.holland@resend.demo'),
+    ).toBe(true);
+
     // Readiness reflects the reachable database.
     const ready = await app.inject({ method: 'GET', url: '/health/ready' });
     expect(ready.statusCode).toBe(200);

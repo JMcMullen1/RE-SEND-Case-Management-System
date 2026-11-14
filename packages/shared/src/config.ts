@@ -315,6 +315,29 @@ export const USER_ROLE_VALUES = [
 ] as const;
 export type UserRole = (typeof USER_ROLE_VALUES)[number];
 export const UserRoleSchema = z.enum(USER_ROLE_VALUES);
+/** What each role can do, as the staff admin screen explains it. */
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Admin',
+  caseworker: 'Caseworker',
+  finance: 'Finance',
+  read_only: 'Read only',
+};
+export const USER_ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  admin:
+    'Everything a caseworker can do, plus staff, rates, archiving schools, deleting cases and the data export.',
+  caseworker:
+    'Works cases: notes, billable time, documents, emails, schools and drafting.',
+  finance: 'Reads cases and writes case notes; does not record billable time.',
+  read_only: 'Can look at cases but not change the schools directory or draft.',
+};
+
+/**
+ * Statuses of a case that is finished with. A leaver's cases in any other
+ * status are "open" and offered for handover when they leave.
+ */
+export const CLOSED_CASE_STATUSES = ['Closed'] as const;
+/** Roles a case can be handed to (they work cases). */
+export const CASE_OWNER_ROLES = ['admin', 'caseworker'] as const;
 
 // --- Key date sources -------------------------------------------------------
 /** Where a key date came from: hand-entered, parsed from a directions order,

@@ -5,7 +5,7 @@ import Fastify, { type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import cookie from '@fastify/cookie';
-import { registerSessionGate } from './auth/gate';
+import { registerSessionGate, sessionUserId } from './auth/gate';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -31,6 +31,7 @@ import { registerEmailRoutes } from './routes/emails';
 import { registerTimeRoutes } from './routes/time';
 import { registerSchoolRoutes } from './routes/schools';
 import { registerDraftRoutes } from './routes/drafts';
+import { registerAdminRoutes } from './routes/admin';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -41,6 +42,7 @@ import {
   addConnection,
   handleClientMessage,
   removeConnection,
+  setConnectionUser,
 } from './realtime';
 
 /** The built front end, served by the API in a single-service deployment. */
@@ -161,6 +163,7 @@ export async function buildServer() {
   registerTimeRoutes(app);
   registerSchoolRoutes(app);
   registerDraftRoutes(app);
+  registerAdminRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);
@@ -169,13 +172,17 @@ export async function buildServer() {
   registerSavedViewRoutes(app);
   registerDemoRoutes(app);
 
-  app.get('/api/ws', { websocket: true }, (socket) => {
-    const id = addConnection((data) => socket.send(data));
+  app.get('/api/ws', { websocket: true }, (socket, request) => {
+    const id = addConnection((data) => socket.send(data), {
+      close: () => socket.close(),
+    });
     socket.on('message', (raw: Buffer) =>
       handleClientMessage(id, raw.toString()),
     );
     socket.on('close', () => removeConnection(id));
     socket.on('error', () => removeConnection(id));
+    // Remember whose session opened it, so it can be closed if they leave.
+    void sessionUserId(request).then((userId) => setConnectionUser(id, userId));
   });
 
   // Serve the built SPA (single-service deployment). Registered last so /api and
