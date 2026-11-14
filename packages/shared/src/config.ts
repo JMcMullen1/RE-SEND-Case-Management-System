@@ -337,6 +337,81 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
   outbound: 'Sent',
 };
 
+// --- Schools directory --------------------------------------------------------
+/**
+ * How a school is run and funded (England). "Maintained" schools are run by the
+ * local authority; academies and free schools are state-funded but independent
+ * of it; independent schools are fee-paying; non-maintained special schools are
+ * charitable special schools approved by the DfE.
+ */
+export const SCHOOL_FUNDING_VALUES = [
+  'maintained',
+  'academy',
+  'free_school',
+  'independent',
+  'non_maintained_special',
+] as const;
+export type SchoolFunding = (typeof SCHOOL_FUNDING_VALUES)[number];
+export const SchoolFundingSchema = z.enum(SCHOOL_FUNDING_VALUES);
+export const SCHOOL_FUNDING_LABELS: Record<SchoolFunding, string> = {
+  maintained: 'Maintained (LA)',
+  academy: 'Academy',
+  free_school: 'Free school',
+  independent: 'Independent',
+  non_maintained_special: 'Non-maintained special',
+};
+
+/** The kind of provision a school offers. */
+export const SCHOOL_PROVISION_VALUES = [
+  'mainstream',
+  'mainstream_resource_base',
+  'specialist',
+  'alternative_provision',
+] as const;
+export type SchoolProvision = (typeof SCHOOL_PROVISION_VALUES)[number];
+export const SchoolProvisionSchema = z.enum(SCHOOL_PROVISION_VALUES);
+export const SCHOOL_PROVISION_LABELS: Record<SchoolProvision, string> = {
+  mainstream: 'Mainstream',
+  mainstream_resource_base: 'Mainstream with resource base',
+  specialist: 'Specialist',
+  alternative_provision: 'Alternative provision',
+};
+
+/** How a school relates to a case. */
+export const CASE_SCHOOL_ROLE_VALUES = [
+  'current',
+  'proposed',
+  'named_in_plan',
+  'previous',
+] as const;
+export type CaseSchoolRole = (typeof CASE_SCHOOL_ROLE_VALUES)[number];
+export const CaseSchoolRoleSchema = z.enum(CASE_SCHOOL_ROLE_VALUES);
+export const CASE_SCHOOL_ROLE_LABELS: Record<CaseSchoolRole, string> = {
+  current: 'Current school',
+  proposed: 'Proposed school',
+  named_in_plan: 'Named in the plan',
+  previous: 'Previous school',
+};
+
+/** Common job titles offered for a school contact (free text is allowed). */
+export const SCHOOL_CONTACT_ROLE_SUGGESTIONS = [
+  'SENCo',
+  'Headteacher',
+  'Deputy headteacher',
+  'Class teacher',
+  'Head of year',
+  'Admissions',
+  'School office',
+  'Designated safeguarding lead',
+] as const;
+
+/** Roles that may add and edit schools and their contacts. Read-only may not. */
+export const SCHOOL_DIRECTORY_EDIT_ROLES = [
+  'admin',
+  'caseworker',
+  'finance',
+] as const;
+
 // --- Time recording ---------------------------------------------------------
 /** Time is recorded in units of this many minutes; entries round UP to a unit. */
 export const TIME_UNIT_MINUTES = 15;

@@ -71,6 +71,28 @@ const REGISTRY: Record<string, EntityMapping> = {
           ]
         : [],
   },
+  // The schools directory, a school's contacts, and the schools on a case
+  // (linking a current or proposed school also updates the child's details).
+  schools: {
+    keys: (id) => (id ? [['schools'], ['school', id]] : [['schools']]),
+  },
+  school_contacts: {
+    keys: (_id, scopeId) =>
+      scopeId
+        ? [['schools'], ['school', scopeId], ['case-schools']]
+        : [['schools']],
+  },
+  case_schools: {
+    keys: (_id, scopeId) =>
+      scopeId
+        ? [
+            ['case-schools', scopeId],
+            ['case-detail', scopeId],
+            ['schools'],
+            ['cases'],
+          ]
+        : [['schools']],
+  },
   // Recorded time: the case's billables and totals, and every "My time" page.
   time_entries: {
     keys: (_id, scopeId) =>

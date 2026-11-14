@@ -250,6 +250,36 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await page.goBack();
   await page.goBack();
 
+  // 5d. Add the child's school to the shared directory from the case, and
+  // link it as the current school; the case's Current school follows.
+  await page.getByRole('tab', { name: 'Case details' }).click();
+  await page.getByRole('button', { name: '+ Link a school' }).click();
+  await page
+    .getByRole('button', { name: 'Not in the directory? Add it' })
+    .click();
+  const addSchool = page.getByRole('dialog', { name: 'Add a school' });
+  await addSchool.getByLabel('School name').fill('Marlborough Primary School');
+  await addSchool.getByLabel('Postcode').fill('al1 2ab');
+  await addSchool.getByLabel('Type of school').selectOption('maintained');
+  await addSchool.getByRole('button', { name: 'Add school' }).click();
+  await expect(
+    page.getByRole('link', { name: 'Marlborough Primary School' }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel('How Marlborough Primary School relates to this case'),
+  ).toHaveValue('current');
+
+  // The school's page: add the SENCo, and see the case listed.
+  await page.getByRole('link', { name: 'Marlborough Primary School' }).click();
+  await page.getByRole('button', { name: '+ Add a contact' }).click();
+  await page.getByLabel('Name').fill('Ms Patel');
+  await page.getByLabel('Role').fill('SENCo');
+  await page.getByRole('button', { name: 'Add contact' }).click();
+  await expect(page.getByText('Ms Patel')).toBeVisible();
+  await expect(page.getByText('Current school')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByLabel('Ms Patel')).toBeVisible();
+
   // 6. The applied dates appear on the calendar.
   await page.goto('/calendar');
   await expect(

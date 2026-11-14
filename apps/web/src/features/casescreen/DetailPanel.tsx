@@ -10,6 +10,7 @@ import {
   type Team,
 } from '@re-send/shared';
 import { EditableField, type SelectOption } from './EditableField';
+import { CaseSchoolsSection } from './CaseSchoolsSection';
 import { KeyDatesEditor } from './KeyDatesEditor';
 import type { useCaseMutations } from '../../hooks/useCaseScreen';
 
@@ -242,6 +243,19 @@ export function DetailPanel({
           <span className="text-sm text-gray-400">—</span>
         )}
       </Field>
+
+      <div className="mt-3 border-t border-gray-100 pt-3 sm:col-span-2">
+        <dt className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Schools
+        </dt>
+        <dd>
+          <CaseSchoolsSection
+            caseId={detail.id}
+            currentSchoolName={child?.currentSchoolName ?? null}
+            desiredSchool={child?.desiredSchool ?? null}
+          />
+        </dd>
+      </div>
 
       <div className="mt-3 border-t border-gray-100 pt-3 sm:col-span-2">
         <dt className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">

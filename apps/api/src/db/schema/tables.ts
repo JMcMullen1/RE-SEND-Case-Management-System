@@ -31,6 +31,9 @@ import {
   paymentCodeEnum,
   queryTypeEnum,
   rateKindEnum,
+  caseSchoolRoleEnum,
+  schoolFundingEnum,
+  schoolProvisionEnum,
   schoolYearEnum,
   userRoleEnum,
   workTypeEnum,
@@ -577,5 +580,88 @@ export const savedViews = pgTable(
   },
   (t) => ({
     ownerUserIdIdx: index('idx_saved_views_owner_user_id').on(t.ownerUserId),
+  }),
+);
+
+// --- schools / school_contacts / case_schools ----------------------------------
+// A directory of schools shared across every case, with named contacts at each,
+// linked to the cases they relate to. Contacts are professionals at the school,
+// not people on the case.
+export const schools = pgTable(
+  'schools',
+  {
+    id: primaryId(),
+    name: text('name').notNull(),
+    // Normalised name for duplicate detection (see schoolNameKey).
+    nameKey: text('name_key').notNull(),
+    urn: text('urn'),
+    address: text('address'),
+    postcode: text('postcode'),
+    localAuthority: text('local_authority'),
+    phone: text('phone'),
+    email: text('email'),
+    website: text('website'),
+    funding: schoolFundingEnum('funding'),
+    provision: schoolProvisionEnum('provision'),
+    section41: boolean('section_41').notNull().default(false),
+    ageFrom: integer('age_from'),
+    ageTo: integer('age_to'),
+    notes: text('notes'),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => ({
+    urnIdx: uniqueIndex('uq_schools_urn')
+      .on(t.urn)
+      .where(sql`${t.urn} IS NOT NULL AND ${t.deletedAt} IS NULL`),
+    nameKeyIdx: index('idx_schools_name_key').on(t.nameKey),
+  }),
+);
+
+export const schoolContacts = pgTable(
+  'school_contacts',
+  {
+    id: primaryId(),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => schools.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    role: text('role'),
+    email: text('email'),
+    phone: text('phone'),
+    notes: text('notes'),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => ({
+    schoolIdIdx: index('idx_school_contacts_school_id').on(t.schoolId),
+  }),
+);
+
+export const caseSchools = pgTable(
+  'case_schools',
+  {
+    id: primaryId(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => cases.id, { onDelete: 'restrict' }),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => schools.id, { onDelete: 'restrict' }),
+    role: caseSchoolRoleEnum('role').notNull(),
+    // The school's contacts who are involved in this case.
+    contactIds: uuid('contact_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => ({
+    caseIdIdx: index('idx_case_schools_case_id').on(t.caseId),
+    schoolIdIdx: index('idx_case_schools_school_id').on(t.schoolId),
+    uniqueLink: uniqueIndex('uq_case_schools_case_school_role')
+      .on(t.caseId, t.schoolId, t.role)
+      .where(sql`${t.deletedAt} IS NULL`),
   }),
 );
