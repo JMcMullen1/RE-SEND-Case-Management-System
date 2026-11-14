@@ -133,6 +133,51 @@ Admins manage staff and take the charity's data with them at any time
   and the outcome of each export are audited. A test fails if a new table is
   not added to the export.
 
+## Importing the existing case list
+
+The one-off migration of the charity's case list spreadsheet (`/admin/import`,
+admins only; `packages/shared/src/case-import.ts`,
+`apps/api/src/repositories/case-import.ts`).
+
+- **The file stays on the computer.** The Excel workbook (.xlsx) is read in the
+  browser (`read-excel-file`); only its rows are sent to be checked, and only
+  the cases imported are saved. If it has several sheets, one is chosen.
+- **Columns are matched to the system's own headings** (`CASE_IMPORT_FIELDS`
+  in `config.ts`, which also lists alternative headings): Date of enquiry,
+  Allocated to, Dealing/ Shadow, Current Team, Status, Client Name, Email,
+  Child's Name, Original Query, Method of enquiry, Current Work, Notes, Payment
+  Details, Discount Code, Invoice Status, the contact and address columns and
+  QB Notes. Any match can be changed, or a column left out.
+- **Values are matched like a person would**, ignoring case, spacing and
+  punctuation ("Section BF&I" is "Section B F & I"). Staff are matched from the
+  users table by full name or a first name only one person has; "TSA Team" and
+  "Enquiries" are queues. Anything not recognised is listed once under
+  "Values to match" for an admin to choose what it means, for every row at once.
+- **Every row is checked before anything is saved**: to import, already there
+  (a case for the same client — as matched, not as spelled — child and date of
+  enquiry, on the system or earlier in the sheet — so importing a corrected
+  file again only adds what is new), or needs fixing (no date of enquiry or one
+  in the future, an unknown status, nobody named, an email clash). Two-digit
+  years are read as this century up to this year (98 is 1998).
+  Blank rows are skipped; row numbers are the spreadsheet's own.
+- **Families are never joined by guesswork.** A row joins an existing client
+  on the same email and name, or on the same name and postcode when the two do
+  not have different emails; siblings in the sheet share one new client the
+  same way. One email given for two different names (a school's or a
+  professional's address, say) is a problem to fix in the sheet, never a join.
+  A name alone makes a separate record and says so.
+- **Simple and advanced views**, as in the case list: the simple view shows the
+  essentials; the advanced view shows every column. "More" on a row shows what
+  to look at and each value as written and as it will be imported. Rows can be
+  filtered by outcome.
+- **Importing.** The import must be of exactly the list and matches checked (a
+  fingerprint of both), is checked again, and runs in one transaction — all of
+  it or none — refused if it no longer matches the preview. It writes in bulk
+  (3,000 cases in about a second). Cases get references for their year of
+  enquiry; the Notes column becomes a case note, headed as imported and dated
+  by its latest entry. Each case is audited as created by import
+  (batch and row), and the import with its counts.
+
 ## Assisted drafting
 
 A first draft of a **position statement** for a SEND Tribunal appeal, written
@@ -447,7 +492,8 @@ table back to a blank list so the walkthrough can be run again.
 a clean, empty database: sign in, see the empty state, add a case, create a
 second by dropping a JotForm, apply a directions order and confirm the diff, see
 the date on the calendar, run review mode, and reassign a case while a second
-browser session watches it update live. **axe-core** scans the key screens and
+browser session watches it update live. A second spec imports a made-up case
+list workbook (`e2e/fixtures/case-list-sample.xlsx`). **axe-core** scans the key screens and
 the build fails on any serious or critical violation. Both run in CI
 (`.github/workflows/ci.yml`) against a PostgreSQL service.
 

@@ -1152,3 +1152,204 @@ export const SAVED_VIEW_SEEDS: SavedViewSeed[] = [
 
 // Keep the vocab helper referenced for future single-line vocabularies.
 export { vocab };
+
+// --- Case list import (migration) -----------------------------------------------
+/**
+ * How each value in the charity's existing case list spreadsheet is read. A
+ * spreadsheet column is matched to one of these fields by its heading (the
+ * system's own label, or one of the alternatives); an admin can change any
+ * match on screen before importing.
+ */
+export type CaseImportFieldKind =
+  | 'text'
+  | 'date'
+  | 'email'
+  | 'notes'
+  /** One value from a vocabulary. */
+  | 'vocab'
+  /** A member of staff (matched to the users table) or an owner queue. */
+  | 'owner'
+  /** A member of staff. */
+  | 'user'
+  /** One or more teams, e.g. "TSA" or "TSA / ISA". */
+  | 'teams';
+
+export interface CaseImportFieldDef {
+  id: string;
+  /** The system's own heading for the field. */
+  label: string;
+  /** Other headings that mean the same field. */
+  aliases: readonly string[];
+  kind: CaseImportFieldKind;
+  values?: readonly string[];
+  /** Shown in the simple preview (the rest in the advanced view). */
+  simple?: boolean;
+}
+
+export const CASE_IMPORT_FIELDS = [
+  {
+    id: 'dateOfEnquiry',
+    label: 'Date of enquiry',
+    aliases: ['Enquiry date', 'Date'],
+    kind: 'date',
+    simple: true,
+  },
+  {
+    id: 'allocatedTo',
+    label: 'Allocated to',
+    aliases: ['Owner', 'Caseworker', 'Staff'],
+    kind: 'owner',
+    simple: true,
+  },
+  {
+    id: 'dealingShadow',
+    label: 'Dealing/ Shadow',
+    aliases: ['Dealing/Shadow', 'Dealing', 'Shadow'],
+    kind: 'user',
+  },
+  {
+    id: 'team',
+    label: 'Current Team',
+    aliases: ['Team'],
+    kind: 'teams',
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    aliases: ['Case status'],
+    kind: 'vocab',
+    values: STATUS_VALUES,
+    simple: true,
+  },
+  {
+    id: 'clientName',
+    label: 'Client Name',
+    aliases: ['Client', 'Parent', 'Parent name'],
+    kind: 'text',
+    simple: true,
+  },
+  {
+    id: 'email',
+    label: 'Email',
+    aliases: ['Email address', 'Client email'],
+    kind: 'email',
+  },
+  {
+    id: 'childName',
+    label: "Child's Name",
+    aliases: ['Child', 'Child name', 'Young person'],
+    kind: 'text',
+    simple: true,
+  },
+  {
+    id: 'childDateOfBirth',
+    label: "Child's date of birth",
+    aliases: ['Date of birth', 'DOB', 'Child DOB'],
+    kind: 'date',
+  },
+  {
+    id: 'originalQuery',
+    label: 'Original Query',
+    aliases: ['Query', 'Query type'],
+    kind: 'vocab',
+    values: QUERY_TYPE_VALUES,
+  },
+  {
+    id: 'methodOfEnquiry',
+    label: 'Method of enquiry',
+    aliases: ['Enquiry method', 'Method'],
+    kind: 'vocab',
+    values: ENQUIRY_METHOD_VALUES,
+  },
+  {
+    id: 'currentWork',
+    label: 'Current Work',
+    aliases: ['Type of case', 'Work type', 'Work'],
+    kind: 'vocab',
+    values: WORK_TYPE_VALUES,
+    simple: true,
+  },
+  {
+    id: 'appealNumber',
+    label: 'Appeal number',
+    aliases: ['Tribunal reference', 'Appeal ref'],
+    kind: 'text',
+  },
+  {
+    id: 'notes',
+    label: 'Notes',
+    aliases: ['Case notes', 'Comments'],
+    kind: 'notes',
+  },
+  {
+    id: 'paymentCode',
+    label: 'Payment Details',
+    aliases: ['Payment code', 'Payment'],
+    kind: 'vocab',
+    values: PAYMENT_CODE_VALUES,
+  },
+  {
+    id: 'discountCode',
+    label: 'Discount Code',
+    aliases: ['Discount'],
+    kind: 'vocab',
+    values: DISCOUNT_CODE_VALUES,
+  },
+  {
+    id: 'invoiceStatus',
+    label: 'Invoice Status',
+    aliases: ['Invoice'],
+    kind: 'text',
+  },
+  {
+    id: 'phone',
+    label: 'Phone Number',
+    aliases: ['Phone', 'Telephone', 'Landline'],
+    kind: 'text',
+  },
+  {
+    id: 'mobile',
+    label: 'Mobile Number',
+    aliases: ['Mobile'],
+    kind: 'text',
+  },
+  {
+    id: 'otherContact',
+    label: 'Other',
+    aliases: ['Other contact'],
+    kind: 'text',
+  },
+  {
+    id: 'streetAddress',
+    label: 'Street Address',
+    aliases: ['Address', 'Address line 1'],
+    kind: 'text',
+  },
+  {
+    id: 'city',
+    label: 'City',
+    aliases: ['Town', 'Town or city'],
+    kind: 'text',
+  },
+  { id: 'county', label: 'County', aliases: [], kind: 'text' },
+  { id: 'postcode', label: 'Postcode', aliases: ['Post code'], kind: 'text' },
+  {
+    id: 'accountingNotes',
+    label: 'QB Notes',
+    aliases: ['QuickBooks notes', 'Accounting notes'],
+    kind: 'text',
+  },
+] as const satisfies readonly CaseImportFieldDef[];
+export type CaseImportFieldId = (typeof CASE_IMPORT_FIELDS)[number]['id'];
+export const CASE_IMPORT_FIELD_IDS = CASE_IMPORT_FIELDS.map(
+  (f) => f.id,
+) as unknown as readonly [CaseImportFieldId, ...CaseImportFieldId[]];
+
+/** The most rows one import takes (split a larger list into several files). */
+export const CASE_IMPORT_MAX_ROWS = 10_000;
+/** Status given to a row whose Status cell is empty. */
+export const CASE_IMPORT_DEFAULT_STATUS: Status = 'Enquiry';
+/** Owner queue for a row with no recognisable "Allocated to". */
+export const CASE_IMPORT_DEFAULT_QUEUE: OwnerQueue = 'Enquiries';
+/** First line of the case note made from a row's Notes column. */
+export const CASE_IMPORT_NOTE_HEADING = 'From the case list (imported):';

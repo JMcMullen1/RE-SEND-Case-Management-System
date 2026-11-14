@@ -5,7 +5,8 @@ import { defineConfig } from '@playwright/test';
  * `resend_e2e` database, with DEMO_MODE on so the journey can sign in. The API
  * launcher (serve-api.ts) prepares the database before the API boots. Only the
  * journey and accessibility specs run here; the network-stubbed browser smokes
- * run under the default config.
+ * run under the default config. migrate.spec.ts imports cases, so it must
+ * sort after journey.spec.ts, which expects an empty case list.
  *
  * PW_CHROMIUM lets a local run point at a preinstalled Chromium binary.
  */
@@ -13,7 +14,7 @@ const executablePath = process.env.PW_CHROMIUM || undefined;
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['journey.spec.ts', 'a11y.spec.ts'],
+  testMatch: ['journey.spec.ts', 'a11y.spec.ts', 'migrate.spec.ts'],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
