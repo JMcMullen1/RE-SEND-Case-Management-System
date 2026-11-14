@@ -21,6 +21,7 @@ import {
   useSavedViews,
   useSaveView,
   useUsers,
+  useMe,
 } from '../../hooks/useCaseData';
 import { gridTemplate, visibleColumns } from './columns';
 import {
@@ -44,6 +45,7 @@ type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 export function CaseListPage() {
   const [state, update] = useViewState();
   const today = useToday();
+  const isAdmin = useMe().data?.role === 'admin';
 
   const qc = useQueryClient();
   const usersQuery = useUsers();
@@ -139,6 +141,14 @@ export function CaseListPage() {
           >
             Calendar
           </a>
+          {isAdmin && (
+            <a
+              href="/admin/staff"
+              className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            >
+              Staff
+            </a>
+          )}
           <a
             href="/schools"
             className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"

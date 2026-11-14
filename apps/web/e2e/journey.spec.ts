@@ -280,6 +280,28 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await page.goBack();
   await expect(page.getByLabel('Ms Patel')).toBeVisible();
 
+  // 5e. An admin adds a joiner, then marks them as having left; they move to
+  // the Left list. The full export is offered.
+  await page.goto('/admin/staff');
+  await page.getByRole('button', { name: 'Add a person' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Morgan Lee');
+  await page
+    .getByLabel('Work email (used to sign in)')
+    .fill('morgan.lee@resend.demo');
+  await page.getByRole('button', { name: 'Add person' }).click();
+  await expect(page.getByText(/Morgan Lee has been added/)).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Mark Morgan Lee as having left' })
+    .click();
+  await page
+    .getByRole('dialog', { name: /Mark Morgan Lee as having left/ })
+    .getByRole('button', { name: 'Mark as left' })
+    .click();
+  await expect(page.getByRole('heading', { name: /Left \(1\)/ })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Download full export' }),
+  ).toBeVisible();
+
   // 6. The applied dates appear on the calendar.
   await page.goto('/calendar');
   await expect(

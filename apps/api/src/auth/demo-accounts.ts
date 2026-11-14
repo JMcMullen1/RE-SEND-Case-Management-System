@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { and, like, notInArray, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { UserRole } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { users } from '../db/schema';
@@ -62,9 +62,10 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
 ];
 
 /**
- * Ensure the demo accounts exist and are active, and retire any demo account no
- * longer in the list. Idempotent: safe to run on every boot. Only ever called
- * when DEMO_MODE is on.
+ * Ensure the demo accounts exist (created active the first time). Nothing else
+ * is touched: joiners, leavers and role changes belong to the staff admin
+ * screen, and a restart must never undo them. Idempotent: safe to run on every
+ * boot. Only ever called when DEMO_MODE is on.
  */
 export async function provisionDemoAccounts(): Promise<void> {
   const db = getDb();
@@ -77,26 +78,11 @@ export async function provisionDemoAccounts(): Promise<void> {
         role: account.role,
         active: true,
       })
-      .onConflictDoUpdate({
-        target: users.email,
-        set: {
-          displayName: account.displayName,
-          role: account.role,
-          active: true,
-        },
-      });
+      // Only fills in missing accounts: once one exists, the staff admin
+      // screen owns its name, role and whether it is active, so a restart
+      // never undoes an admin's change (e.g. re-activating a leaver).
+      .onConflictDoNothing({ target: users.email });
   }
-
-  // Deactivate any previously-provisioned demo account (an @resend.demo user)
-  // that is no longer listed, so renamed or removed demo staff drop out of the
-  // staff pickers, which build from active users (invariant 5).
-  const keep = DEMO_ACCOUNTS.map((a) => a.email);
-  await db
-    .update(users)
-    .set({ active: false })
-    .where(
-      and(like(users.email, '%@resend.demo'), notInArray(users.email, keep)),
-    );
 }
 
 /** Constant-time password check against the shared demo password. */

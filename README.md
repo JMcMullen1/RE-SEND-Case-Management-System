@@ -102,6 +102,32 @@ more than one set of conventions.
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
 
+## Staff administration and data export
+
+Admins manage staff and take the charity's data with them at any time
+(`/admin/staff`, `apps/api/src/repositories/staff.ts`, `apps/api/src/export`).
+
+- **Joiners, roles and leavers are an admin action, not a deploy.** An admin
+  adds a person (name, work email used to sign in, role), changes their name,
+  email or role, marks them as having left, or brings them back. Every staff
+  picker builds from the users table, so changes show everywhere at once.
+- **Leavers.** Marking someone as left signs them out on their next request
+  (the session gate checks the account is active) and drops them from staff
+  lists; their notes, time and approvals stay attributed to them. Their open
+  cases (any status but Closed) can be handed to a queue or a colleague in the
+  same step — each reassignment audited — and they are cleared as dealing
+  shadow on open cases.
+- **Rules.** There is always at least one active admin; an admin cannot remove
+  their own admin access or mark themselves as left. Every change is audited.
+- **Demo sign-in** lists active users from the database, so staff an admin adds
+  can sign in; a restart only fills in missing demo accounts and never undoes
+  an admin's changes.
+- **Full data export.** One ZIP: a README, every table as CSV (UTF-8, ISO
+  dates, deleted rows included) and every stored document by case reference,
+  earlier versions marked. Only each person's calendar-feed token is withheld
+  (a credential). Streamed, admin-only, rate-limited, and each download is
+  audited. A test fails if a new table is not added to the export.
+
 ## Assisted drafting
 
 A first draft of a **position statement** for a SEND Tribunal appeal, written

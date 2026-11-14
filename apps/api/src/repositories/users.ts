@@ -42,6 +42,17 @@ export async function listActiveUsers(): Promise<UserSummary[]> {
   return rows;
 }
 
+/** Active people's sign-in emails and names, for the demo sign-in list. */
+export async function listActiveUserEmails(): Promise<
+  { email: string; displayName: string }[]
+> {
+  return getDb()
+    .select({ email: users.email, displayName: users.displayName })
+    .from(users)
+    .where(eq(users.active, true))
+    .orderBy(asc(users.displayName));
+}
+
 /** Everyone with an account, leavers included (active first, then by name). */
 export async function listAllUsers(): Promise<UserSummary[]> {
   return getDb()

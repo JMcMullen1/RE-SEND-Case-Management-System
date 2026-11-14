@@ -31,6 +31,7 @@ import { registerEmailRoutes } from './routes/emails';
 import { registerTimeRoutes } from './routes/time';
 import { registerSchoolRoutes } from './routes/schools';
 import { registerDraftRoutes } from './routes/drafts';
+import { registerAdminRoutes } from './routes/admin';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -161,6 +162,7 @@ export async function buildServer() {
   registerTimeRoutes(app);
   registerSchoolRoutes(app);
   registerDraftRoutes(app);
+  registerAdminRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);
