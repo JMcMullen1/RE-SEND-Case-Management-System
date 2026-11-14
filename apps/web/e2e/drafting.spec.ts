@@ -314,7 +314,9 @@ test('a SEND35 draft shows record facts, the deadline warning and the form links
   expect(asked).toMatchObject({ kind: 'send35_appeal' });
 
   // The ready draft opens: the warning first, record facts cite the record.
-  await expect(page.getByRole('alert')).toContainText('1 Dec 2026');
+  await expect(
+    page.getByText(/must reach the Tribunal by 1 Dec 2026/),
+  ).toBeVisible();
   await expect(page.getByText(/Sections 1 and 2 are copied/)).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'online SEND35 form' }),

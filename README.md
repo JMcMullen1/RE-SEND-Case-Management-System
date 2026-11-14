@@ -182,12 +182,13 @@ decision about an EHC plan", version 02, 02.2026 — `SEND35_FORM` and
 
 - **Facts are copied, not drafted.** Section 1 (the child's name and date of
   birth) and Section 2 (who is appealing, the parent's name, phone, email and
-  address) are written by the system from the case record and cite it, so they
-  cannot be paraphrased wrongly. What the record lacks (gender, title,
-  relationship) is listed as a gap. Question 2.1 is answered for a child of
-  compulsory school age; for a young person past it (31 August of the year they
-  turn 16) the choice is left to the family, and a young person aged 25 or over
-  is flagged.
+  address) are written by the system from the case record, so they cannot be
+  paraphrased wrongly. They cite a "copied by the system" source listing
+  exactly what was copied. What the record lacks (gender, title, relationship)
+  is listed as a gap. Question 2.1 is suggested, to be confirmed with the
+  family, for a child of compulsory school age; for a young person past it (the
+  last Friday in June of the school year they turn 16) the choice is left to
+  the family. A young person aged 25 or over is flagged.
 - **Answers are drafted with sources**: other people involved and
   representation (3–7), the type of appeal (8), placement (9), the reasons for
   the appeal issue by issue (10), health and social care (11), mediation (12),
@@ -195,9 +196,12 @@ decision about an EHC plan", version 02, 02.2026 — `SEND35_FORM` and
   supporting-evidence table, each paragraph citing the items it rests on.
 - **The time limit.** The model reports the dates on the decision letter and
   mediation certificate with their sources (a date that is malformed or cites
-  nothing is dropped); the system works out the deadline — two months from the
-  letter or one month from the certificate, whichever is later — and shows a
-  warning when it is within 14 days or has passed.
+  nothing is dropped). The system works out the deadline — two months from the
+  letter or one month from the certificate, whichever is later, moved to the
+  next working day if it ends on a weekend or bank holiday. It does this each
+  time the draft is read (as at approval, once approved), so the warning — when
+  within 14 days or passed — is never stale. If a caseworker edits or removes a
+  date, the system stops working the deadline out and says so.
 - **Filed for use.** Approval files a Word document of the answers, ending with
   a "Before you submit" list (warnings, gaps, documents to send, and Section 16
   and the declaration, which are for the appellant). The caseworker copies the

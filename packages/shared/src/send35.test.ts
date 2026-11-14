@@ -7,7 +7,10 @@ import {
   groundDraft,
   isCivilDate,
   pastCompulsorySchoolAge,
+  recordFactsSourceId,
+  reviewSend35Timing,
   sendAppealDeadline,
+  withSend35Timing,
   type Send35Output,
 } from './drafting';
 
@@ -21,9 +24,16 @@ describe('appeal time limits', () => {
   });
 
   it('uses two months from the letter or one from the certificate, whichever is later', () => {
-    expect(sendAppealDeadline('2026-03-03', null)).toBe('2026-05-03');
-    expect(sendAppealDeadline('2026-03-03', '2026-04-20')).toBe('2026-05-20');
-    expect(sendAppealDeadline('2026-03-03', '2026-03-10')).toBe('2026-05-03');
+    expect(sendAppealDeadline('2026-03-12', null)).toBe('2026-05-12');
+    expect(sendAppealDeadline('2026-03-12', '2026-04-20')).toBe('2026-05-20');
+    expect(sendAppealDeadline('2026-03-12', '2026-03-20')).toBe('2026-05-12');
+  });
+
+  it('runs a limit that ends on a weekend or bank holiday to the next working day', () => {
+    // 3 May 2026 is a Sunday and 4 May is the early May bank holiday.
+    expect(sendAppealDeadline('2026-03-03', null)).toBe('2026-05-05');
+    // 10 May 2026 is a Sunday.
+    expect(sendAppealDeadline('2026-03-10', null)).toBe('2026-05-11');
   });
 
   it('recognises only real dates', () => {
@@ -32,10 +42,12 @@ describe('appeal time limits', () => {
     expect(isCivilDate('3 March 2026')).toBe(false);
   });
 
-  it('ends compulsory school age on 31 August of the year a child turns 16', () => {
-    // Born March 2010: turns 16 in March 2026, so CSA ends 31 Aug 2026.
-    expect(pastCompulsorySchoolAge('2010-03-01', '2026-08-31')).toBe(false);
-    expect(pastCompulsorySchoolAge('2010-03-01', '2026-09-01')).toBe(true);
+  it('ends compulsory school age on the last Friday in June of the year a child turns 16', () => {
+    // Born March 2010: turns 16 in March 2026; the leaving date is Fri 26 June 2026.
+    expect(pastCompulsorySchoolAge('2010-03-01', '2026-06-26')).toBe(false);
+    expect(pastCompulsorySchoolAge('2010-03-01', '2026-06-27')).toBe(true);
+    // Born August 2010: turns 16 in the same school year, so the same date.
+    expect(pastCompulsorySchoolAge('2010-08-20', '2026-07-01')).toBe(true);
     // Born October 2010: turns 16 in Oct 2026, in the year ending Aug 2027.
     expect(pastCompulsorySchoolAge('2010-10-01', '2026-11-14')).toBe(false);
   });
@@ -135,7 +147,8 @@ describe('completeSend35', () => {
       'Name: Sam Child (enter as first and last name)',
       'Date of birth: 4 May 2016',
     ]);
-    expect(child.paragraphs.every((p) => p.sourceIds[0] === caseId)).toBe(true);
+    const facts = recordFactsSourceId(caseId);
+    expect(child.paragraphs.every((p) => p.sourceIds[0] === facts)).toBe(true);
     expect(child.gap).toMatch(/gender/);
     const appellant = d.sections.find((s) => s.key === 'appellant')!;
     const texts = appellant.paragraphs.map((p) => p.text);
@@ -143,25 +156,55 @@ describe('completeSend35', () => {
     expect(texts).toContain('Phone number: 07700 900000');
     expect(texts).toContain('Address: 1 High Street, Leeds, LS1 1AA');
     expect(appellant.gap).toMatch(/relationship/);
-    expect(d.sources.map((s) => s.id)).toEqual([caseId, 'letter']);
+    // The record-facts source shows exactly what was copied.
+    expect(d.sources.map((s) => s.id)).toEqual([facts, 'letter']);
+    expect(d.sources[0]!.excerpt).toContain('Email address: ann@example.org');
+    expect(texts[0]).toMatch(/confirm with the family/);
     expect(d.missingInformation).toEqual([
       'The mediation certificate',
       ...SEND35_APPELLANT_CHECKLIST,
     ]);
   });
 
-  it('reports the decision date and the time limit, and warns when it is close or past', () => {
-    const soon = build(output(), '2026-11-25');
-    const timing = soon.sections.find((s) => s.key === 'timing')!;
+  it('works out the time limit when the draft is read, and warns when close or past', () => {
+    const d = build(output(), '2026-11-14');
+    const timing = d.sections.find((s) => s.key === 'timing')!;
     expect(timing.paragraphs[0]!.text).toBe(
       '13.1 Date on the local authority decision letter: 1 Oct 2026.',
     );
-    expect(timing.gap).toMatch(/1 Dec 2026/);
-    expect(soon.alerts).toEqual([
+    const shown = (today: string) =>
+      withSend35Timing(
+        { sections: d.sections, alerts: d.alerts },
+        d.send35Timing,
+        today,
+      );
+    expect(shown('2026-11-01').alerts).toEqual([]);
+    expect(
+      shown('2026-11-01').sections.find((s) => s.key === 'timing')!.gap,
+    ).toMatch(/1 Dec 2026/);
+    expect(shown('2026-11-25').alerts).toEqual([
       expect.stringMatching(/by 1 Dec 2026 — 6 days from now/),
     ]);
-    expect(build(output(), '2026-11-01').alerts).toEqual([]);
-    expect(build(output(), '2026-12-02').alerts[0]).toMatch(/has passed/);
+    expect(shown('2026-12-02').alerts[0]).toMatch(/has passed/);
+  });
+
+  it('stops working out the limit once a date has been edited', () => {
+    const d = build(output(), '2026-11-25');
+    const sections = d.sections.map((s) =>
+      s.key === 'timing'
+        ? {
+            ...s,
+            paragraphs: s.paragraphs.map((p) => ({
+              ...p,
+              text: '13.1 Date on the local authority decision letter: 1 Sep 2026.',
+              edited: true,
+            })),
+          }
+        : s,
+    );
+    const review = reviewSend35Timing(d.send35Timing, sections, '2026-11-25');
+    expect(review.alerts).toEqual([]);
+    expect(review.note).toMatch(/has been changed/);
   });
 
   it('drops a date that is malformed or cites nothing in the file', () => {
@@ -174,7 +217,9 @@ describe('completeSend35', () => {
     );
     const timing = d.sections.find((s) => s.key === 'timing')!;
     expect(timing.paragraphs).toEqual([]);
-    expect(timing.gap).toMatch(/decision letter was not found/);
+    expect(
+      reviewSend35Timing(d.send35Timing, d.sections, '2026-11-14').note,
+    ).toMatch(/decision letter was not found/);
     expect(d.removedUnsupported).toBe(2);
     expect(d.alerts).toEqual([]);
   });

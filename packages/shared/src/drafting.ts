@@ -28,6 +28,12 @@ import type { CorpusItem } from './corpus';
 import type { CaseDetail } from './case-detail';
 import { calculateAge } from './case-detail';
 import { calendarDaysBetween, formatCivilDate } from './case-list';
+import {
+  addCalendarDays,
+  isWorkingDay,
+  snapshotHolidays,
+  type Holidays,
+} from './working-days';
 
 // --- What the model returns ----------------------------------------------------
 
@@ -163,7 +169,12 @@ export interface GroundedDraft {
   sources: DraftSource[];
   removedUnsupported: number;
   alerts?: string[];
+  /** SEND35 only: the dates the time limit is worked out from. */
+  send35Timing?: Send35Timing;
 }
+
+/** What groundDraft says of a section the file gave no basis for. */
+const NO_BASIS_GAP = 'Nothing in the case file supported this section.';
 
 function toSource(item: CorpusItem): DraftSource {
   return {
@@ -285,9 +296,21 @@ export function isCivilDate(value: string): boolean {
 
 /**
  * The last day to appeal: two months from the date on the decision letter, or
- * one month from the date on the mediation certificate, whichever is later.
+ * one month from the date on the mediation certificate, whichever is later. A
+ * limit that ends on a weekend or bank holiday runs to the next working day
+ * (Tribunal Procedure Rules, rule 12(2)).
  */
 export function sendAppealDeadline(
+  decisionLetter: string,
+  mediationCertificate: string | null,
+  holidays: Holidays = snapshotHolidays(),
+): string {
+  let day = calendarLimit(decisionLetter, mediationCertificate);
+  while (!isWorkingDay(day, holidays)) day = addCalendarDays(day, 1).date;
+  return day;
+}
+
+function calendarLimit(
   decisionLetter: string,
   mediationCertificate: string | null,
 ): string {
@@ -304,15 +327,18 @@ export function sendAppealDeadline(
 }
 
 /**
- * Whether a young person is past compulsory school age on `today`: it ends on
- * 31 August of the academic year in which they turn 16.
+ * Whether a young person is past compulsory school age on `today`. It ends on
+ * the school leaving date — the last Friday in June — of the school year
+ * (1 September to 31 August) in which they turn 16 (Education Act 1996, s8).
  */
 export function pastCompulsorySchoolAge(dob: string, today: string): boolean {
   const [y, m] = dob.split('-').map(Number);
   const birthdayYear = y! + COMPULSORY_SCHOOL_AGE_ENDS_AT;
-  // Academic years run 1 September to 31 August.
   const endYear = m! >= 9 ? birthdayYear + 1 : birthdayYear;
-  return today > `${endYear}-08-31`;
+  const june30 = new Date(Date.UTC(endYear, 5, 30));
+  // Back from 30 June to the Friday (getUTCDay: 5 = Friday).
+  const back = (june30.getUTCDay() - 5 + 7) % 7;
+  return today > `${endYear}-06-${String(30 - back).padStart(2, '0')}`;
 }
 
 function joinPresent(parts: readonly (string | null | undefined)[]): string {
@@ -322,13 +348,30 @@ function joinPresent(parts: readonly (string | null | undefined)[]): string {
     .join(', ');
 }
 
+/** A date the time limit runs from, and the draft paragraph that reports it. */
+export interface Send35Date {
+  date: string;
+  paragraphId: string;
+}
+export interface Send35Timing {
+  decisionLetter: Send35Date | null;
+  mediationCertificate: Send35Date | null;
+}
+
+/** The id of the source that shows what was copied from the case record. */
+export function recordFactsSourceId(caseId: string): string {
+  return `record-facts:${caseId}`;
+}
+
 /**
- * Turn the model's grounded SEND35 answers into the full form draft: the
+ * Turn the model's grounded SEND35 answers into the full form draft. The
  * factual sections (child, appellant) are written by the system from the case
- * record — so a name, birth date or address is copied, never paraphrased —
- * and cite the case record; the decision letter and mediation certificate
- * dates the model found (each held to its sources) are reported in Section 13
- * with the deadline they give; and the appellant's own checklist is added.
+ * record — a name, birth date or address is copied, never paraphrased — and
+ * cite a source that lists exactly what was copied. The decision letter and
+ * mediation certificate dates the model found (each held to its sources) are
+ * reported in Section 13 and kept, so the time limit can be worked out
+ * afresh whenever the draft is read (see `reviewSend35Timing`). The
+ * appellant's own checklist is added.
  */
 export function completeSend35(input: {
   grounded: GroundedDraft;
@@ -337,24 +380,25 @@ export function completeSend35(input: {
   corpus: readonly CorpusItem[];
   today: string;
   newId: () => string;
-}): GroundedDraft & { alerts: string[] } {
+}): GroundedDraft & { alerts: string[]; send35Timing: Send35Timing } {
   const { grounded, output, detail, corpus, today, newId } = input;
   const byId = new Map(corpus.map((i) => [i.id, i]));
-  const record = byId.get(detail.id);
-  const recordIds = record ? [record.id] : [];
   const alerts: string[] = [...(grounded.alerts ?? [])];
   let removed = grounded.removedUnsupported;
   const cited = new Set(grounded.sources.map((s) => s.id));
+  const factsId = recordFactsSourceId(detail.id);
+  const copied: string[] = [];
 
-  const para = (text: string, sourceIds: string[]) => {
+  const para = (text: string, sourceIds: string[]): DraftParagraph => {
     sourceIds.forEach((id) => cited.add(id));
     return { id: newId(), text, sourceIds, edited: false };
   };
-  // Facts copied from the case record cite it; without one they cannot be shown.
-  const fact = (label: string, value: string | null | undefined) =>
-    value?.trim() && recordIds.length
-      ? para(`${label}: ${value.trim()}`, recordIds)
-      : null;
+  // A fact copied from the case record, listed in the record-facts source.
+  const fact = (label: string, value: string | null | undefined, note = '') => {
+    if (!value?.trim()) return null;
+    copied.push(`${label}: ${value.trim()}`);
+    return para(`${label}: ${value.trim()}${note}`, [factsId]);
+  };
   const notRecorded = (labels: string[]) =>
     labels.length
       ? `Not on the case record: ${labels.join(', ')}. Ask the family.`
@@ -363,12 +407,7 @@ export function completeSend35(input: {
   // Section 1 — the child.
   const child = detail.child;
   const childParas = [
-    fact(
-      'Name',
-      child?.fullName
-        ? `${child.fullName} (enter as first and last name)`
-        : null,
-    ),
+    fact('Name', child?.fullName, ' (enter as first and last name)'),
     fact(
       'Date of birth',
       child?.dateOfBirth ? formatCivilDate(child.dateOfBirth) : null,
@@ -385,7 +424,7 @@ export function completeSend35(input: {
   const dob = child?.dateOfBirth ?? null;
   const appellantParas: DraftParagraph[] = [];
   let whoGap: string | null = null;
-  if (dob && recordIds.length) {
+  if (dob) {
     const age = calculateAge(dob, today);
     if (age !== null && age >= SEND_TRIBUNAL_AGE_LIMIT)
       alerts.push(
@@ -394,13 +433,16 @@ export function completeSend35(input: {
     if (pastCompulsorySchoolAge(dob, today))
       whoGap =
         'The young person is over compulsory school age, so they may appeal themselves; a parent appeals for them as the “alternative person” only if they cannot. Decide question 2.1 with the family.';
-    else
+    else {
+      // Not a fact on the record: suggested from the child's age.
+      cited.add(factsId);
       appellantParas.push(
         para(
-          '2.1 Who is making the appeal: I’m appealing on behalf of the child as a parent or carer.',
-          recordIds,
+          '2.1 Who is making the appeal: I’m appealing on behalf of the child as a parent or carer. (Suggested because the child is of compulsory school age — confirm with the family.)',
+          [factsId],
         ),
       );
+    }
   }
   const address = client
     ? joinPresent([
@@ -412,12 +454,7 @@ export function completeSend35(input: {
     : '';
   appellantParas.push(
     ...[
-      fact(
-        'Name',
-        client?.fullName
-          ? `${client.fullName} (enter title, first and last name)`
-          : null,
-      ),
+      fact('Name', client?.fullName, ' (enter title, first and last name)'),
       fact('Phone number', client?.mobile || client?.phone),
       fact('Email address', client?.email),
       fact('Address', address || null),
@@ -434,57 +471,39 @@ export function completeSend35(input: {
   ];
 
   // Section 13 — the dates, each held to the items the model found it in.
-  const dated = (fact: { date: string; sourceIds: string[] } | null) => {
-    if (!fact) return null;
-    const sourceIds = [...new Set(fact.sourceIds)].filter((id) => byId.has(id));
-    if (!isCivilDate(fact.date) || sourceIds.length === 0) {
+  const dated = (found: { date: string; sourceIds: string[] } | null) => {
+    if (!found) return null;
+    const sourceIds = [...new Set(found.sourceIds)].filter((id) =>
+      byId.has(id),
+    );
+    if (!isCivilDate(found.date) || sourceIds.length === 0) {
       removed += 1;
       return null;
     }
-    return { date: fact.date, sourceIds };
+    return { date: found.date, sourceIds };
   };
   const decision = dated(output.decisionLetter);
   const certificate = dated(output.mediationCertificate);
+  const timing: Send35Timing = {
+    decisionLetter: null,
+    mediationCertificate: null,
+  };
   const timingParas: DraftParagraph[] = [];
-  const timingGaps: string[] = [];
-  let pastDeadline = false;
-  if (decision)
-    timingParas.push(
-      para(
-        `13.1 Date on the local authority decision letter: ${formatCivilDate(decision.date)}.`,
-        decision.sourceIds,
-      ),
-    );
-  else
-    timingGaps.push(
-      'The date on the local authority’s decision letter was not found in the file. Add it — the time limit runs from it.',
-    );
-  if (certificate)
-    timingParas.push(
-      para(
-        `13.2 Date on the mediation certificate: ${formatCivilDate(certificate.date)}.`,
-        certificate.sourceIds,
-      ),
-    );
   if (decision) {
-    const deadline = sendAppealDeadline(
-      decision.date,
-      certificate?.date ?? null,
+    const p = para(
+      `13.1 Date on the local authority decision letter: ${formatCivilDate(decision.date)}.`,
+      decision.sourceIds,
     );
-    const daysLeft = calendarDaysBetween(today, deadline);
-    const when = formatCivilDate(deadline);
-    pastDeadline = daysLeft < 0;
-    if (pastDeadline)
-      alerts.push(
-        `On the dates found in the file, the time limit for this appeal was ${when}, which has passed. Question 13.3 must explain why the appeal is late; a tribunal judge decides whether to accept it.`,
-      );
-    else if (daysLeft <= SEND_APPEAL_DEADLINE_WARNING_DAYS)
-      alerts.push(
-        `On the dates found in the file, this appeal must reach the Tribunal by ${when} — ${daysLeft === 0 ? 'today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} from now`}.`,
-      );
-    timingGaps.push(
-      `Time limit worked out from these dates: ${when} (${SEND_APPEAL_MONTHS_FROM_DECISION_LETTER} months from the decision letter${certificate ? `, or ${SEND_APPEAL_MONTHS_FROM_MEDIATION_CERTIFICATE} month from the mediation certificate, whichever is later` : ''}). Check the dates against the letters themselves.`,
+    timing.decisionLetter = { date: decision.date, paragraphId: p.id };
+    timingParas.push(p);
+  }
+  if (certificate) {
+    const p = para(
+      `13.2 Date on the mediation certificate: ${formatCivilDate(certificate.date)}.`,
+      certificate.sourceIds,
     );
+    timing.mediationCertificate = { date: certificate.date, paragraphId: p.id };
+    timingParas.push(p);
   }
 
   const sections: DraftSection[] = SEND35_SECTIONS.map((def) => {
@@ -508,14 +527,16 @@ export function completeSend35(input: {
         };
       case 'timing': {
         const late = fromModel?.paragraphs ?? [];
-        // The model's "nothing supported this" is not news when the appeal is on time.
+        // 13.3 is only for a late appeal: an empty answer is not a gap.
         const modelGap =
-          late.length > 0 || pastDeadline ? fromModel?.gap : null;
+          late.length === 0 && fromModel?.gap === NO_BASIS_GAP
+            ? null
+            : (fromModel?.gap ?? null);
         return {
           key: def.key,
           heading: def.heading,
           paragraphs: [...timingParas, ...late],
-          gap: [...timingGaps, modelGap].filter(Boolean).join(' ') || null,
+          gap: modelGap,
         };
       }
       default:
@@ -524,11 +545,25 @@ export function completeSend35(input: {
             key: def.key,
             heading: def.heading,
             paragraphs: [],
-            gap: 'Nothing in the case file supported this section.',
+            gap: NO_BASIS_GAP,
           }
         );
     }
   });
+
+  const sources: DraftSource[] = [];
+  if (cited.has(factsId))
+    sources.push({
+      id: factsId,
+      type: 'case_record',
+      title: 'Case record — copied by the system',
+      date: null,
+      excerpt:
+        copied.length > 0
+          ? copied.join('\n')
+          : 'The child’s date of birth (for question 2.1).',
+    });
+  sources.push(...corpus.filter((i) => cited.has(i.id)).map(toSource));
 
   return {
     sections,
@@ -536,8 +571,85 @@ export function completeSend35(input: {
       ...grounded.missingInformation,
       ...SEND35_APPELLANT_CHECKLIST,
     ],
-    sources: corpus.filter((i) => cited.has(i.id)).map(toSource),
+    sources,
     removedUnsupported: removed,
     alerts,
+    send35Timing: timing,
+  };
+}
+
+/**
+ * The time limit for a SEND35 draft, worked out on `today` from the dates it
+ * holds — so it is right on the day the draft is read or approved, not the day
+ * it was written. If a caseworker has changed or removed a date's paragraph,
+ * the limit is not guessed from the old date: they are told to work it out.
+ */
+export function reviewSend35Timing(
+  timing: Send35Timing,
+  sections: readonly DraftSection[],
+  today: string,
+  holidays: Holidays = snapshotHolidays(),
+): { alerts: string[]; note: string } {
+  const paragraphs = new Map(
+    sections.flatMap((s) => s.paragraphs).map((p) => [p.id, p]),
+  );
+  const state = (d: Send35Date | null) => {
+    if (!d) return 'absent' as const;
+    const p = paragraphs.get(d.paragraphId);
+    if (!p) return 'removed' as const;
+    return p.edited ? ('changed' as const) : ('kept' as const);
+  };
+  const decision = state(timing.decisionLetter);
+  const certificate = state(timing.mediationCertificate);
+  const rule = `${SEND_APPEAL_MONTHS_FROM_DECISION_LETTER} months from the date on the decision letter, or ${SEND_APPEAL_MONTHS_FROM_MEDIATION_CERTIFICATE} month from the date on the mediation certificate, whichever is later — moved to the next working day if it ends on a weekend or bank holiday`;
+  if ([decision, certificate].some((s) => s === 'changed' || s === 'removed'))
+    return {
+      alerts: [],
+      note: `A date in this section has been changed since it was drafted, so the time limit is not worked out here. Work it out from the letters: ${rule}.`,
+    };
+  if (decision !== 'kept')
+    return {
+      alerts: [],
+      note: `The date on the local authority’s decision letter was not found in the file. Add it and work out the time limit: ${rule}.`,
+    };
+  const deadline = sendAppealDeadline(
+    timing.decisionLetter!.date,
+    certificate === 'kept' ? timing.mediationCertificate!.date : null,
+    holidays,
+  );
+  const when = formatCivilDate(deadline);
+  const daysLeft = calendarDaysBetween(today, deadline);
+  const alerts: string[] = [];
+  if (daysLeft < 0)
+    alerts.push(
+      `On the dates found in the file, the time limit for this appeal was ${when}, which has passed. Question 13.3 must explain why the appeal is late; a tribunal judge decides whether to accept it.`,
+    );
+  else if (daysLeft <= SEND_APPEAL_DEADLINE_WARNING_DAYS)
+    alerts.push(
+      `On the dates found in the file, this appeal must reach the Tribunal by ${when} — ${daysLeft === 0 ? 'today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} from now`}.`,
+    );
+  return {
+    alerts,
+    note: `Time limit worked out from these dates: ${when} (${rule}). Check the dates against the letters themselves.`,
+  };
+}
+
+/**
+ * A SEND35 draft as it should be shown on `today`: the current time-limit
+ * warnings added to its alerts, and the time-limit note to Section 13.
+ */
+export function withSend35Timing<
+  T extends { sections: DraftSection[]; alerts: string[] },
+>(draft: T, timing: Send35Timing | undefined, today: string): T {
+  if (!timing) return draft;
+  const review = reviewSend35Timing(timing, draft.sections, today);
+  return {
+    ...draft,
+    alerts: [...draft.alerts, ...review.alerts],
+    sections: draft.sections.map((s) =>
+      s.key === 'timing'
+        ? { ...s, gap: [review.note, s.gap].filter(Boolean).join(' ') }
+        : s,
+    ),
   };
 }

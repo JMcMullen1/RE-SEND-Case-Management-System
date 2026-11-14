@@ -533,7 +533,7 @@ function DraftView({
 
         {draft.alerts.length > 0 && (
           <div
-            role="alert"
+            role="status"
             className="rounded-md border-2 border-status-amber px-3 py-2 text-sm text-resend-ink"
           >
             <ul className="space-y-1">
@@ -558,6 +558,7 @@ function DraftView({
               className="font-medium text-resend-purple hover:underline"
             >
               online SEND35 form
+              <span className="sr-only"> (opens in a new tab)</span>
             </a>{' '}
             or the{' '}
             <a
@@ -567,6 +568,7 @@ function DraftView({
               className="font-medium text-resend-purple hover:underline"
             >
               paper form on GOV.UK
+              <span className="sr-only"> (opens in a new tab)</span>
             </a>{' '}
             ({SEND35_FORM.version}).
           </p>

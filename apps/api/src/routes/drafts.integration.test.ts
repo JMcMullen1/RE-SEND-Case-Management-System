@@ -476,6 +476,9 @@ run('assisted drafting API', () => {
     ).toContain('Email address: form.parent@example.org');
     expect(section('reasons').paragraphs).toHaveLength(1);
     expect(section('timing').paragraphs[0].text).toMatch(/1 Oct 2026/);
+    // The time limit is worked out when read (rolled to a working day).
+    expect(section('timing').gap).toMatch(/Time limit worked out .*1 Dec 2026/);
+    expect(draft.sources[0].title).toBe('Case record — copied by the system');
 
     const approved = await app.inject({
       method: 'POST',
@@ -493,6 +496,7 @@ run('assisted drafting API', () => {
     );
     expect(xml).toContain('SEND35 appeal form — answers');
     expect(xml).toContain('Before you submit');
+    expect(xml).toContain('Time limit worked out from these dates');
     expect(xml).toContain('Section 16 (hearing preferences)');
     await app.close();
   });
