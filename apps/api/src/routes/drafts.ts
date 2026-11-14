@@ -10,6 +10,7 @@ import {
 } from '../drafting/generate';
 import {
   deleteDraft,
+  DraftConflict,
   DraftLocked,
   DraftNotFound,
   getDraft,
@@ -25,7 +26,11 @@ const Errors = { 403: Message, 404: Message, 409: Message };
 function fail(reply: FastifyReply, err: unknown) {
   if (err instanceof DraftNotFound)
     return reply.code(404).send({ message: err.message });
-  if (err instanceof DraftLocked || err instanceof DraftingUnavailable)
+  if (
+    err instanceof DraftLocked ||
+    err instanceof DraftConflict ||
+    err instanceof DraftingUnavailable
+  )
     return reply.code(409).send({ message: err.message });
   throw err;
 }
@@ -103,6 +108,7 @@ export function registerDraftRoutes(fastify: FastifyInstance): void {
         return await saveDraftEdits(
           request.params.id,
           request.body.sections,
+          request.body.baseUpdatedAt,
           user.id,
         );
       } catch (err) {

@@ -297,6 +297,26 @@ describe('runAiJob (structured_output mode)', () => {
     expect(records[0]!.costUsd).toBeGreaterThan(0);
   });
 
+  it('records spend against the model that answered, and bounds each attempt', async () => {
+    const timed = defineAiJob({
+      ...structuredJob,
+      requestTimeoutMs: 1000,
+      maxRetries: 1,
+    });
+    const { client, stream } = streamingClient(
+      message({
+        model: 'claude-opus-4-8',
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: '{"label":"a","score":1}' }],
+      }),
+    );
+    const { records, deps } = harness(client);
+    const result = await runAiJob(timed, 'input', deps);
+    expect(result.model).toBe('claude-opus-4-8');
+    expect(records[0]!.model).toBe('claude-opus-4-8');
+    expect(stream.mock.calls[0]![1]).toEqual({ timeout: 1000, maxRetries: 1 });
+  });
+
   it('reads the text after a fallback switch point', async () => {
     const { client } = streamingClient(
       message({

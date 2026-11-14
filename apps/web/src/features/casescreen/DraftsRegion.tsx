@@ -76,7 +76,13 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
   });
 
   const list = drafts.data?.drafts ?? [];
-  const open = list.find((d) => d.id === openId) ?? null;
+  // A draft opens for review once it is written; until then (or if it fails)
+  // its row in the list shows where it is.
+  const open =
+    list.find(
+      (d) =>
+        d.id === openId && (d.status === 'ready' || d.status === 'approved'),
+    ) ?? null;
 
   if (open) {
     return (
@@ -87,6 +93,17 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
         onBack={() => setOpenId(null)}
         onChanged={() =>
           void qc.invalidateQueries({ queryKey: ['drafts', caseId] })
+        }
+        onSaved={(saved) =>
+          qc.setQueryData<{ drafts: Draft[] }>(['drafts', caseId], (old) =>
+            old
+              ? {
+                  drafts: old.drafts.map((d) =>
+                    d.id === saved.id ? saved : d,
+                  ),
+                }
+              : old,
+          )
         }
         onFiled={() =>
           void qc.invalidateQueries({ queryKey: ['documents', caseId] })
@@ -278,19 +295,37 @@ function DiscardButton({
 type EditSections = {
   key: DraftSection['key'];
   paragraphs: {
+    /** Stable key for React, also for paragraphs not yet saved. */
+    uiKey: string;
     id?: string;
     text: string;
     sourceIds: string[];
     edited: boolean;
+    /** The wording has changed since its sources were matched to it. */
+    reworded: boolean;
   }[];
 }[];
 
 function toEditable(draft: Draft): EditSections {
   return draft.sections.map((s) => ({
     key: s.key,
-    paragraphs: s.paragraphs.map((p) => ({ ...p })),
+    paragraphs: s.paragraphs.map((p) => ({
+      ...p,
+      uiKey: p.id,
+      reworded: p.edited,
+    })),
   }));
 }
+
+/**
+ * Unsaved edits, kept while the person moves to another tab of the case and
+ * back (the view unmounts), so switching tabs never throws work away. Cleared
+ * when saved, approved or discarded.
+ */
+const unsavedEdits = new Map<
+  string,
+  { base: string; sections: EditSections }
+>();
 
 /** Review, edit and approve one draft (or read an approved one). */
 function DraftView({
@@ -298,19 +333,37 @@ function DraftView({
   mayDraft,
   onBack,
   onChanged,
+  onSaved,
   onFiled,
 }: {
   draft: Draft;
   mayDraft: boolean;
   onBack: () => void;
   onChanged: () => void;
+  onSaved: (draft: Draft) => void;
   onFiled: () => void;
 }) {
   const editable = draft.status === 'ready' && mayDraft;
-  const [sections, setSections] = useState<EditSections>(() =>
-    toEditable(draft),
+  const kept = unsavedEdits.get(draft.id);
+  const [sections, setSections] = useState<EditSections>(
+    () => kept?.sections ?? toEditable(draft),
   );
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(Boolean(kept));
+  // The version this editor started from, sent with a save so another
+  // person's save in the meantime is reported, not overwritten.
+  const [base, setBase] = useState(kept?.base ?? draft.updatedAt);
+
+  // Keep unsaved work across tab switches; warn before leaving the page.
+  useEffect(() => {
+    if (dirty) unsavedEdits.set(draft.id, { base, sections });
+    else unsavedEdits.delete(draft.id);
+  }, [dirty, base, sections, draft.id]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
   const [confirming, setConfirming] = useState(false);
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -318,7 +371,10 @@ function DraftView({
 
   // Pick up a fresh copy (e.g. after another person's save) when not editing.
   useEffect(() => {
-    if (!dirty) setSections(toEditable(draft));
+    if (!dirty) {
+      setSections(toEditable(draft));
+      setBase(draft.updatedAt);
+    }
   }, [draft, dirty]);
 
   const sourceNumber = useMemo(() => {
@@ -337,13 +393,20 @@ function DraftView({
       paragraphs: s.paragraphs.map((p) => ({ id: p.id, text: p.text })),
     }));
 
+  /** Save and adopt the server's copy (so the view never flicks back). */
+  const persist = async () => {
+    const saved = await saveDraft(draft.id, base, payload());
+    unsavedEdits.delete(draft.id);
+    onSaved(saved);
+    setSections(toEditable(saved));
+    setBase(saved.updatedAt);
+    setDirty(false);
+  };
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
-      await saveDraft(draft.id, payload());
-      setDirty(false);
-      onChanged();
+      await persist();
     } catch (e) {
       setError(`Not saved: ${errorText(e)}`);
     } finally {
@@ -354,14 +417,14 @@ function DraftView({
     setBusy(true);
     setError(null);
     try {
-      if (dirty) await saveDraft(draft.id, payload());
+      if (dirty) await persist();
       await approveDraft(draft.id);
-      setDirty(false);
       setConfirming(false);
       onChanged();
       onFiled();
     } catch (e) {
       setError(`Not approved: ${errorText(e)}`);
+      setConfirming(false);
     } finally {
       setBusy(false);
     }
@@ -409,7 +472,9 @@ function DraftView({
           <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-resend-ink">
             <strong>A draft for you to check, not a finished statement.</strong>{' '}
             Read each paragraph against its sources (numbered, on the right),
-            correct anything that is wrong, and fill the gaps the draft flags.
+            correct anything that is wrong, and fill the gaps the draft flags. A
+            source shows where a passage was drawn from; it is not proof that
+            the passage is right, so check that the source says it.
             {draft.removedUnsupported > 0 &&
               ` ${draft.removedUnsupported} passage${
                 draft.removedUnsupported === 1 ? ' was' : 's were'
@@ -443,7 +508,7 @@ function DraftView({
               )}
               <ol className="space-y-2">
                 {section.paragraphs.map((p, pi) => (
-                  <li key={p.id ?? `new-${pi}`}>
+                  <li key={p.uiKey}>
                     {editable ? (
                       <textarea
                         value={p.text}
@@ -495,8 +560,10 @@ function DraftView({
                           Written by a caseworker
                         </span>
                       )}
-                      {p.edited && p.sourceIds.length > 0 && (
-                        <span className="text-gray-600">· edited</span>
+                      {p.reworded && p.sourceIds.length > 0 && (
+                        <span className="text-gray-600">
+                          · reworded — check these sources still support it
+                        </span>
                       )}
                       {editable && (
                         <button
@@ -536,7 +603,13 @@ function DraftView({
                               ...s,
                               paragraphs: [
                                 ...s.paragraphs,
-                                { text: '', sourceIds: [], edited: true },
+                                {
+                                  uiKey: crypto.randomUUID(),
+                                  text: '',
+                                  sourceIds: [],
+                                  edited: true,
+                                  reworded: true,
+                                },
                               ],
                             },
                       ),

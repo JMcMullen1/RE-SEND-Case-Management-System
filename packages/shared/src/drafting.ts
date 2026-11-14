@@ -93,6 +93,8 @@ export interface Draft {
   failureReason: string | null;
   createdByName: string | null;
   createdAt: string;
+  /** Last change, sent back with edits so one person's save never silently overwrites another's. */
+  updatedAt: string;
   approvedByName: string | null;
   approvedAt: string | null;
   /** The case document filed on approval. */

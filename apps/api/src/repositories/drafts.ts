@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
   DRAFT_GENERATION_TIMEOUT_MINUTES,
   type Draft,
@@ -17,6 +17,7 @@ import { recordAudit } from './audit';
 
 export class DraftNotFound extends Error {}
 export class DraftLocked extends Error {}
+export class DraftConflict extends Error {}
 
 /** What is stored in `drafts.content`. */
 type DraftContent = GroundedDraft;
@@ -36,6 +37,7 @@ function rowsQuery() {
       failureReason: drafts.failureReason,
       createdByName: creator.displayName,
       createdAt: drafts.createdAt,
+      updatedAt: drafts.updatedAt,
       approvedByName: approver.displayName,
       approvedAt: drafts.approvedAt,
       documentId: drafts.documentId,
@@ -70,6 +72,7 @@ function toDraft(r: Row, now: Date): Draft {
       : r.failureReason,
     createdByName: r.createdByName,
     createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
     approvedByName: r.approvedByName,
     approvedAt: r.approvedAt?.toISOString() ?? null,
     documentId: r.documentId,
@@ -121,23 +124,64 @@ export async function createDraft(
   });
 }
 
-/** The model's grounded draft is ready for review. */
+/**
+ * The model's grounded draft is ready for review. Only a draft still within
+ * its time limit is completed: one already shown as failed (and perhaps
+ * retried) is never brought back to life by a late answer. Audited with no
+ * actor (the system wrote it). Returns false when it was too late.
+ */
 export async function completeDraft(
   id: string,
   content: DraftContent,
-): Promise<void> {
-  await getDb()
-    .update(drafts)
-    .set({ status: 'ready', content, updatedAt: new Date() })
-    .where(and(eq(drafts.id, id), eq(drafts.status, 'generating')));
+): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const done = await tx
+      .update(drafts)
+      .set({ status: 'ready', content, updatedAt: new Date() })
+      .where(
+        and(
+          eq(drafts.id, id),
+          eq(drafts.status, 'generating'),
+          sql`${drafts.createdAt} > now() - make_interval(mins => ${DRAFT_GENERATION_TIMEOUT_MINUTES})`,
+        ),
+      )
+      .returning({ caseId: drafts.caseId });
+    if (!done[0]) return false;
+    await recordAudit(tx, {
+      actorUserId: null,
+      action: 'draft.ready',
+      entityType: 'draft',
+      entityId: id,
+      after: {
+        caseId: done[0].caseId,
+        paragraphs: content.sections.reduce(
+          (n, s) => n + s.paragraphs.length,
+          0,
+        ),
+        removedUnsupported: content.removedUnsupported,
+      },
+    });
+    return true;
+  });
 }
 
 /** Drafting failed; the reason is shown to the caseworker (no case content). */
 export async function failDraft(id: string, reason: string): Promise<void> {
-  await getDb()
-    .update(drafts)
-    .set({ status: 'failed', failureReason: reason, updatedAt: new Date() })
-    .where(and(eq(drafts.id, id), eq(drafts.status, 'generating')));
+  await getDb().transaction(async (tx) => {
+    const done = await tx
+      .update(drafts)
+      .set({ status: 'failed', failureReason: reason, updatedAt: new Date() })
+      .where(and(eq(drafts.id, id), eq(drafts.status, 'generating')))
+      .returning({ caseId: drafts.caseId });
+    if (!done[0]) return;
+    await recordAudit(tx, {
+      actorUserId: null,
+      action: 'draft.failed',
+      entityType: 'draft',
+      entityId: id,
+      after: { caseId: done[0].caseId },
+    });
+  });
 }
 
 /** A paragraph as the editor sends it back. */
@@ -156,6 +200,7 @@ export interface ParagraphEdit {
 export async function saveDraftEdits(
   id: string,
   edits: { key: string; paragraphs: ParagraphEdit[] }[],
+  baseUpdatedAt: string,
   actor: string,
 ): Promise<Draft> {
   await getDb().transaction(async (tx) => {
@@ -170,6 +215,10 @@ export async function saveDraftEdits(
         row.status === 'approved'
           ? 'This draft has been approved and can no longer be changed.'
           : 'This draft is not ready to edit.',
+      );
+    if (row.updatedAt.toISOString() !== baseUpdatedAt)
+      throw new DraftConflict(
+        'Someone else has changed this draft since you opened it. Copy any wording you want to keep, then reload the draft.',
       );
     const content = row.content as DraftContent;
     let changed = 0;
@@ -227,10 +276,12 @@ export async function saveDraftEdits(
 }
 
 /**
- * Approve a ready draft: it is locked, the approver and time are recorded, and
- * `fileDocument` files the statement as a case document (its id is kept on the
- * draft). Done in one transaction so a draft is never approved without its
- * document, or filed twice.
+ * Approve a ready draft and file it, in two steps so it is filed exactly once:
+ * first the approval is claimed (locked, approver and time recorded, audited),
+ * then `fileDocument` files the statement and its id is kept on the draft. If
+ * filing fails, the claim is undone (audited) and the draft is ready again;
+ * a second approval can never start while the first is filing, because the
+ * draft is no longer "ready".
  */
 export async function approveDraft(
   id: string,
@@ -238,9 +289,13 @@ export async function approveDraft(
   fileDocument: (draft: Draft) => Promise<string>,
 ): Promise<Draft> {
   const db = getDb();
-  await db.transaction(async (tx) => {
+  const caseId = await db.transaction(async (tx) => {
     const [row] = await tx
-      .select({ status: drafts.status, caseId: drafts.caseId })
+      .select({
+        status: drafts.status,
+        caseId: drafts.caseId,
+        content: drafts.content,
+      })
       .from(drafts)
       .where(and(eq(drafts.id, id), isNull(drafts.deletedAt)))
       .for('update');
@@ -251,10 +306,9 @@ export async function approveDraft(
           ? 'This draft has already been approved.'
           : 'This draft is not ready to approve.',
       );
-    const current = (await getDraft(id))!;
-    if (current.sections.every((s) => s.paragraphs.length === 0))
+    const content = row.content as DraftContent;
+    if (content.sections.every((s) => s.paragraphs.length === 0))
       throw new DraftLocked('There is nothing in this draft to approve.');
-    const documentId = await fileDocument(current);
     const now = new Date();
     await tx
       .update(drafts)
@@ -262,7 +316,6 @@ export async function approveDraft(
         status: 'approved' satisfies DraftStatus,
         approvedByUserId: actor,
         approvedAt: now,
-        documentId,
         updatedAt: now,
       })
       .where(eq(drafts.id, id));
@@ -271,7 +324,43 @@ export async function approveDraft(
       action: 'draft.approve',
       entityType: 'draft',
       entityId: id,
-      after: { caseId: row.caseId, documentId },
+      after: { caseId: row.caseId },
+    });
+    return row.caseId;
+  });
+
+  let documentId: string;
+  try {
+    documentId = await fileDocument((await getDraft(id))!);
+  } catch (err) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(drafts)
+        .set({
+          status: 'ready',
+          approvedByUserId: null,
+          approvedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(drafts.id, id));
+      await recordAudit(tx, {
+        actorUserId: actor,
+        action: 'draft.approve_undone',
+        entityType: 'draft',
+        entityId: id,
+        after: { caseId, reason: 'filing failed' },
+      });
+    });
+    throw err;
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(drafts).set({ documentId }).where(eq(drafts.id, id));
+    await recordAudit(tx, {
+      actorUserId: actor,
+      action: 'draft.file',
+      entityType: 'draft',
+      entityId: id,
+      after: { caseId, documentId },
     });
   });
   return (await getDraft(id))!;

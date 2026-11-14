@@ -6,7 +6,12 @@ import type { AiJobRunRecord } from '../repositories/ai-jobs';
 import { getAnthropic, type MessagesClient } from './client';
 import { type AiJobDefinition, toolNameFor } from './definition';
 import { AiJobDisabledError, AiJobError, AiJobRefusalError } from './errors';
-import { estimateCostUsd, type ClaudeModel, type TokenUsage } from './models';
+import {
+  CLAUDE_MODELS,
+  estimateCostUsd,
+  type ClaudeModel,
+  type TokenUsage,
+} from './models';
 import { schemaToJsonSchema, schemaToTool } from './zod-tool';
 
 export interface AiJobResult<T> {
@@ -110,7 +115,19 @@ export async function runAiJob<TSchema extends z.ZodTypeAny>(
 
   const client = deps.client ?? getAnthropic();
   if (definition.outputMode === 'structured_output') {
-    return runStructured(definition, input, client, deps, record);
+    return runStructured(definition, input, client, deps, (m, o, u, ms) =>
+      deps.record({
+        jobName: name,
+        model: m,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
+        cacheReadTokens: u.cacheReadTokens,
+        cacheWriteTokens: u.cacheWriteTokens,
+        latencyMs: ms,
+        outcome: o,
+        costUsd: estimateCostUsd(m, u),
+      }),
+    );
   }
   const toolName = toolNameFor(definition);
   const request = buildRequest(definition, toolName, input);
@@ -183,6 +200,13 @@ type Recorder = (
   ms: number,
 ) => Promise<void>;
 
+type ModelRecorder = (
+  model: ClaudeModel,
+  outcome: AiJobRunRecord['outcome'],
+  usage: TokenUsage,
+  ms: number,
+) => Promise<void>;
+
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 /**
@@ -196,34 +220,51 @@ async function runStructured<TSchema extends z.ZodTypeAny>(
   input: AiJobInput,
   client: MessagesClient,
   deps: RunDeps,
-  record: Recorder,
+  recordAs: ModelRecorder,
 ): Promise<AiJobResult<z.infer<TSchema>>> {
   const { name, model } = definition;
+  let record: Recorder = (o, u, ms) => recordAs(model, o, u, ms);
   if (!client.beta) throw new AiJobError(name, 'client has no streaming API');
   let usage = ZERO_USAGE;
   let latencyMs = 0;
   try {
     const start = deps.now();
     const response = await client.beta.messages
-      .stream({
-        model,
-        max_tokens: definition.maxTokens ?? 32000,
-        system: buildSystem(definition),
-        output_config: {
-          ...(definition.effort ? { effort: definition.effort } : {}),
-          format: {
-            type: 'json_schema',
-            schema: schemaToJsonSchema(name, definition.outputSchema),
+      .stream(
+        {
+          model,
+          max_tokens: definition.maxTokens ?? 32000,
+          system: buildSystem(definition),
+          output_config: {
+            ...(definition.effort ? { effort: definition.effort } : {}),
+            format: {
+              type: 'json_schema',
+              schema: schemaToJsonSchema(name, definition.outputSchema),
+            },
           },
+          messages: [{ role: 'user', content: input }],
+          ...(definition.refusalFallback
+            ? { betas: [FALLBACK_BETA], fallbacks: 'default' as const }
+            : {}),
         },
-        messages: [{ role: 'user', content: input }],
-        ...(definition.refusalFallback
-          ? { betas: [FALLBACK_BETA], fallbacks: 'default' as const }
-          : {}),
-      })
+        {
+          ...(definition.requestTimeoutMs !== undefined
+            ? { timeout: definition.requestTimeoutMs }
+            : {}),
+          ...(definition.maxRetries !== undefined
+            ? { maxRetries: definition.maxRetries }
+            : {}),
+        },
+      )
       .finalMessage();
     latencyMs = deps.now() - start;
     usage = extractUsage(response as unknown as Anthropic.Message);
+    // After a fallback the response names the model that actually answered;
+    // account against that model so spend reflects what ran.
+    const served = (CLAUDE_MODELS as readonly string[]).includes(response.model)
+      ? (response.model as ClaudeModel)
+      : model;
+    record = (o, u, ms) => recordAs(served, o, u, ms);
 
     if (response.stop_reason === 'refusal') {
       await record('refusal', usage, latencyMs);
@@ -260,10 +301,10 @@ async function runStructured<TSchema extends z.ZodTypeAny>(
     await record('success', usage, latencyMs);
     return {
       output: parsed.data as z.infer<TSchema>,
-      model,
+      model: served,
       usage,
       latencyMs,
-      costUsd: estimateCostUsd(model, usage),
+      costUsd: estimateCostUsd(served, usage),
     };
   } catch (err) {
     if (err instanceof AiJobRefusalError || err instanceof AiJobError)

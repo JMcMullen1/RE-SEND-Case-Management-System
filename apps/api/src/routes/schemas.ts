@@ -987,6 +987,7 @@ export const DraftSchema = z.object({
   failureReason: z.string().nullable(),
   createdByName: z.string().nullable(),
   createdAt: z.string(),
+  updatedAt: z.string(),
   approvedByName: z.string().nullable(),
   approvedAt: z.string().nullable(),
   documentId: z.string().nullable(),
@@ -998,6 +999,8 @@ export const DraftRequestSchema = z.object({
 });
 
 export const DraftEditSchema = z.object({
+  /** The draft's updatedAt the editor started from. */
+  baseUpdatedAt: z.string(),
   sections: z.array(
     z.object({
       key: z.enum(POSITION_STATEMENT_SECTION_KEYS),

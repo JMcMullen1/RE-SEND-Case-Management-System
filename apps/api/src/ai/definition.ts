@@ -36,6 +36,12 @@ export interface AiJobDefinition<TSchema extends z.ZodTypeAny> {
    * still surfaces as a refusal.
    */
   refusalFallback?: boolean;
+  /**
+   * Per-attempt time limit and retry count for `structured_output` jobs, so a
+   * job's worst case is bounded (attempts × timeout). Default: SDK settings.
+   */
+  requestTimeoutMs?: number;
+  maxRetries?: number;
   /** Name of the generated tool. Defaults to a slug of the job name. */
   toolName?: string;
   /** Description shown to the model for the generated tool. */

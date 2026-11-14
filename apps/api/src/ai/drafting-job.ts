@@ -42,4 +42,8 @@ export const draftPositionStatementJob = defineAiJob({
   refusalFallback: true,
   maxTokens: 64000,
   cache: { enabled: true },
+  // Two attempts of at most six minutes each: always finished (or failed)
+  // inside the 15-minute window after which a draft is shown as failed.
+  requestTimeoutMs: 6 * 60_000,
+  maxRetries: 1,
 });

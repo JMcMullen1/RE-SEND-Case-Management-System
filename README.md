@@ -118,7 +118,10 @@ from the case file for a caseworker to check, edit and approve (Drafting tab;
   obtain is listed.
 - **Shown with its sources.** Each paragraph is numbered against its sources,
   with an excerpt of each and a link to open a document, so it can be checked
-  in seconds.
+  in seconds. The screen says plainly that a source shows where a passage came
+  from, not that it is right; a reworded paragraph is flagged for its sources
+  to be re-checked. Case-file text cannot forge or close corpus items (the
+  delimiters are neutralised for every AI feature).
 - **Always reviewed before use.** Paragraphs can be edited, removed or added
   (a caseworker's own paragraph is marked as such). Approving needs an
   explicit "I have read and checked it", locks the draft, records who approved

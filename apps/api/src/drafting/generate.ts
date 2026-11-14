@@ -27,6 +27,9 @@ import {
   failDraft,
 } from '../repositories/drafts';
 import { draftToDocx } from './docx';
+import { buildLogger } from '../logging/logger';
+
+const log = buildLogger(env.LOG_LEVEL);
 
 export class DraftingUnavailable extends Error {}
 
@@ -58,7 +61,7 @@ function buildInput(
   return [
     {
       type: 'text',
-      text: `<case_file>\n${serialiseCorpus(corpus.items)}\n</case_file>`,
+      text: `<case_file>\n${serialiseCorpus(corpus.items).replace(/<\/case_file>/gi, '</case-file>')}\n</case_file>`,
       cache_control: { type: 'ephemeral' },
     },
     {
@@ -66,7 +69,7 @@ function buildInput(
       text: [
         `Today is ${today}. Draft the appellant's position statement from the case file above.`,
         instructions
-          ? `The caseworker asks you to bear this in mind:\n<caseworker_instructions>\n${instructions}\n</caseworker_instructions>`
+          ? `The caseworker asks you to bear this in mind:\n<caseworker_instructions>\n${instructions.replace(/<\/caseworker_instructions>/gi, '')}\n</caseworker_instructions>`
           : null,
       ]
         .filter(Boolean)
@@ -95,7 +98,10 @@ export async function requestPositionStatement(
     throw new DraftingUnavailable(
       'Assisted drafting is switched off. The rest of the system works as normal.',
     );
-  const corpus = await caseCorpus(caseId);
+  // What a position statement is drawn from — not time entries.
+  const corpus = await caseCorpus(caseId, {
+    include: ['case_record', 'document', 'note', 'email'],
+  });
   if (corpus.items.every((i) => i.type === 'case_record'))
     throw new DraftingUnavailable(
       'There is nothing on this case to draft from yet — add notes, documents or emails first.',
@@ -136,11 +142,22 @@ async function generate(
     const result = await runner(
       buildInput(corpus, instructions, londonToday(new Date())),
     );
-    await completeDraft(
+    const completed = await completeDraft(
       draftId,
       groundDraft(result.output, corpus.items, randomUUID),
     );
+    if (!completed)
+      log.warn({ draftId }, 'draft finished after its time limit; discarded');
   } catch (err) {
+    // Identifiers and error class only — never case content.
+    log.warn(
+      {
+        draftId,
+        error: err instanceof Error ? err.name : 'unknown',
+        status: (err as { cause?: { status?: number } }).cause?.status,
+      },
+      'drafting failed',
+    );
     // Reasons are shown to the caseworker; they never carry case content.
     const reason =
       err instanceof AiJobDisabledError

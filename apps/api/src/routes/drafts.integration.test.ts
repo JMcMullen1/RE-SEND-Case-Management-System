@@ -143,6 +143,7 @@ run('assisted drafting API', () => {
       url: `/api/drafts/${draft.id}`,
       headers: as(worker()),
       payload: {
+        baseUpdatedAt: draft.updatedAt,
         sections: [
           {
             key: 'provision',
@@ -155,6 +156,20 @@ run('assisted drafting API', () => {
       },
     });
     expect(edited.statusCode).toBe(200);
+
+    // A second editor still working from the old copy is stopped, not
+    // allowed to overwrite the save above.
+    const stale = await app.inject({
+      method: 'PATCH',
+      url: `/api/drafts/${draft.id}`,
+      headers: as(worker()),
+      payload: {
+        baseUpdatedAt: draft.updatedAt,
+        sections: [{ key: 'provision', paragraphs: [] }],
+      },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().message).toMatch(/Someone else has changed/);
     const ps = edited
       .json()
       .sections.find((s: { key: string }) => s.key === 'provision').paragraphs;
@@ -191,7 +206,11 @@ run('assisted drafting API', () => {
 
     // Locked: no further edits, no second approval, no discarding.
     for (const [method, url, payload] of [
-      ['PATCH', `/api/drafts/${draft.id}`, { sections: [] }],
+      [
+        'PATCH',
+        `/api/drafts/${draft.id}`,
+        { baseUpdatedAt: a.updatedAt, sections: [] },
+      ],
       ['POST', `/api/drafts/${draft.id}/approve`, undefined],
       ['DELETE', `/api/drafts/${draft.id}`, undefined],
     ] as const) {
@@ -238,6 +257,68 @@ run('assisted drafting API', () => {
       headers: as(worker()),
     });
     expect(del.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('undoes an approval whose filing fails, so it can be approved again', async () => {
+    const [row] = (await getDb().execute(
+      sql`INSERT INTO drafts (case_id, kind, status, created_by_user_id, content)
+          VALUES (${caseId}, 'position_statement', 'ready', ${worker().id},
+            ${JSON.stringify({
+              sections: [
+                {
+                  key: 'outcome',
+                  heading: 'Outcome sought',
+                  paragraphs: [
+                    { id: 'x', text: 'An order.', sourceIds: [], edited: true },
+                  ],
+                  gap: null,
+                },
+              ],
+              missingInformation: [],
+              sources: [],
+              removedUnsupported: 0,
+            })}::jsonb)
+          RETURNING id`,
+    )) as unknown as { id: string }[];
+    const { approveDraft, getDraft } = await import('../repositories/drafts');
+    await expect(
+      approveDraft(row!.id, worker().id, async () => {
+        throw new Error('storage unavailable');
+      }),
+    ).rejects.toThrow('storage unavailable');
+    const after = await getDraft(row!.id);
+    expect(after?.status).toBe('ready');
+    expect(after?.approvedByName).toBeNull();
+    expect(after?.documentId).toBeNull();
+    const [undo] = (await getDb().execute(
+      sql`SELECT count(*)::int AS n FROM audit_log WHERE entity_id = ${row!.id} AND action = 'draft.approve_undone'`,
+    )) as unknown as { n: number }[];
+    expect(undo!.n).toBe(1);
+  });
+
+  it('never revives a draft that ran past its time limit', async () => {
+    const [row] = (await getDb().execute(
+      sql`INSERT INTO drafts (case_id, kind, status, created_by_user_id, created_at)
+          VALUES (${caseId}, 'position_statement', 'generating', ${worker().id}, now() - interval '20 minutes')
+          RETURNING id`,
+    )) as unknown as { id: string }[];
+    const { completeDraft } = await import('../repositories/drafts');
+    const done = await completeDraft(row!.id, {
+      sections: [],
+      missingInformation: [],
+      sources: [],
+      removedUnsupported: 0,
+    });
+    expect(done).toBe(false);
+    const app = await buildServer();
+    const shown = (
+      await app.inject({ method: 'GET', url: `/api/cases/${caseId}/drafts` })
+    )
+      .json()
+      .drafts.find((d: { id: string }) => d.id === row!.id);
+    expect(shown.status).toBe('failed');
+    expect(shown.failureReason).toMatch(/took too long/);
     await app.close();
   });
 

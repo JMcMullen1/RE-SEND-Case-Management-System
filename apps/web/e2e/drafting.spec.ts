@@ -112,6 +112,7 @@ function draft(status: string, extra: Record<string, unknown> = {}) {
     failureReason: null,
     createdByName: 'Case Worker',
     createdAt: '2026-11-14T10:00:00.000Z',
+    updatedAt: '2026-11-14T10:02:00.000Z',
     approvedByName: null,
     approvedAt: null,
     documentId: null,
@@ -214,4 +215,5 @@ test('a draft is reviewed against its sources, edited, and approved', async ({
   expect(approved).toBe(true);
   // Unsaved edits were saved before approval.
   expect(JSON.stringify(saved)).toContain('(EP report)');
+  expect(JSON.stringify(saved)).toContain('baseUpdatedAt');
 });

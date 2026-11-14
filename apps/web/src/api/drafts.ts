@@ -18,11 +18,12 @@ export function requestDraft(
 
 export function saveDraft(
   id: string,
+  baseUpdatedAt: string,
   sections: { key: string; paragraphs: { id?: string; text: string }[] }[],
 ): Promise<Draft> {
   return request(`/api/drafts/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ sections }),
+    body: JSON.stringify({ baseUpdatedAt, sections }),
   });
 }
 
