@@ -1,19 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import {
   DRAFT_DOCUMENT_FOLDER,
+  DRAFT_KIND_JOBS,
   DRAFT_KIND_LABELS,
   DRAFT_MAX_CORPUS_TOKENS,
-  DRAFT_POSITION_STATEMENT_JOB,
+  SEND35_FORM,
+  SEND35_SECTIONS,
+  completeSend35,
   groundDraft,
   londonToday,
   serialiseCorpus,
   type CorpusResult,
   type Draft,
+  type DraftKind,
+  type GroundedDraft,
   type PositionStatementOutput,
+  type Send35Output,
 } from '@re-send/shared';
 import Anthropic from '@anthropic-ai/sdk';
 import { caseCorpus } from '../corpus/case-corpus';
-import { draftPositionStatementJob } from '../ai/drafting-job';
+import { draftPositionStatementJob, draftSend35Job } from '../ai/drafting-job';
 import { AiJobDisabledError, AiJobRefusalError } from '../ai/errors';
 import { resolveEnabled, runAiJob, type AiJobResult } from '../ai/run';
 import { env } from '../env';
@@ -35,10 +41,18 @@ export class DraftingUnavailable extends Error {}
 
 type Runner = (
   input: Anthropic.ContentBlockParam[],
-) => Promise<AiJobResult<PositionStatementOutput>>;
+  kind: DraftKind,
+) => Promise<AiJobResult<PositionStatementOutput | Send35Output>>;
 
-const defaultRunner: Runner = (input) =>
-  runAiJob(draftPositionStatementJob, input);
+const JOBS = {
+  position_statement: draftPositionStatementJob,
+  send35_appeal: draftSend35Job,
+} as const;
+
+const defaultRunner: Runner = (input, kind) =>
+  kind === 'send35_appeal'
+    ? runAiJob(draftSend35Job, input)
+    : runAiJob(draftPositionStatementJob, input);
 let runner: Runner = defaultRunner;
 
 /** Test seam: replace the model call (never used outside tests). */
@@ -53,7 +67,14 @@ export async function settleDrafting(): Promise<void> {
 }
 
 /** The model's input: the whole case file (cached), then the request. */
+const ASK: Record<DraftKind, string> = {
+  position_statement:
+    "Draft the appellant's position statement from the case file above.",
+  send35_appeal: `Draft the answers to the SEND35 appeal form (${SEND35_FORM.version}) from the case file above.`,
+};
+
 function buildInput(
+  kind: DraftKind,
   corpus: CorpusResult,
   instructions: string | null,
   today: string,
@@ -67,7 +88,7 @@ function buildInput(
     {
       type: 'text',
       text: [
-        `Today is ${today}. Draft the appellant's position statement from the case file above.`,
+        `Today is ${today}. ${ASK[kind]}`,
         instructions
           ? `The caseworker asks you to bear this in mind:\n<caseworker_instructions>\n${instructions.replace(/<\/caseworker_instructions>/gi, '')}\n</caseworker_instructions>`
           : null,
@@ -79,26 +100,28 @@ function buildInput(
 }
 
 /**
- * Ask for a position statement. Checks run up front (drafting switched on, the
- * file not too large); then the draft is recorded as "generating" and written
- * in the background — a draft can take a minute or two — and the case screen
- * updates live when it is ready or has failed.
+ * Ask for a draft (a position statement or SEND35 form answers). Checks run
+ * up front (drafting switched on, the file not too large); then the draft is
+ * recorded as "generating" and written in the background — a draft can take a
+ * minute or two — and the case screen updates live when it is ready or has
+ * failed.
  */
-export async function requestPositionStatement(
+export async function requestDraft(
   caseId: string,
+  kind: DraftKind,
   instructions: string | null,
   actor: string,
 ): Promise<string> {
   const enabled = resolveEnabled({
     globalEnabled: env.AI_ENABLED,
-    flag: await getJobFlag(DRAFT_POSITION_STATEMENT_JOB),
-    definitionDefault: draftPositionStatementJob.enabled ?? true,
+    flag: await getJobFlag(DRAFT_KIND_JOBS[kind]),
+    definitionDefault: JOBS[kind].enabled ?? true,
   });
   if (!enabled)
     throw new DraftingUnavailable(
       'Assisted drafting is switched off. The rest of the system works as normal.',
     );
-  // What a position statement is drawn from — not time entries.
+  // What a draft is drawn from — not time entries.
   const corpus = await caseCorpus(caseId, {
     include: ['case_record', 'document', 'note', 'email'],
   });
@@ -111,13 +134,8 @@ export async function requestPositionStatement(
       'This case file is too large to draft from in one go.',
     );
 
-  const id = await createDraft(
-    caseId,
-    'position_statement',
-    instructions,
-    actor,
-  );
-  const work = generate(id, corpus, instructions).finally(() =>
+  const id = await createDraft(caseId, kind, instructions, actor);
+  const work = generate(id, kind, caseId, corpus, instructions).finally(() =>
     inFlight.delete(work),
   );
   inFlight.add(work);
@@ -133,19 +151,48 @@ function modelUnavailable(err: unknown): boolean {
   );
 }
 
+/** Hold the model's output to the file, and (for a form) add the record's facts. */
+async function ground(
+  kind: DraftKind,
+  caseId: string,
+  corpus: CorpusResult,
+  instructions: string | null,
+  today: string,
+): Promise<GroundedDraft> {
+  const input = buildInput(kind, corpus, instructions, today);
+  if (kind === 'position_statement') {
+    const result = await runner(input, kind);
+    return groundDraft(result.output, corpus.items, randomUUID);
+  }
+  const output = (await runner(input, kind)).output as Send35Output;
+  const detail = await getCaseDetail(caseId);
+  if (!detail) throw new Error('case not found');
+  return completeSend35({
+    grounded: groundDraft(output, corpus.items, randomUUID, SEND35_SECTIONS),
+    output,
+    detail,
+    corpus: corpus.items,
+    today,
+    newId: randomUUID,
+  });
+}
+
 async function generate(
   draftId: string,
+  kind: DraftKind,
+  caseId: string,
   corpus: CorpusResult,
   instructions: string | null,
 ): Promise<void> {
   try {
-    const result = await runner(
-      buildInput(corpus, instructions, londonToday(new Date())),
+    const content = await ground(
+      kind,
+      caseId,
+      corpus,
+      instructions,
+      londonToday(new Date()),
     );
-    const completed = await completeDraft(
-      draftId,
-      groundDraft(result.output, corpus.items, randomUUID),
-    );
+    const completed = await completeDraft(draftId, content);
     if (!completed)
       log.warn({ draftId }, 'draft finished after its time limit; discarded');
   } catch (err) {
@@ -165,15 +212,17 @@ async function generate(
         : err instanceof AiJobRefusalError
           ? 'The drafting model declined to write from this file. Write this one by hand.'
           : modelUnavailable(err)
-            ? `The AI key this system uses does not have access to ${draftPositionStatementJob.model}. An administrator can enable it in the Anthropic Console.`
+            ? `The AI key this system uses does not have access to ${JOBS[kind].model}. An administrator can enable it in the Anthropic Console.`
             : 'Drafting failed. Try again in a few minutes.';
     await failDraft(draftId, reason).catch(() => {});
   }
 }
 
 /**
- * Approve a draft: lock it and file the statement as a Word document in the
- * case's documents, named for the case and the date.
+ * Approve a draft: lock it and file it as a Word document in the case's
+ * documents, named for the case and the date. SEND35 answers carry a
+ * "before you submit" list (the warnings, the gaps still to fill and the
+ * appellant's own steps), since the form cannot go until those are done.
  */
 export async function approveAndFile(
   draftId: string,
@@ -190,10 +239,28 @@ export async function approveAndFile(
     ]
       .filter(Boolean)
       .join(' · ');
+    const form = draft.kind === 'send35_appeal';
     const bytes = await draftToDocx({
-      title: label,
-      subtitle: subtitle || null,
+      title: form ? `${label} — answers` : label,
+      subtitle:
+        [
+          subtitle,
+          form
+            ? `For copying into the SEND35 form (${SEND35_FORM.version}) — online at ${SEND35_FORM.onlineUrl}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('\n') || null,
       sections: draft.sections,
+      checklist: form
+        ? [
+            ...draft.alerts,
+            ...draft.sections.flatMap((s) =>
+              s.gap ? [`${s.heading}: ${s.gap}`] : [],
+            ),
+            ...draft.missingInformation,
+          ]
+        : undefined,
     });
     const filed = await createDocument(
       draft.caseId,

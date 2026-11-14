@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import type { PositionStatementOutput } from '@re-send/shared';
+import { strFromU8, unzipSync } from 'fflate';
+import type { PositionStatementOutput, Send35Output } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { buildServer } from '../server';
 import { caseCorpus } from '../corpus/case-corpus';
@@ -385,6 +386,118 @@ run('assisted drafting API', () => {
     });
     expect(none.statusCode).toBe(409);
     expect(none.json().message).toMatch(/nothing on this case/);
+    await app.close();
+  });
+
+  it('fills a SEND35 form: facts from the record, answers from the file, filed with a checklist', async () => {
+    const app = await buildServer();
+    const formCase = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/cases',
+        headers: as(worker()),
+        payload: {
+          client: {
+            fullName: 'Form Parent',
+            email: 'form.parent@example.org',
+            mobile: '07700 900123',
+            postcode: 'LS1 1AA',
+          },
+          child: { fullName: 'Form Child', dateOfBirth: '2016-05-04' },
+          case: { currentWork: 'Section Appeal' },
+        },
+      })
+    ).json().caseId as string;
+    await app.inject({
+      method: 'POST',
+      url: `/api/cases/${formCase}/notes`,
+      headers: as(worker()),
+      payload: {
+        body: 'Final plan issued; LA letter dated 1 October 2026. Section F gives no therapy hours.',
+      },
+    });
+    invalidateCorpus(formCase);
+    const note = (await caseCorpus(formCase)).items.find(
+      (i) => i.type === 'note',
+    )!;
+    let kindSeen = '';
+    setDraftRunnerForTests(async (_input, kind) => {
+      kindSeen = kind;
+      const output: Send35Output = {
+        sections: [
+          {
+            key: 'reasons',
+            paragraphs: [
+              {
+                text: 'I disagree with Section F because it gives no therapy hours.',
+                sourceIds: [note.id],
+              },
+            ],
+            gap: null,
+          },
+        ],
+        decisionLetter: { date: '2026-10-01', sourceIds: [note.id] },
+        mediationCertificate: null,
+        missingInformation: [],
+      };
+      return {
+        output,
+        model: 'claude-opus-5-5',
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
+        latencyMs: 1,
+        costUsd: 0,
+      };
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${formCase}/drafts`,
+      headers: as(worker()),
+      payload: { kind: 'send35_appeal' },
+    });
+    expect(res.statusCode).toBe(202);
+    await settleDrafting();
+    expect(kindSeen).toBe('send35_appeal');
+    const [draft] = (
+      await app.inject({ method: 'GET', url: `/api/cases/${formCase}/drafts` })
+    ).json().drafts;
+    expect(draft).toMatchObject({ kind: 'send35_appeal', status: 'ready' });
+    const section = (key: string) =>
+      draft.sections.find((s: { key: string }) => s.key === key);
+    expect(
+      section('child').paragraphs.map((p: { text: string }) => p.text),
+    ).toContain('Date of birth: 4 May 2016');
+    expect(
+      section('appellant').paragraphs.map((p: { text: string }) => p.text),
+    ).toContain('Email address: form.parent@example.org');
+    expect(section('reasons').paragraphs).toHaveLength(1);
+    expect(section('timing').paragraphs[0].text).toMatch(/1 Oct 2026/);
+    // The time limit is worked out when read (rolled to a working day).
+    expect(section('timing').gap).toMatch(/Time limit worked out .*1 Dec 2026/);
+    expect(draft.sources[0].title).toBe('Case record — copied by the system');
+
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/api/drafts/${draft.id}/approve`,
+      headers: as(worker()),
+    });
+    expect(approved.statusCode).toBe(200);
+    const doc = await app.inject({
+      method: 'GET',
+      url: `/api/documents/${approved.json().documentId}/content`,
+      headers: as(worker()),
+    });
+    const xml = strFromU8(
+      unzipSync(new Uint8Array(doc.rawPayload))['word/document.xml']!,
+    );
+    expect(xml).toContain('SEND35 appeal form — answers');
+    expect(xml).toContain('Before you submit');
+    expect(xml).toContain('Time limit worked out from these dates');
+    expect(xml).toContain('Section 16 (hearing preferences)');
     await app.close();
   });
 });

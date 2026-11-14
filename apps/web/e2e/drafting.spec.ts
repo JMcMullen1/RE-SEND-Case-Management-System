@@ -109,6 +109,7 @@ function draft(status: string, extra: Record<string, unknown> = {}) {
       },
     ],
     removedUnsupported: 1,
+    alerts: [],
     failureReason: null,
     createdByName: 'Case Worker',
     createdAt: '2026-11-14T10:00:00.000Z',
@@ -216,4 +217,128 @@ test('a draft is reviewed against its sources, edited, and approved', async ({
   // Unsaved edits were saved before approval.
   expect(JSON.stringify(saved)).toContain('(EP report)');
   expect(JSON.stringify(saved)).toContain('baseUpdatedAt');
+});
+
+test('a SEND35 draft shows record facts, the deadline warning and the form links', async ({
+  page,
+}) => {
+  const me = {
+    id: 'u1',
+    displayName: 'Case Worker',
+    role: 'caseworker',
+    active: true,
+  };
+  const form = draft('ready', {
+    kind: 'send35_appeal',
+    sections: [
+      {
+        key: 'child',
+        heading: 'Section 1 – Child or young person’s information',
+        paragraphs: [
+          {
+            id: PARA_ID,
+            text: 'Date of birth: 1 Jan 2015',
+            sourceIds: [CASE_ID],
+            edited: false,
+          },
+        ],
+        gap: 'Not on the case record: gender. Ask the family.',
+      },
+      {
+        key: 'timing',
+        heading: 'Section 13 – Appealing on time',
+        paragraphs: [
+          {
+            id: '019fd7cc-0000-7000-8000-0000000000c2',
+            text: '13.1 Date on the local authority decision letter: 1 Oct 2026.',
+            sourceIds: [NOTE_ID],
+            edited: false,
+          },
+        ],
+        gap: 'Time limit worked out from these dates: 1 Dec 2026 (2 months from the decision letter). Check the dates against the letters themselves.',
+      },
+    ],
+    sources: [
+      {
+        id: CASE_ID,
+        type: 'case_record',
+        title: 'Case record — RS-2026-1001',
+        date: '2026-04-01',
+        excerpt: 'Child: Test Child',
+      },
+      {
+        id: NOTE_ID,
+        type: 'note',
+        title: 'Note — Case Worker',
+        date: '2026-10-02',
+        excerpt: 'LA decision letter dated 1 October 2026.',
+      },
+    ],
+    alerts: [
+      'On the dates found in the file, this appeal must reach the Tribunal by 1 Dec 2026 — 6 days from now.',
+    ],
+    missingInformation: [
+      'Section 16 (hearing preferences) and the declaration are for the appellant to choose and sign.',
+    ],
+    removedUnsupported: 0,
+  });
+  let asked: unknown = null;
+  await page.route('**/api/auth/session', (r) => json(r, me));
+  await page.route('**/api/me', (r) => json(r, me));
+  await page.route('**/api/users', (r) => json(r, { users: [me] }));
+  await page.route(`**/api/cases/${CASE_ID}/detail`, (r) =>
+    json(r, caseDetail),
+  );
+  await page.route(`**/api/cases/${CASE_ID}/schools`, (r) =>
+    json(r, { schools: [] }),
+  );
+  await page.route(`**/api/cases/${CASE_ID}/drafts`, (r) => {
+    if (r.request().method() === 'POST') {
+      asked = JSON.parse(r.request().postData() ?? '{}');
+      return r.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify(form),
+      });
+    }
+    return json(r, { drafts: [form] });
+  });
+
+  await page.goto(`/cases/${CASE_ID}`);
+  await page.getByRole('tab', { name: 'Drafting' }).click();
+  await page
+    .getByRole('button', { name: 'Fill in a SEND35 appeal form' })
+    .click();
+  await expect(page.getByText(/Answers to the SEND35 form/)).toBeVisible();
+  await page.getByRole('button', { name: 'Start drafting' }).click();
+  expect(asked).toMatchObject({ kind: 'send35_appeal' });
+
+  // The ready draft opens: the warning first, record facts cite the record.
+  await expect(
+    page.getByText(/must reach the Tribunal by 1 Dec 2026/),
+  ).toBeVisible();
+  await expect(page.getByText(/Sections 1 and 2 are copied/)).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'online SEND35 form' }),
+  ).toHaveAttribute('href', /form\.service\.justice\.gov\.uk/);
+  await expect(page.getByText('Case record — RS-2026-1001')).toBeVisible();
+  await expect(page.getByText('Before the form is sent')).toBeVisible();
+  await page.screenshot({
+    path: 'test-results/send35-review.png',
+    fullPage: true,
+  });
+
+  const axe = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa'])
+    .analyze();
+  expect(
+    axe.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => v.id),
+  ).toEqual([]);
+
+  await page.getByRole('button', { name: 'Approve and file…' }).click();
+  await expect(
+    page.getByRole('dialog', { name: /Approve this send35 appeal form/i }),
+  ).toContainText('the family has agreed them');
 });

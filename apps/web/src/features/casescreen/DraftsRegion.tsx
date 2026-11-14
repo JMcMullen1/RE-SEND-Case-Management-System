@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  DRAFT_KIND_DESCRIPTIONS,
   DRAFT_KIND_LABELS,
+  DRAFT_KIND_VALUES,
+  SEND35_FORM,
   canDraft,
   formatCivilDate,
   type Draft,
+  type DraftKind,
   type DraftSection,
   type DraftSource,
 } from '@re-send/shared';
@@ -33,6 +37,34 @@ function when(iso: string): string {
   });
 }
 
+/** An example focus for each kind, shown in the request box. */
+const INSTRUCTION_EXAMPLES: Record<DraftKind, string> = {
+  position_statement:
+    "e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety.",
+  send35_appeal:
+    'e.g. The appeal is about Sections B, F and I of the final plan issued in March; mediation was declined.',
+};
+
+/** What the reviewer is told a draft is, and must confirm on approval. */
+const REVIEW_COPY: Record<
+  DraftKind,
+  { notFinished: string; confirm: string; gapLabel: string }
+> = {
+  position_statement: {
+    notFinished: 'A draft for you to check, not a finished statement.',
+    confirm:
+      'I have read the whole statement and checked it against its sources.',
+    gapLabel: 'Not in the file: ',
+  },
+  send35_appeal: {
+    notFinished:
+      'Draft answers for you to check with the family, not a finished form.',
+    confirm:
+      'I have read every answer, checked it against its sources, and the family has agreed them.',
+    gapLabel: 'Check: ',
+  },
+};
+
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   case_record: 'Case record',
   document: 'Document',
@@ -60,15 +92,15 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
         ? 15_000
         : false,
   });
-  const [asking, setAsking] = useState(false);
+  const [asking, setAsking] = useState<DraftKind | null>(null);
   const [instructions, setInstructions] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
 
   const ask = useMutation({
-    mutationFn: () =>
-      requestDraft(caseId, 'position_statement', instructions.trim() || null),
+    mutationFn: (kind: DraftKind) =>
+      requestDraft(caseId, kind, instructions.trim() || null),
     onSuccess: (draft) => {
-      setAsking(false);
+      setAsking(null);
       setInstructions('');
       setOpenId(draft.id);
       void qc.invalidateQueries({ queryKey: ['drafts', caseId] });
@@ -116,14 +148,21 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
     <div className="max-w-3xl space-y-4">
       <p className="text-sm text-gray-600">
         The drafting assistant writes a first draft from this case’s documents,
-        emails and notes. Every paragraph shows the items it is drawn from, and
-        where the file gives no basis the draft says so instead of guessing. You
-        read, edit and approve it — nothing is filed until you do.
+        emails and notes — a position statement, or the answers to the SEND35
+        appeal form. Every paragraph shows the items it is drawn from, and where
+        the file gives no basis the draft says so instead of guessing. You read,
+        edit and approve it — nothing is filed until you do.
       </p>
 
       {mayDraft &&
         (asking ? (
           <div className="rounded-lg border border-resend-purple p-4">
+            <p className="text-sm font-semibold text-resend-ink">
+              {DRAFT_KIND_LABELS[asking]}
+            </p>
+            <p className="mb-3 text-sm text-gray-600">
+              {DRAFT_KIND_DESCRIPTIONS[asking]}
+            </p>
             <label className="block text-sm font-medium text-resend-ink">
               Anything the draft should focus on? (optional)
               <textarea
@@ -131,7 +170,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
                 maxLength={2000}
-                placeholder="e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety."
+                placeholder={INSTRUCTION_EXAMPLES[asking]}
                 className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               />
             </label>
@@ -145,7 +184,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 type="button"
                 onClick={() => {
                   ask.reset();
-                  setAsking(false);
+                  setAsking(null);
                 }}
                 className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
@@ -154,7 +193,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
               <button
                 type="button"
                 disabled={ask.isPending}
-                onClick={() => ask.mutate()}
+                onClick={() => ask.mutate(asking)}
                 className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
                 {ask.isPending ? 'Starting…' : 'Start drafting'}
@@ -162,13 +201,20 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setAsking(true)}
-            className="rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Draft a position statement
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {DRAFT_KIND_VALUES.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => setAsking(kind)}
+                className="rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                {kind === 'position_statement'
+                  ? 'Draft a position statement'
+                  : 'Fill in a SEND35 appeal form'}
+              </button>
+            ))}
+          </div>
         ))}
 
       {drafts.isLoading && <p className="text-sm text-gray-500">Loading…</p>}
@@ -431,6 +477,7 @@ function DraftView({
   };
 
   const meta = draft.sections;
+  const copy = REVIEW_COPY[draft.kind];
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 space-y-5">
@@ -470,11 +517,11 @@ function DraftView({
           </div>
         ) : (
           <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-resend-ink">
-            <strong>A draft for you to check, not a finished statement.</strong>{' '}
-            Read each paragraph against its sources (numbered, on the right),
-            correct anything that is wrong, and fill the gaps the draft flags. A
-            source shows where a passage was drawn from; it is not proof that
-            the passage is right, so check that the source says it.
+            <strong>{copy.notFinished}</strong> Read each paragraph against its
+            sources (numbered, on the right), correct anything that is wrong,
+            and fill the gaps the draft flags. A source shows where a passage
+            was drawn from; it is not proof that the passage is right, so check
+            that the source says it.
             {draft.removedUnsupported > 0 &&
               ` ${draft.removedUnsupported} passage${
                 draft.removedUnsupported === 1 ? ' was' : 's were'
@@ -482,6 +529,49 @@ function DraftView({
                 draft.removedUnsupported === 1 ? 'it' : 'them'
               }.`}
           </div>
+        )}
+
+        {draft.alerts.length > 0 && (
+          <div
+            role="status"
+            className="rounded-md border-2 border-status-amber px-3 py-2 text-sm text-resend-ink"
+          >
+            <ul className="space-y-1">
+              {draft.alerts.map((a, i) => (
+                <li key={i}>
+                  <strong>Important: </strong>
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {draft.kind === 'send35_appeal' && (
+          <p className="text-sm text-gray-600">
+            Sections 1 and 2 are copied from the case record; the rest are
+            drafted from the file. Copy the approved answers into the{' '}
+            <a
+              href={SEND35_FORM.onlineUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-resend-purple hover:underline"
+            >
+              online SEND35 form
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>{' '}
+            or the{' '}
+            <a
+              href={SEND35_FORM.guidanceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-resend-purple hover:underline"
+            >
+              paper form on GOV.UK
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>{' '}
+            ({SEND35_FORM.version}).
+          </p>
         )}
 
         {draft.instructions && (
@@ -502,7 +592,7 @@ function DraftView({
               </h3>
               {info.gap && (
                 <p className="mb-2 rounded-md border border-status-amber px-3 py-1.5 text-sm text-resend-ink">
-                  <span className="font-medium">Not in the file: </span>
+                  <span className="font-medium">{copy.gapLabel}</span>
                   {info.gap}
                 </p>
               )}
@@ -532,7 +622,7 @@ function DraftView({
                             ),
                           )
                         }
-                        rows={Math.max(3, Math.ceil(p.text.length / 90))}
+                        rows={Math.max(2, Math.ceil(p.text.length / 90) + 1)}
                         aria-label={`${info.heading}, paragraph ${pi + 1}`}
                         className="w-full rounded-md border border-gray-200 p-2 text-sm leading-relaxed text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
                       />
@@ -627,7 +717,9 @@ function DraftView({
         {draft.missingInformation.length > 0 && (
           <section aria-labelledby="missing-h">
             <h3 id="missing-h" className="mb-1 text-base font-semibold">
-              To obtain or check
+              {draft.kind === 'send35_appeal'
+                ? 'Before the form is sent'
+                : 'To obtain or check'}
             </h3>
             <ul className="list-disc space-y-0.5 pl-5 text-sm text-resend-ink">
               {draft.missingInformation.map((m, i) => (
@@ -709,8 +801,7 @@ function DraftView({
                 onChange={(e) => setChecked(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
               />
-              I have read the whole statement and checked it against its
-              sources.
+              {copy.confirm}
             </label>
             <div className="mt-5 flex justify-end gap-2">
               <button

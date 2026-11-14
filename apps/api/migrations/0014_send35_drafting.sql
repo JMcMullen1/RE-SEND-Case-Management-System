@@ -1,0 +1,1 @@
+ALTER TYPE "draft_kind" ADD VALUE IF NOT EXISTS 'send35_appeal';

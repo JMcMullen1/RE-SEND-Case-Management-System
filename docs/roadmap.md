@@ -23,6 +23,10 @@ between pieces of work.
 - **Assisted drafting**: a position statement starter drawn only from the
   case file, every paragraph tied to its sources, reviewed and approved by a
   caseworker and filed as a Word document.
+- **SEND35 appeal form answers**: the same drafting, for the Tribunal's form to
+  appeal a decision about an EHC plan — child and appellant copied from the
+  case record, the rest drafted with sources, the time limit worked out and
+  flagged, filed with a "before you submit" list.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
@@ -69,7 +73,6 @@ Time recording decisions agreed:
 
 ### Also outstanding from the proposal
 
-- Assisted drafting, next: complete SEND Tribunal forms (e.g. the appeal
-  form) from the case record and documents, with the same grounding and
-  approval.
+- Assisted drafting, next: other Tribunal forms on the same pattern — SEND35A
+  (refusal to assess) and the forms used once an appeal is registered.
 - SharePoint library migration.

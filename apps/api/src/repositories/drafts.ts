@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
   DRAFT_GENERATION_TIMEOUT_MINUTES,
+  londonToday,
+  withSend35Timing,
   type Draft,
   type DraftKind,
   type DraftParagraph,
@@ -57,26 +59,32 @@ function toDraft(r: Row, now: Date): Draft {
     r.status === 'generating' &&
     now.getTime() - r.createdAt.getTime() >
       DRAFT_GENERATION_TIMEOUT_MINUTES * 60_000;
-  return {
-    id: r.id,
-    caseId: r.caseId,
-    kind: r.kind,
-    status: stale ? 'failed' : r.status,
-    instructions: r.instructions,
-    sections: content?.sections ?? [],
-    missingInformation: content?.missingInformation ?? [],
-    sources: content?.sources ?? [],
-    removedUnsupported: content?.removedUnsupported ?? 0,
-    failureReason: stale
-      ? 'Drafting took too long and was stopped. Try again.'
-      : r.failureReason,
-    createdByName: r.createdByName,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-    approvedByName: r.approvedByName,
-    approvedAt: r.approvedAt?.toISOString() ?? null,
-    documentId: r.documentId,
-  };
+  return withSend35Timing<Draft>(
+    {
+      id: r.id,
+      caseId: r.caseId,
+      kind: r.kind,
+      status: stale ? 'failed' : r.status,
+      instructions: r.instructions,
+      sections: content?.sections ?? [],
+      missingInformation: content?.missingInformation ?? [],
+      sources: content?.sources ?? [],
+      removedUnsupported: content?.removedUnsupported ?? 0,
+      alerts: content?.alerts ?? [],
+      failureReason: stale
+        ? 'Drafting took too long and was stopped. Try again.'
+        : r.failureReason,
+      createdByName: r.createdByName,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      approvedByName: r.approvedByName,
+      approvedAt: r.approvedAt?.toISOString() ?? null,
+      documentId: r.documentId,
+    },
+    // The time limit as it stands today — or, once approved, as it stood then.
+    content?.send35Timing,
+    londonToday(r.approvedAt ?? now),
+  );
 }
 
 /** Every live draft on a case, newest first. */

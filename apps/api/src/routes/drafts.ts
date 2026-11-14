@@ -6,7 +6,7 @@ import { resolveActingUser } from '../auth/context';
 import {
   approveAndFile,
   DraftingUnavailable,
-  requestPositionStatement,
+  requestDraft,
 } from '../drafting/generate';
 import {
   deleteDraft,
@@ -80,8 +80,9 @@ export function registerDraftRoutes(fastify: FastifyInstance): void {
       const user = await drafter(request, reply);
       if (!user) return;
       try {
-        const id = await requestPositionStatement(
+        const id = await requestDraft(
           request.params.id,
+          request.body.kind,
           request.body.instructions ?? null,
           user.id,
         );

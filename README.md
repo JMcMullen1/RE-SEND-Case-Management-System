@@ -174,6 +174,40 @@ from the case file for a caseworker to check, edit and approve (Drafting tab;
   fails with a message saying so (an administrator enables the model in the
   Anthropic Console).
 
+### SEND35 appeal form
+
+The drafting tab also fills in the Tribunal's **SEND35** form ("Appeal a
+decision about an EHC plan", version 02, 02.2026 — `SEND35_FORM` and
+`SEND35_SECTIONS` in `config.ts`), on the same review-and-approve terms.
+
+- **Facts are copied, not drafted.** Section 1 (the child's name and date of
+  birth) and Section 2 (who is appealing, the parent's name, phone, email and
+  address) are written by the system from the case record, so they cannot be
+  paraphrased wrongly. They cite a "copied by the system" source listing
+  exactly what was copied. What the record lacks (gender, title, relationship)
+  is listed as a gap. Question 2.1 is suggested, to be confirmed with the
+  family, for a child of compulsory school age; for a young person past it (the
+  last Friday in June of the school year they turn 16) the choice is left to
+  the family. A young person aged 25 or over is flagged.
+- **Answers are drafted with sources**: other people involved and
+  representation (3–7), the type of appeal (8), placement (9), the reasons for
+  the appeal issue by issue (10), health and social care (11), mediation (12),
+  reasons for lateness (13.3), other cases (14–15), support needs (17) and the
+  supporting-evidence table, each paragraph citing the items it rests on.
+- **The time limit.** The model reports the dates on the decision letter and
+  mediation certificate with their sources (a date that is malformed or cites
+  nothing is dropped). The system works out the deadline — two months from the
+  letter or one month from the certificate, whichever is later, moved to the
+  next working day if it ends on a weekend or bank holiday. It does this each
+  time the draft is read (as at approval, once approved), so the warning — when
+  within 14 days or passed — is never stale. If a caseworker edits or removes a
+  date, the system stops working the deadline out and says so.
+- **Filed for use.** Approval files a Word document of the answers, ending with
+  a "Before you submit" list (warnings, gaps, documents to send, and Section 16
+  and the declaration, which are for the appellant). The caseworker copies the
+  answers into the online form or the PDF; links to both are on the draft.
+- **Switched off separately** with the `draft_send35_appeal` job flag.
+
 ## Schools directory
 
 One record per school, shared by every case (`/schools`,
