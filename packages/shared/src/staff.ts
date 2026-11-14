@@ -4,7 +4,7 @@
  * signs themselves out of it by accident).
  */
 
-import type { UserRole } from './config';
+import { CASE_OWNER_ROLES, type UserRole } from './config';
 
 export interface StaffMember {
   id: string;
@@ -46,4 +46,9 @@ export function staffChangeProblem(opts: {
   if (losesAdmin && activeAdmins <= 1)
     return 'There must always be at least one active admin.';
   return null;
+}
+
+/** Whether a role can be handed cases (e.g. a leaver's open cases). */
+export function canOwnCases(role: string | undefined): boolean {
+  return (CASE_OWNER_ROLES as readonly string[]).includes(role ?? '');
 }

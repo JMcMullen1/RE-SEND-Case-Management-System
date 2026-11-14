@@ -1,56 +1,90 @@
+import { once } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { Zip, ZipDeflate, ZipPassThrough, strToU8 } from 'fflate';
 import { PRODUCT_NAME } from '@re-send/shared';
 import {
   EXPORT_TABLES,
   exportDocumentFiles,
-  exportTableRows,
+  exportTableColumns,
+  exportTablePage,
 } from '../repositories/export';
 import { getStorageProvider } from '../storage';
 
 /** UTF-8 byte-order mark, so spreadsheet software reads the CSV as UTF-8. */
 const BOM = String.fromCharCode(0xfeff);
+/** Rows read and written per page of a table. */
+const PAGE_ROWS = 2000;
+/** Size of each slice of a document pushed into the archive. */
+const SLICE_BYTES = 1024 * 1024;
 
-/** One CSV cell: dates as ISO, structures as JSON, quoted when needed. */
+/**
+ * One CSV cell: dates as ISO, structures as JSON, quoted when needed. Text
+ * that a spreadsheet would run as a formula (starting = + - @, tab or CR —
+ * an email subject from outside could) is prefixed with an apostrophe so it
+ * opens as plain text.
+ */
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const text =
+  let text =
     value instanceof Date
       ? value.toISOString()
       : typeof value === 'object'
         ? JSON.stringify(value)
         : String(value);
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+export function csvLines(
+  columns: string[],
+  rows: Record<string, unknown>[],
+): string {
+  return rows
+    .map((row) => `${columns.map((c) => csvCell(row[c])).join(',')}\r\n`)
+    .join('');
+}
+
+/** A whole CSV (used for small tables and tests). */
 export function toCsv(
   columns: string[],
   rows: Record<string, unknown>[],
 ): string {
-  const lines = [columns.map(csvCell).join(',')];
-  for (const row of rows)
-    lines.push(columns.map((c) => csvCell(row[c])).join(','));
-  // A byte-order mark so spreadsheet software reads it as UTF-8.
-  return `${BOM}${lines.join('\r\n')}\r\n`;
+  return `${BOM}${columns.map(csvCell).join(',')}\r\n${csvLines(columns, rows)}`;
 }
 
-/** A filename safe in a ZIP on every platform. */
-function safe(name: string): string {
+/** One path segment safe in a ZIP on every platform: no separators, no "..". */
+export function safeSegment(name: string): string {
   const cleaned = [...name]
     .map((ch) =>
       ch.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(ch) ? '_' : ch,
     )
-    .join('');
-  return cleaned.trim() || 'file';
+    .join('')
+    .trim();
+  return !cleaned || /^\.+$/.test(cleaned) ? 'file' : cleaned;
 }
 
-/** Add a version suffix before the extension: "report.pdf" → "report (v2).pdf". */
-function versioned(filename: string, version: number): string {
-  if (version <= 1) return filename;
+/** Insert a suffix before the extension: ("report.pdf", " (v2)") → "report (v2).pdf". */
+export function withSuffix(filename: string, suffix: string): string {
   const dot = filename.lastIndexOf('.');
   return dot > 0
-    ? `${filename.slice(0, dot)} (v${version})${filename.slice(dot)}`
-    : `${filename} (v${version})`;
+    ? `${filename.slice(0, dot)}${suffix}${filename.slice(dot)}`
+    : `${filename}${suffix}`;
+}
+
+/**
+ * A unique path in a folder, compared without case (so "Report.pdf" and
+ * "report.pdf" do not overwrite each other on Windows or macOS).
+ */
+export function uniquePath(
+  folder: string,
+  filename: string,
+  used: Set<string>,
+): string {
+  let path = `${folder}/${filename}`;
+  for (let n = 2; used.has(path.toLowerCase()); n += 1)
+    path = `${folder}/${withSuffix(filename, ` [${n}]`)}`;
+  used.add(path.toLowerCase());
+  return path;
 }
 
 const README = (when: string, by: string) => `${PRODUCT_NAME} — full data export
@@ -63,28 +97,40 @@ special category personal data about children: store it encrypted, share it
 only as your data protection policy allows, and delete it when it is no
 longer needed.
 
-data/       One CSV file per table (UTF-8, comma-separated, first row is the
-            column names). Dates and times are ISO 8601 in UTC. Columns holding
-            structured values (lists, JSON) contain JSON text. Rows that were
-            deleted in the system are included, with their deleted_at set.
-            Records refer to one another by their id columns (for example
-            case_notes.case_id is cases.id).
-documents/  Every stored file, in a folder per case reference, under its
-            original filename. Earlier versions carry "(vN)"; files deleted in
-            the system are under documents/_deleted/. The documents CSV maps
-            each file to its record.
+data/        One CSV file per table (UTF-8, comma-separated, first row is the
+             column names). Dates and times are ISO 8601 in UTC. Columns
+             holding structured values (lists, JSON) contain JSON text. Text
+             that a spreadsheet would treat as a formula starts with an
+             apostrophe. Rows deleted in the system are included, with
+             deleted_at set. Records refer to one another by id columns (for
+             example case_notes.case_id is cases.id).
+documents/   Every stored file, in a folder per case reference, under its
+             original filename. Earlier versions carry "(vN)"; files deleted
+             in the system are under documents/_deleted/. The documents CSV
+             maps each file to its record.
+MANIFEST.txt Written last: row counts per table, the number of files, and
+             any file missing from storage. If it is absent, the export did
+             not finish — download it again.
 
 Withheld: each person's calendar feed token (a credential, not data).
 `;
 
+export interface ExportSummary {
+  tables: number;
+  rows: number;
+  files: number;
+  missingFiles: number;
+}
+
 /**
- * Stream the full export as a ZIP. Tables are written one at a time and
- * documents read from storage one at a time, so memory stays bounded however
- * large the library. Returns the stream and a promise of what was written.
+ * Stream the full export as a ZIP. Memory stays bounded however large the
+ * data: tables are read a page at a time, documents one at a time and pushed
+ * in slices, and the writer waits whenever the download falls behind. If the
+ * download is abandoned, the export stops.
  */
 export function streamExport(by: string): {
   stream: PassThrough;
-  done: Promise<{ tables: number; rows: number; files: number }>;
+  done: Promise<ExportSummary>;
 } {
   const out = new PassThrough();
   const zip = new Zip((err, chunk, final) => {
@@ -92,46 +138,98 @@ export function streamExport(by: string): {
       out.destroy(err);
       return;
     }
-    out.write(chunk);
+    if (!out.destroyed) out.write(chunk);
     if (final) out.end();
   });
+  const stopped = () => out.destroyed;
+  /** Let the download catch up before producing more. */
+  const drain = async () => {
+    if (out.writableNeedDrain && !out.destroyed)
+      await Promise.race([once(out, 'drain'), once(out, 'close')]);
+  };
 
-  const addText = (path: string, text: string) => {
+  const addText = async (path: string, text: string) => {
     const file = new ZipDeflate(path, { level: 6 });
     zip.add(file);
     file.push(strToU8(text), true);
+    await drain();
   };
 
-  const done = (async () => {
-    addText('README.txt', README(new Date().toISOString(), by));
+  const done = (async (): Promise<ExportSummary> => {
+    await addText('README.txt', README(new Date().toISOString(), by));
+    const counts: string[] = [];
     let rows = 0;
     for (const { table, omit } of EXPORT_TABLES) {
-      const data = await exportTableRows(table, omit);
-      rows += data.rows.length;
-      addText(`data/${table}.csv`, toCsv(data.columns, data.rows));
+      if (stopped()) throw new Error('export abandoned');
+      const columns = await exportTableColumns(table, omit);
+      const file = new ZipDeflate(`data/${table}.csv`, { level: 6 });
+      zip.add(file);
+      file.push(strToU8(`${BOM}${columns.map(csvCell).join(',')}\r\n`));
+      let tableRows = 0;
+      for (let offset = 0; ; offset += PAGE_ROWS) {
+        const page = await exportTablePage(table, columns, offset, PAGE_ROWS);
+        const last = page.length < PAGE_ROWS;
+        file.push(strToU8(csvLines(columns, page)), last);
+        tableRows += page.length;
+        await drain();
+        if (stopped()) throw new Error('export abandoned');
+        if (last) break;
+      }
+      rows += tableRows;
+      counts.push(`${table}: ${tableRows} rows`);
     }
+
     const files = await exportDocumentFiles();
     const used = new Set<string>();
+    const missing: string[] = [];
     let written = 0;
     for (const f of files) {
+      if (stopped()) throw new Error('export abandoned');
+      const folder = `documents/${f.deleted ? '_deleted/' : ''}${safeSegment(f.caseReference)}`;
+      const name = safeSegment(
+        f.version > 1 ? withSuffix(f.filename, ` (v${f.version})`) : f.filename,
+      );
       const object = await getStorageProvider().get(f.storageKey);
-      if (!object) continue;
-      const folder = `documents/${f.deleted ? '_deleted/' : ''}${safe(f.caseReference)}`;
-      let path = `${folder}/${safe(versioned(f.filename, f.version))}`;
-      // Two files with the same name and version (e.g. same-named email
-      // attachments) both survive.
-      for (let n = 2; used.has(path); n += 1)
-        path = `${folder}/${safe(versioned(f.filename, f.version))} [${n}]`;
-      used.add(path);
-      // Documents are mostly compressed already (PDF, DOCX, images): store.
-      const entry = new ZipPassThrough(path);
+      if (!object) {
+        missing.push(`${folder}/${name} (document id ${f.id})`);
+        continue;
+      }
+      // Mostly compressed already (PDF, DOCX, images): stored, not deflated.
+      const entry = new ZipPassThrough(uniquePath(folder, name, used));
       zip.add(entry);
-      entry.push(new Uint8Array(object.body), true);
+      const body = new Uint8Array(object.body);
+      for (let at = 0; at < body.length || at === 0; at += SLICE_BYTES) {
+        const end = Math.min(at + SLICE_BYTES, body.length);
+        entry.push(body.subarray(at, end), end >= body.length);
+        await drain();
+        if (end >= body.length) break;
+      }
       written += 1;
     }
+
+    await addText(
+      'MANIFEST.txt',
+      [
+        `Export complete: ${new Date().toISOString()}`,
+        '',
+        ...counts,
+        '',
+        `Document files: ${written}`,
+        `Missing from storage: ${missing.length}`,
+        ...missing.map((m) => `  ${m}`),
+        '',
+      ].join('\n'),
+    );
     zip.end();
-    return { tables: EXPORT_TABLES.length, rows, files: written };
+    return {
+      tables: EXPORT_TABLES.length,
+      rows,
+      files: written,
+      missingFiles: missing.length,
+    };
   })();
-  done.catch((err: unknown) => out.destroy(err as Error));
+  done.catch((err: unknown) => {
+    if (!out.destroyed) out.destroy(err as Error);
+  });
   return { stream: out, done };
 }

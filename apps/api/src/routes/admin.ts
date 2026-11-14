@@ -9,8 +9,8 @@ import {
 } from '@re-send/shared';
 import { resolveActingUser } from '../auth/context';
 import { streamExport } from '../export/zip';
-import { recordAudit } from '../repositories/audit';
-import { getDb } from '../db/client';
+import { disconnectUser } from '../realtime';
+import { recordExportEvent } from '../repositories/export';
 import {
   createStaff,
   deactivateStaff,
@@ -152,11 +152,13 @@ export function registerAdminRoutes(fastify: FastifyInstance): void {
       const admin = await requireAdmin(request, reply);
       if (!admin) return;
       try {
-        return await deactivateStaff(
+        const result = await deactivateStaff(
           request.params.id,
           request.body.handover,
           admin.id,
         );
+        disconnectUser(request.params.id);
+        return result;
       } catch (err) {
         return fail(reply, err);
       }
@@ -196,22 +198,18 @@ export function registerAdminRoutes(fastify: FastifyInstance): void {
     async (request, reply) => {
       const admin = await requireAdmin(request, reply);
       if (!admin) return;
-      await recordAudit(getDb(), {
-        actorUserId: admin.id,
-        action: 'export.download',
-        entityType: 'system',
-        entityId: admin.id,
-      });
+      await recordExportEvent(admin.id, 'export.download');
       const { stream, done } = streamExport(admin.displayName);
+      // The outcome is audited too: an export that stopped part-way (the
+      // download abandoned, a storage error) is recorded as failed.
       done
         .then((summary) =>
-          request.log.info({ summary }, 'full data export written'),
+          recordExportEvent(admin.id, 'export.complete', { ...summary }),
         )
         .catch((err: unknown) =>
-          request.log.error(
-            { error: err instanceof Error ? err.name : 'unknown' },
-            'full data export failed',
-          ),
+          recordExportEvent(admin.id, 'export.failed', {
+            error: err instanceof Error ? err.message : 'unknown',
+          }).catch(() => {}),
         );
       reply
         .header(

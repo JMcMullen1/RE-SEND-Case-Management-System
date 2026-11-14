@@ -263,6 +263,35 @@ run('demo auth + reset', () => {
       false,
     );
 
+    // Reset demo puts the named demo staff back, whatever a visitor did.
+    const staffList = (
+      await app.inject({
+        method: 'GET',
+        url: '/api/admin/staff',
+        headers: { cookie: session },
+      })
+    ).json().staff as { id: string; email: string }[];
+    const abbie = staffList.find(
+      (p) => p.email === 'abbie.holland@resend.demo',
+    )!;
+    await app.inject({
+      method: 'POST',
+      url: `/api/admin/staff/${abbie.id}/deactivate`,
+      headers: { cookie: session },
+      payload: { handover: { kind: 'none' } },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/demo/reset',
+      headers: { cookie: session },
+    });
+    expect(
+      (
+        (await app.inject({ method: 'GET', url: '/api/auth/accounts' })).json()
+          .accounts as { email: string }[]
+      ).some((a) => a.email === 'abbie.holland@resend.demo'),
+    ).toBe(true);
+
     // Readiness reflects the reachable database.
     const ready = await app.inject({ method: 'GET', url: '/health/ready' });
     expect(ready.statusCode).toBe(200);

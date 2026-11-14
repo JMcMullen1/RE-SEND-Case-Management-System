@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import type {
   CalendarEvent,
   CalendarFilters,
@@ -216,7 +216,10 @@ export async function rotateIcalToken(userId: string): Promise<string | null> {
   return rows.length > 0 ? token : null;
 }
 
-/** The user behind a feed token, or null if the token is unknown/revoked. */
+/**
+ * The active user behind a feed token, or null if the token is unknown,
+ * revoked, or belongs to someone who has left.
+ */
 export async function userForIcalToken(
   token: string,
 ): Promise<{ id: string; displayName: string } | null> {
@@ -224,6 +227,6 @@ export async function userForIcalToken(
   const [row] = await db
     .select({ id: users.id, displayName: users.displayName })
     .from(users)
-    .where(eq(users.icalToken, token));
+    .where(and(eq(users.icalToken, token), eq(users.active, true)));
   return row ?? null;
 }

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
+import { recordAudit } from './audit';
 
 /**
  * Every table holding the charity's data, in the order a reader would want
@@ -47,11 +48,11 @@ export async function databaseTables(): Promise<string[]> {
   return rows.map((r) => r.table_name);
 }
 
-/** Every row of one exported table, columns as stored (minus omitted ones). */
-export async function exportTableRows(
+/** The exported columns of a table (minus omitted ones), in table order. */
+export async function exportTableColumns(
   table: string,
   omit: string[] = [],
-): Promise<{ columns: string[]; rows: Record<string, unknown>[] }> {
+): Promise<string[]> {
   if (!EXPORT_TABLES.some((t) => t.table === table))
     throw new Error(`Table ${table} is not exportable`);
   const cols = (await getDb().execute(
@@ -59,14 +60,43 @@ export async function exportTableRows(
         WHERE table_schema = 'public' AND table_name = ${table}
         ORDER BY ordinal_position`,
   )) as unknown as { column_name: string }[];
-  const columns = cols
-    .map((c) => c.column_name)
-    .filter((c) => !omit.includes(c));
-  const list = columns.map((c) => `"${c}"`).join(', ');
-  const rows = (await getDb().execute(
-    sql.raw(`SELECT ${list} FROM "${table}" ORDER BY 1`),
+  return cols.map((c) => c.column_name).filter((c) => !omit.includes(c));
+}
+
+/**
+ * One page of a table's rows, so a large table (the audit log) is read and
+ * written a page at a time rather than held in memory whole. Table and column
+ * names come only from EXPORT_TABLES and the database's own catalogue.
+ */
+export async function exportTablePage(
+  table: string,
+  columns: string[],
+  offset: number,
+  limit: number,
+): Promise<Record<string, unknown>[]> {
+  if (!EXPORT_TABLES.some((t) => t.table === table))
+    throw new Error(`Table ${table} is not exportable`);
+  const list = columns.map((c) => `"${c.replace(/"/g, '""')}"`).join(', ');
+  return (await getDb().execute(
+    sql.raw(
+      `SELECT ${list} FROM "${table}" ORDER BY 1 LIMIT ${Math.trunc(limit)} OFFSET ${Math.trunc(offset)}`,
+    ),
   )) as unknown as Record<string, unknown>[];
-  return { columns, rows };
+}
+
+/** Audit an export: who started it, and how it ended (counts only). */
+export async function recordExportEvent(
+  actor: string,
+  action: 'export.download' | 'export.complete' | 'export.failed',
+  after?: Record<string, unknown>,
+): Promise<void> {
+  await recordAudit(getDb(), {
+    actorUserId: actor,
+    action,
+    entityType: 'system',
+    entityId: actor,
+    after,
+  });
 }
 
 /** Every stored document file, with the case it belongs to. */

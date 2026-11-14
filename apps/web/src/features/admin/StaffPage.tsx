@@ -6,6 +6,7 @@ import {
   USER_ROLE_DESCRIPTIONS,
   USER_ROLE_LABELS,
   USER_ROLE_VALUES,
+  canOwnCases,
   isPlausibleEmail,
   type OwnerQueue,
   type StaffMember,
@@ -175,7 +176,9 @@ export function StaffPage() {
       {leaving && (
         <LeaverDialog
           person={leaving}
-          colleagues={active.filter((s) => s.id !== leaving.id)}
+          colleagues={active.filter(
+            (s) => s.id !== leaving.id && canOwnCases(s.role),
+          )}
           onClose={(result) => {
             setLeaving(null);
             if (result) {
@@ -626,6 +629,48 @@ function LeaverDialog({
 }
 
 function ExportPanel() {
+  const [state, setState] = useState<'idle' | 'working' | 'done'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetched rather than linked, so a refusal (e.g. too many exports this
+  // hour) is shown here instead of being saved as a broken file.
+  const download = async () => {
+    setState('working');
+    setError(null);
+    try {
+      const res = await fetch(EXPORT_URL, { credentials: 'include' });
+      if (!res.ok) {
+        let message = `The export could not be made (${res.status}).`;
+        try {
+          const body = (await res.json()) as { message?: string };
+          if (body.message) message = body.message;
+        } catch {
+          /* not JSON */
+        }
+        if (res.status === 429)
+          message = 'Three exports have been made this hour. Try again later.';
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      const name =
+        /filename="([^"]+)"/.exec(
+          res.headers.get('content-disposition') ?? '',
+        )?.[1] ?? 'resend-export.zip';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setState('done');
+    } catch (e) {
+      setError(errorText(e));
+      setState('idle');
+    }
+  };
+
   return (
     <section
       aria-labelledby="export-h"
@@ -647,15 +692,27 @@ function ExportPanel() {
         Save it only somewhere encrypted and access-controlled, and delete it
         when it is no longer needed. Each download is recorded.
       </p>
-      <a
-        href={EXPORT_URL}
-        download
-        className="mt-3 inline-block rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+      <button
+        type="button"
+        onClick={() => void download()}
+        disabled={state === 'working'}
+        className="mt-3 rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       >
-        Download full export
-      </a>
+        {state === 'working' ? 'Preparing the export…' : 'Download full export'}
+      </button>
+      {state === 'done' && (
+        <p role="status" className="mt-1 text-sm text-resend-ink">
+          Downloaded. Check MANIFEST.txt inside: it lists what was exported and
+          any file that could not be found.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-1 text-sm text-status-amber-text">
+          {error}
+        </p>
+      )}
       <p className="mt-1 text-xs text-gray-600">
-        A large document library takes a few minutes. Up to three downloads an
+        A large document library takes a few minutes. Up to three exports an
         hour.
       </p>
     </section>

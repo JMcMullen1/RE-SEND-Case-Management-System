@@ -85,6 +85,34 @@ export async function provisionDemoAccounts(): Promise<void> {
   }
 }
 
+/**
+ * Put the named demo accounts back exactly as listed — names, roles, active —
+ * for "Reset demo". With a shared demo password any visitor can sign in as an
+ * admin, so a reset must undo whatever they did to the staff list (other
+ * accounts an admin added are left alone).
+ */
+export async function restoreDemoAccounts(): Promise<void> {
+  const db = getDb();
+  for (const account of DEMO_ACCOUNTS) {
+    await db
+      .insert(users)
+      .values({
+        email: account.email,
+        displayName: account.displayName,
+        role: account.role,
+        active: true,
+      })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          displayName: account.displayName,
+          role: account.role,
+          active: true,
+        },
+      });
+  }
+}
+
 /** Constant-time password check against the shared demo password. */
 export function demoPasswordMatches(candidate: string): boolean {
   const a = Buffer.from(candidate);

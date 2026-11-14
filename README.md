@@ -112,21 +112,26 @@ Admins manage staff and take the charity's data with them at any time
   email or role, marks them as having left, or brings them back. Every staff
   picker builds from the users table, so changes show everywhere at once.
 - **Leavers.** Marking someone as left signs them out on their next request
-  (the session gate checks the account is active) and drops them from staff
-  lists; their notes, time and approvals stay attributed to them. Their open
+  (the session gate checks the account is active), closes their live-update
+  connections, stops their calendar feed, and drops them from staff lists; their notes, time and approvals stay attributed to them. Their open
   cases (any status but Closed) can be handed to a queue or a colleague in the
-  same step — each reassignment audited — and they are cleared as dealing
-  shadow on open cases.
+  same step (only to caseworkers or admins) — each reassignment audited — and
+  they are cleared as dealing shadow on open cases.
 - **Rules.** There is always at least one active admin; an admin cannot remove
   their own admin access or mark themselves as left. Every change is audited.
 - **Demo sign-in** lists active users from the database, so staff an admin adds
   can sign in; a restart only fills in missing demo accounts and never undoes
-  an admin's changes.
+  an admin's changes. **Reset demo** puts the named demo staff back as listed
+  (the demo password is shared, so a visitor's changes must be undoable).
 - **Full data export.** One ZIP: a README, every table as CSV (UTF-8, ISO
   dates, deleted rows included) and every stored document by case reference,
   earlier versions marked. Only each person's calendar-feed token is withheld
-  (a credential). Streamed, admin-only, rate-limited, and each download is
-  audited. A test fails if a new table is not added to the export.
+  (a credential). Text a spreadsheet would run as a formula is defused. A
+  MANIFEST written last lists row counts and any file missing from storage.
+  Streamed with backpressure (tables a page at a time, documents in slices,
+  stopping if the download is abandoned); admin-only, rate-limited; the start
+  and the outcome of each export are audited. A test fails if a new table is
+  not added to the export.
 
 ## Assisted drafting
 

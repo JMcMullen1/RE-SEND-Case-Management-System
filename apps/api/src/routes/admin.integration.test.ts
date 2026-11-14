@@ -164,12 +164,45 @@ run('staff admin and data export API', () => {
     });
     expect(selfLeave.statusCode).toBe(409);
 
+    // Cases cannot go to someone who does not work cases.
+    const readOnly = users.find((u) => u.role === 'read_only')!;
+    const toReadOnly = await app.inject({
+      method: 'POST',
+      url: `/api/admin/staff/${leaver.id}/deactivate`,
+      headers: as(admin()),
+      payload: { handover: { kind: 'user', userId: readOnly.id } },
+    });
+    expect(toReadOnly.statusCode).toBe(409);
+
+    // Their calendar feed works until they leave...
+    const token = 'leaver-feed-' + stamp;
+    await getDb().execute(
+      sql`UPDATE users SET ical_token = ${token} WHERE id = ${leaver.id}`,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/calendar/feed/${token}.ics`,
+        })
+      ).statusCode,
+    ).toBe(200);
+
     const res = await app.inject({
       method: 'POST',
       url: `/api/admin/staff/${leaver.id}/deactivate`,
       headers: as(admin()),
       payload: { handover: { kind: 'queue', queue: 'Enquiries' } },
     });
+    // ...and stops when they do.
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/calendar/feed/${token}.ics`,
+        })
+      ).statusCode,
+    ).toBe(404);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       member: { active: false, openCaseCount: 0 },
@@ -258,11 +291,21 @@ run('staff admin and data export API', () => {
       strFromU8(files[`documents/${c!.case_reference}/export-${stamp}.txt`]!),
     ).toBe(`Export check ${stamp}`);
 
-    const [audit] = (await getDb().execute(
-      sql`SELECT count(*)::int AS n FROM audit_log
-          WHERE action = 'export.download' AND actor_user_id = ${admin().id}`,
-    )) as unknown as { n: number }[];
-    expect(audit!.n).toBeGreaterThanOrEqual(1);
+    // Written last: proof the export finished, with counts.
+    const manifest = strFromU8(files['MANIFEST.txt']!);
+    expect(manifest).toMatch(/Export complete/);
+    expect(manifest).toMatch(/cases: \d+ rows/);
+
+    // Both the start and the finished outcome are audited.
+    await new Promise((r) => setTimeout(r, 50));
+    const audits = (await getDb().execute(
+      sql`SELECT action FROM audit_log
+          WHERE action IN ('export.download', 'export.complete')
+            AND actor_user_id = ${admin().id}`,
+    )) as unknown as { action: string }[];
+    expect(new Set(audits.map((a) => a.action))).toEqual(
+      new Set(['export.download', 'export.complete']),
+    );
     await app.close();
   });
 });

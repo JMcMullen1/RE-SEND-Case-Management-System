@@ -336,6 +336,8 @@ export const USER_ROLE_DESCRIPTIONS: Record<UserRole, string> = {
  * status are "open" and offered for handover when they leave.
  */
 export const CLOSED_CASE_STATUSES = ['Closed'] as const;
+/** Roles a case can be handed to (they work cases). */
+export const CASE_OWNER_ROLES = ['admin', 'caseworker'] as const;
 
 // --- Key date sources -------------------------------------------------------
 /** Where a key date came from: hand-entered, parsed from a directions order,

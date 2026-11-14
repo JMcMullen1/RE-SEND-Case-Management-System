@@ -1,6 +1,7 @@
 import { and, asc, eq, notInArray, sql } from 'drizzle-orm';
 import {
   CLOSED_CASE_STATUSES,
+  canOwnCases,
   normaliseEmail,
   staffChangeProblem,
   type OwnerQueue,
@@ -210,19 +211,22 @@ export async function deactivateStaff(
     if (problem) throw new StaffRuleBroken(problem);
 
     if (handover.kind === 'user') {
+      // Locked, so the colleague cannot be marked as left at the same moment.
       const [to] = await tx
-        .select({ id: users.id })
+        .select({ id: users.id, role: users.role })
         .from(users)
-        .where(and(eq(users.id, handover.userId), eq(users.active, true)));
-      if (!to || to.id === id)
+        .where(and(eq(users.id, handover.userId), eq(users.active, true)))
+        .for('update');
+      if (!to || to.id === id || !canOwnCases(to.role))
         throw new StaffRuleBroken(
-          'Choose an active colleague to hand over to.',
+          'Choose an active caseworker or admin to hand the cases to.',
         );
     }
 
     await tx
       .update(users)
-      .set({ active: false, updatedAt: new Date() })
+      // Signed out, and their calendar feed URL stops working.
+      .set({ active: false, icalToken: null, updatedAt: new Date() })
       .where(eq(users.id, id));
     await recordAudit(tx, {
       actorUserId: actor,

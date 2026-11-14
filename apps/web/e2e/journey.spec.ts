@@ -298,9 +298,11 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
     .getByRole('button', { name: 'Mark as left' })
     .click();
   await expect(page.getByRole('heading', { name: /Left \(1\)/ })).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Download full export' }),
-  ).toBeVisible();
+  // The full export downloads as a ZIP.
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download full export' }).click();
+  const zip = await downloading;
+  expect(zip.suggestedFilename()).toMatch(/^resend-export-.*\.zip$/);
 
   // 6. The applied dates appear on the calendar.
   await page.goto('/calendar');
