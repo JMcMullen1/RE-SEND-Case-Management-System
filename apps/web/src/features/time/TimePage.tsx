@@ -173,7 +173,7 @@ export function TimePage() {
       <main className="mx-auto max-w-4xl space-y-6 px-6 py-6">
         {report.isLoading && <p className="text-sm text-gray-500">Loading…</p>}
         {report.isError && (
-          <p className="text-sm text-status-amber">
+          <p className="text-sm text-status-amber-text">
             Time could not be loaded. Refresh to try again.
           </p>
         )}

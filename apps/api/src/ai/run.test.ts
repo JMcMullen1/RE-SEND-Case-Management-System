@@ -239,3 +239,111 @@ describe('runAiJob', () => {
     expect(records[0]!.outcome).toBe('error');
   });
 });
+
+describe('runAiJob (structured_output mode)', () => {
+  const structuredJob = defineAiJob({
+    name: 'Test Draft',
+    model: 'claude-opus-5-5',
+    outputSchema: schema,
+    systemPrompt: 'Draft.',
+    outputMode: 'structured_output',
+    effort: 'high',
+    refusalFallback: true,
+  });
+
+  function streamingClient(msg: unknown) {
+    const stream = vi.fn().mockReturnValue({
+      finalMessage: vi.fn().mockResolvedValue(msg),
+    });
+    const create = vi.fn();
+    return {
+      client: {
+        messages: { create },
+        beta: { messages: { stream } },
+      } as unknown as MessagesClient,
+      stream,
+      create,
+    };
+  }
+
+  it('streams a structured-output request with adaptive thinking and fallbacks, and parses the JSON', async () => {
+    const { client, stream, create } = streamingClient(
+      message({
+        stop_reason: 'end_turn',
+        content: [
+          { type: 'thinking', thinking: '', signature: 's' },
+          { type: 'text', text: '{"label":"b","score":0.5}' },
+        ],
+      }),
+    );
+    const { records, deps } = harness(client);
+    const result = await runAiJob(structuredJob, 'input', deps);
+    expect(result.output).toEqual({ label: 'b', score: 0.5 });
+    expect(create).not.toHaveBeenCalled();
+
+    const request = stream.mock.calls[0]![0];
+    expect(request.model).toBe('claude-opus-5-5');
+    expect(request.output_config.effort).toBe('high');
+    expect(request.output_config.format.type).toBe('json_schema');
+    expect(request.output_config.format.schema.additionalProperties).toBe(
+      false,
+    );
+    expect(request.betas).toEqual(['server-side-fallback-2026-07-01']);
+    expect(request.fallbacks).toBe('default');
+    // Opus 5.5 rejects disabled thinking and forced tool use.
+    expect(request.thinking).toBeUndefined();
+    expect(request.tool_choice).toBeUndefined();
+    expect(records[0]!.outcome).toBe('success');
+    expect(records[0]!.costUsd).toBeGreaterThan(0);
+  });
+
+  it('reads the text after a fallback switch point', async () => {
+    const { client } = streamingClient(
+      message({
+        stop_reason: 'end_turn',
+        content: [
+          { type: 'text', text: '{"label":"a"' },
+          { type: 'fallback', from: { model: 'x' }, to: { model: 'y' } },
+          { type: 'text', text: '{"label":"a","score":1}' },
+        ],
+      }),
+    );
+    const { deps } = harness(client);
+    const result = await runAiJob(structuredJob, 'input', deps);
+    expect(result.output).toEqual({ label: 'a', score: 1 });
+  });
+
+  it('surfaces a refusal, a truncation and unparseable output as typed errors', async () => {
+    for (const [msg, err] of [
+      [
+        message({
+          stop_reason: 'refusal',
+          stop_details: { category: 'bio' },
+          content: [],
+        }),
+        AiJobRefusalError,
+      ],
+      [
+        message({
+          stop_reason: 'max_tokens',
+          content: [{ type: 'text', text: '{"la' }],
+        }),
+        AiJobError,
+      ],
+      [
+        message({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: 'not json' }],
+        }),
+        AiJobError,
+      ],
+    ] as const) {
+      const { client } = streamingClient(msg);
+      const { records, deps } = harness(client);
+      await expect(
+        runAiJob(structuredJob, 'input', deps),
+      ).rejects.toBeInstanceOf(err);
+      expect(records).toHaveLength(1);
+    }
+  });
+});

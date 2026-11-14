@@ -72,7 +72,7 @@ export function DurationField({
       </div>
       <p
         id={`${id}-hint`}
-        className={`mt-1 text-xs ${problem ? 'text-status-amber' : 'text-gray-500'}`}
+        className={`mt-1 text-xs ${problem ? 'text-status-amber-text' : 'text-gray-500'}`}
       >
         {problem ??
           (recorded !== null

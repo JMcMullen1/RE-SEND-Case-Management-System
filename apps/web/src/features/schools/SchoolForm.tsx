@@ -113,7 +113,7 @@ export function SchoolForm({
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-xs text-gray-600 sm:col-span-2">
-          School name <span className="text-status-amber">*</span>
+          School name <span className="text-status-amber-text">*</span>
           <input
             value={f.name}
             onChange={(e) => set('name', e.target.value)}
@@ -190,7 +190,7 @@ export function SchoolForm({
         </label>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-status-amber">
+        <p role="alert" className="text-sm text-status-amber-text">
           {error}
         </p>
       )}
@@ -309,7 +309,7 @@ export function AddSchoolDialog({
               ))}
             </ul>
             {error && (
-              <p role="alert" className="text-sm text-status-amber">
+              <p role="alert" className="text-sm text-status-amber-text">
                 {error}
               </p>
             )}

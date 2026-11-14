@@ -136,7 +136,7 @@ export function TimelineRegion({
                     }`}
                   />
                   {dateProblem && (
-                    <span className="text-xs font-normal text-status-amber">
+                    <span className="text-xs font-normal text-status-amber-text">
                       {dateProblem}
                     </span>
                   )}
@@ -155,7 +155,7 @@ export function TimelineRegion({
                 Add {singular}
               </button>
               {mutations.addNote.isError && (
-                <p role="alert" className="mt-1 text-xs text-status-amber">
+                <p role="alert" className="mt-1 text-xs text-status-amber-text">
                   Not saved: {errorText(mutations.addNote.error)}
                 </p>
               )}
@@ -382,7 +382,7 @@ function NoteRow({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="text-xs text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+              className="text-xs text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
             >
               Delete
             </button>
@@ -446,7 +446,7 @@ function NoteRow({
                   className="rounded-md border border-gray-200 px-2 py-1 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
                 />
                 {dateProblem && (
-                  <span className="text-xs font-normal text-status-amber">
+                  <span className="text-xs font-normal text-status-amber-text">
                     {dateProblem}
                   </span>
                 )}
@@ -477,7 +477,7 @@ function NoteRow({
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-1 text-xs text-status-amber">
+        <p role="alert" className="mt-1 text-xs text-status-amber-text">
           {error}
         </p>
       )}
@@ -508,7 +508,7 @@ function CaseTimeBar({ caseId }: { caseId: string }) {
       </p>
       {data.missingTimeCount > 0 && (
         <p className="mt-0.5 text-xs text-resend-ink">
-          <span className="font-medium text-status-amber">
+          <span className="font-medium text-status-amber-text">
             {data.missingTimeCount} billable
             {data.missingTimeCount === 1 ? ' has' : 's have'} no time recorded
           </span>{' '}

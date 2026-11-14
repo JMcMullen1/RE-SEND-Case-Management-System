@@ -2,6 +2,8 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 import {
   AI_JOB_OUTCOME_VALUES,
   CASE_SCHOOL_ROLE_VALUES,
+  DRAFT_KIND_VALUES,
+  DRAFT_STATUS_VALUES,
   SCHOOL_FUNDING_VALUES,
   SCHOOL_PROVISION_VALUES,
   CONSULTATION_STATE_VALUES,
@@ -57,6 +59,8 @@ export const externalSyncStatusEnum = pgEnum(
 );
 export const aiJobOutcomeEnum = pgEnum('ai_job_outcome', AI_JOB_OUTCOME_VALUES);
 export const rateKindEnum = pgEnum('rate_kind', RATE_KIND_VALUES);
+export const draftKindEnum = pgEnum('draft_kind', DRAFT_KIND_VALUES);
+export const draftStatusEnum = pgEnum('draft_status', DRAFT_STATUS_VALUES);
 export const schoolFundingEnum = pgEnum(
   'school_funding',
   SCHOOL_FUNDING_VALUES,

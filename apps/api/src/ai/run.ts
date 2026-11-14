@@ -7,7 +7,7 @@ import { getAnthropic, type MessagesClient } from './client';
 import { type AiJobDefinition, toolNameFor } from './definition';
 import { AiJobDisabledError, AiJobError, AiJobRefusalError } from './errors';
 import { estimateCostUsd, type ClaudeModel, type TokenUsage } from './models';
-import { schemaToTool } from './zod-tool';
+import { schemaToJsonSchema, schemaToTool } from './zod-tool';
 
 export interface AiJobResult<T> {
   output: T;
@@ -109,6 +109,9 @@ export async function runAiJob<TSchema extends z.ZodTypeAny>(
   }
 
   const client = deps.client ?? getAnthropic();
+  if (definition.outputMode === 'structured_output') {
+    return runStructured(definition, input, client, deps, record);
+  }
   const toolName = toolNameFor(definition);
   const request = buildRequest(definition, toolName, input);
 
@@ -169,6 +172,102 @@ export async function runAiJob<TSchema extends z.ZodTypeAny>(
     if (err instanceof AiJobRefusalError || err instanceof AiJobError)
       throw err;
     // Transport or unknown failure after the SDK's retries — record and surface.
+    await record('error', usage, latencyMs).catch(() => {});
+    throw new AiJobError(name, messageOf(err), { cause: err });
+  }
+}
+
+type Recorder = (
+  outcome: AiJobRunRecord['outcome'],
+  usage: TokenUsage,
+  ms: number,
+) => Promise<void>;
+
+const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+
+/**
+ * The `structured_output` path: the schema is the response format, thinking is
+ * adaptive (the model decides how much to reason), and the call is streamed so
+ * a long draft never meets an HTTP timeout. Same accounting, kill switch and
+ * failure semantics as the forced-tool path.
+ */
+async function runStructured<TSchema extends z.ZodTypeAny>(
+  definition: AiJobDefinition<TSchema>,
+  input: AiJobInput,
+  client: MessagesClient,
+  deps: RunDeps,
+  record: Recorder,
+): Promise<AiJobResult<z.infer<TSchema>>> {
+  const { name, model } = definition;
+  if (!client.beta) throw new AiJobError(name, 'client has no streaming API');
+  let usage = ZERO_USAGE;
+  let latencyMs = 0;
+  try {
+    const start = deps.now();
+    const response = await client.beta.messages
+      .stream({
+        model,
+        max_tokens: definition.maxTokens ?? 32000,
+        system: buildSystem(definition),
+        output_config: {
+          ...(definition.effort ? { effort: definition.effort } : {}),
+          format: {
+            type: 'json_schema',
+            schema: schemaToJsonSchema(name, definition.outputSchema),
+          },
+        },
+        messages: [{ role: 'user', content: input }],
+        ...(definition.refusalFallback
+          ? { betas: [FALLBACK_BETA], fallbacks: 'default' as const }
+          : {}),
+      })
+      .finalMessage();
+    latencyMs = deps.now() - start;
+    usage = extractUsage(response as unknown as Anthropic.Message);
+
+    if (response.stop_reason === 'refusal') {
+      await record('refusal', usage, latencyMs);
+      throw new AiJobRefusalError(
+        name,
+        response.stop_details?.category ?? null,
+      );
+    }
+    if (response.stop_reason === 'max_tokens') {
+      await record('error', usage, latencyMs);
+      throw new AiJobError(
+        name,
+        'output was truncated at max_tokens before completion',
+      );
+    }
+
+    // With fallbacks, the answer is the text after the last switch point.
+    const texts = response.content.filter(
+      (b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text',
+    );
+    const text = texts[texts.length - 1]?.text;
+    let json: unknown;
+    try {
+      json = text ? JSON.parse(text) : undefined;
+    } catch {
+      json = undefined;
+    }
+    const parsed = definition.outputSchema.safeParse(json);
+    if (!parsed.success) {
+      await record('error', usage, latencyMs);
+      throw new AiJobError(name, 'output failed schema validation');
+    }
+
+    await record('success', usage, latencyMs);
+    return {
+      output: parsed.data as z.infer<TSchema>,
+      model,
+      usage,
+      latencyMs,
+      costUsd: estimateCostUsd(model, usage),
+    };
+  } catch (err) {
+    if (err instanceof AiJobRefusalError || err instanceof AiJobError)
+      throw err;
     await record('error', usage, latencyMs).catch(() => {});
     throw new AiJobError(name, messageOf(err), { cause: err });
   }

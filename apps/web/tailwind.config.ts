@@ -15,6 +15,7 @@ export default {
         'resend-green': 'var(--resend-green)',
         'resend-ink': 'var(--resend-ink)',
         'status-amber': 'var(--status-amber)',
+        'status-amber-text': 'var(--status-amber-text)',
       },
     },
   },

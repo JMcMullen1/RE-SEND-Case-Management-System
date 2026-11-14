@@ -1,0 +1,692 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  DRAFT_KIND_LABELS,
+  canDraft,
+  formatCivilDate,
+  type Draft,
+  type DraftSection,
+  type DraftSource,
+} from '@re-send/shared';
+import { documentContentUrl } from '../../api/documents';
+import {
+  approveDraft,
+  discardDraft,
+  fetchDrafts,
+  requestDraft,
+  saveDraft,
+} from '../../api/drafts';
+import { useMe } from '../../hooks/useCaseData';
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : 'Something went wrong.';
+}
+
+function when(iso: string): string {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/London',
+  });
+}
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  case_record: 'Case record',
+  document: 'Document',
+  note: 'Note',
+  email: 'Email',
+  time_entry: 'Time',
+};
+
+/**
+ * Assisted drafting on a case. The model writes a first draft from the case
+ * file — every paragraph tied to the items it rests on — and a caseworker
+ * reads, edits and approves it. Nothing is filed until it is approved.
+ */
+export function DraftsRegion({ caseId }: { caseId: string }) {
+  const qc = useQueryClient();
+  const role = useMe().data?.role;
+  const mayDraft = canDraft(role);
+  const drafts = useQuery({
+    queryKey: ['drafts', caseId],
+    queryFn: () => fetchDrafts(caseId),
+    // While one is being written, check now and then as a fallback to the
+    // live update (e.g. if the live connection is down).
+    refetchInterval: (q) =>
+      q.state.data?.drafts.some((d) => d.status === 'generating')
+        ? 15_000
+        : false,
+  });
+  const [asking, setAsking] = useState(false);
+  const [instructions, setInstructions] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const ask = useMutation({
+    mutationFn: () =>
+      requestDraft(caseId, 'position_statement', instructions.trim() || null),
+    onSuccess: (draft) => {
+      setAsking(false);
+      setInstructions('');
+      setOpenId(draft.id);
+      void qc.invalidateQueries({ queryKey: ['drafts', caseId] });
+    },
+  });
+
+  const list = drafts.data?.drafts ?? [];
+  const open = list.find((d) => d.id === openId) ?? null;
+
+  if (open) {
+    return (
+      <DraftView
+        key={open.id}
+        draft={open}
+        mayDraft={mayDraft}
+        onBack={() => setOpenId(null)}
+        onChanged={() =>
+          void qc.invalidateQueries({ queryKey: ['drafts', caseId] })
+        }
+        onFiled={() =>
+          void qc.invalidateQueries({ queryKey: ['documents', caseId] })
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <p className="text-sm text-gray-600">
+        The drafting assistant writes a first draft from this case’s documents,
+        emails and notes. Every paragraph shows the items it is drawn from, and
+        where the file gives no basis the draft says so instead of guessing. You
+        read, edit and approve it — nothing is filed until you do.
+      </p>
+
+      {mayDraft &&
+        (asking ? (
+          <div className="rounded-lg border border-resend-purple p-4">
+            <label className="block text-sm font-medium text-resend-ink">
+              Anything the draft should focus on? (optional)
+              <textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety."
+                className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              />
+            </label>
+            {ask.isError && (
+              <p role="alert" className="mt-2 text-sm text-status-amber-text">
+                {errorText(ask.error)}
+              </p>
+            )}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  ask.reset();
+                  setAsking(false);
+                }}
+                className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={ask.isPending}
+                onClick={() => ask.mutate()}
+                className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                {ask.isPending ? 'Starting…' : 'Start drafting'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAsking(true)}
+            className="rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            Draft a position statement
+          </button>
+        ))}
+
+      {drafts.isLoading && <p className="text-sm text-gray-500">Loading…</p>}
+      {!drafts.isLoading && list.length === 0 && (
+        <p className="text-sm text-gray-500">No drafts on this case yet.</p>
+      )}
+      <ul className="divide-y divide-gray-100">
+        {list.map((d) => (
+          <li
+            key={d.id}
+            className="flex items-center justify-between gap-3 py-3"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-resend-ink">
+                {DRAFT_KIND_LABELS[d.kind]}
+                <StatusChip draft={d} />
+              </p>
+              <p className="text-xs text-gray-600">
+                Asked for by {d.createdByName ?? 'Unknown'} ·{' '}
+                {when(d.createdAt)}
+                {d.approvedAt &&
+                  ` · approved by ${d.approvedByName ?? 'Unknown'} ${when(d.approvedAt)}`}
+              </p>
+              {d.status === 'generating' && (
+                <p className="text-xs text-gray-600">
+                  Drafting — usually a minute or two. You can carry on working;
+                  it appears here when ready.
+                </p>
+              )}
+              {d.status === 'failed' && d.failureReason && (
+                <p className="text-xs text-status-amber-text">
+                  {d.failureReason}
+                </p>
+              )}
+            </div>
+            <span className="flex shrink-0 gap-3 text-sm">
+              {(d.status === 'ready' || d.status === 'approved') && (
+                <button
+                  type="button"
+                  onClick={() => setOpenId(d.id)}
+                  className="font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                >
+                  {d.status === 'ready' ? 'Review' : 'View'}
+                </button>
+              )}
+              {d.status === 'failed' && mayDraft && (
+                <DiscardButton
+                  draftId={d.id}
+                  onDone={() =>
+                    void qc.invalidateQueries({ queryKey: ['drafts', caseId] })
+                  }
+                />
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StatusChip({ draft }: { draft: Draft }) {
+  const styles: Record<Draft['status'], string> = {
+    generating: 'bg-gray-100 text-gray-700',
+    ready: 'border border-resend-purple text-resend-purple',
+    failed: 'border border-status-amber text-resend-ink',
+    approved: 'bg-resend-green text-white',
+  };
+  const labels: Record<Draft['status'], string> = {
+    generating: 'Drafting…',
+    ready: 'Ready for review',
+    failed: 'Failed',
+    approved: 'Approved',
+  };
+  return (
+    <span
+      className={`ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium ${styles[draft.status]}`}
+    >
+      {labels[draft.status]}
+    </span>
+  );
+}
+
+function DiscardButton({
+  draftId,
+  onDone,
+}: {
+  draftId: string;
+  onDone: () => void;
+}) {
+  const [confirm, setConfirm] = useState(false);
+  const discard = useMutation({
+    mutationFn: () => discardDraft(draftId),
+    onSuccess: onDone,
+  });
+  return confirm ? (
+    <span className="flex gap-2 text-xs">
+      <button
+        type="button"
+        onClick={() => discard.mutate()}
+        className="font-semibold text-status-amber-text hover:underline"
+      >
+        Yes, discard
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirm(false)}
+        className="text-gray-600 hover:underline"
+      >
+        Keep
+      </button>
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setConfirm(true)}
+      className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+    >
+      Discard
+    </button>
+  );
+}
+
+type EditSections = {
+  key: DraftSection['key'];
+  paragraphs: {
+    id?: string;
+    text: string;
+    sourceIds: string[];
+    edited: boolean;
+  }[];
+}[];
+
+function toEditable(draft: Draft): EditSections {
+  return draft.sections.map((s) => ({
+    key: s.key,
+    paragraphs: s.paragraphs.map((p) => ({ ...p })),
+  }));
+}
+
+/** Review, edit and approve one draft (or read an approved one). */
+function DraftView({
+  draft,
+  mayDraft,
+  onBack,
+  onChanged,
+  onFiled,
+}: {
+  draft: Draft;
+  mayDraft: boolean;
+  onBack: () => void;
+  onChanged: () => void;
+  onFiled: () => void;
+}) {
+  const editable = draft.status === 'ready' && mayDraft;
+  const [sections, setSections] = useState<EditSections>(() =>
+    toEditable(draft),
+  );
+  const [dirty, setDirty] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Pick up a fresh copy (e.g. after another person's save) when not editing.
+  useEffect(() => {
+    if (!dirty) setSections(toEditable(draft));
+  }, [draft, dirty]);
+
+  const sourceNumber = useMemo(() => {
+    const m = new Map<string, number>();
+    draft.sources.forEach((s, i) => m.set(s.id, i + 1));
+    return m;
+  }, [draft.sources]);
+
+  const update = (fn: (s: EditSections) => EditSections) => {
+    setSections((prev) => fn(prev));
+    setDirty(true);
+  };
+  const payload = () =>
+    sections.map((s) => ({
+      key: s.key,
+      paragraphs: s.paragraphs.map((p) => ({ id: p.id, text: p.text })),
+    }));
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await saveDraft(draft.id, payload());
+      setDirty(false);
+      onChanged();
+    } catch (e) {
+      setError(`Not saved: ${errorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const approve = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (dirty) await saveDraft(draft.id, payload());
+      await approveDraft(draft.id);
+      setDirty(false);
+      setConfirming(false);
+      onChanged();
+      onFiled();
+    } catch (e) {
+      setError(`Not approved: ${errorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const meta = draft.sections;
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="min-w-0 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                !dirty ||
+                window.confirm('Leave without saving your changes?')
+              )
+                onBack();
+            }}
+            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            ← All drafts
+          </button>
+          <span className="text-xs text-gray-600">
+            {DRAFT_KIND_LABELS[draft.kind]} · asked for by{' '}
+            {draft.createdByName ?? 'Unknown'} · {when(draft.createdAt)}
+          </span>
+        </div>
+
+        {draft.status === 'approved' ? (
+          <div className="rounded-md border border-resend-green px-3 py-2 text-sm">
+            Approved by {draft.approvedByName ?? 'Unknown'}{' '}
+            {draft.approvedAt && when(draft.approvedAt)}, and filed in
+            Documents.{' '}
+            {draft.documentId && (
+              <a
+                href={documentContentUrl(draft.documentId, true)}
+                className="font-medium text-resend-purple hover:underline"
+              >
+                Download the Word document
+              </a>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-resend-ink">
+            <strong>A draft for you to check, not a finished statement.</strong>{' '}
+            Read each paragraph against its sources (numbered, on the right),
+            correct anything that is wrong, and fill the gaps the draft flags.
+            {draft.removedUnsupported > 0 &&
+              ` ${draft.removedUnsupported} passage${
+                draft.removedUnsupported === 1 ? ' was' : 's were'
+              } removed because nothing in the file supported ${
+                draft.removedUnsupported === 1 ? 'it' : 'them'
+              }.`}
+          </div>
+        )}
+
+        {draft.instructions && (
+          <p className="text-xs text-gray-600">
+            Asked to focus on: “{draft.instructions}”
+          </p>
+        )}
+
+        {sections.map((section, si) => {
+          const info = meta.find((m) => m.key === section.key)!;
+          return (
+            <section key={section.key} aria-labelledby={`h-${section.key}`}>
+              <h3
+                id={`h-${section.key}`}
+                className="mb-2 text-base font-semibold text-resend-ink"
+              >
+                {info.heading}
+              </h3>
+              {info.gap && (
+                <p className="mb-2 rounded-md border border-status-amber px-3 py-1.5 text-sm text-resend-ink">
+                  <span className="font-medium">Not in the file: </span>
+                  {info.gap}
+                </p>
+              )}
+              <ol className="space-y-2">
+                {section.paragraphs.map((p, pi) => (
+                  <li key={p.id ?? `new-${pi}`}>
+                    {editable ? (
+                      <textarea
+                        value={p.text}
+                        onChange={(e) =>
+                          update((all) =>
+                            all.map((s, i) =>
+                              i !== si
+                                ? s
+                                : {
+                                    ...s,
+                                    paragraphs: s.paragraphs.map((q, j) =>
+                                      j === pi
+                                        ? {
+                                            ...q,
+                                            text: e.target.value,
+                                            edited: true,
+                                          }
+                                        : q,
+                                    ),
+                                  },
+                            ),
+                          )
+                        }
+                        rows={Math.max(3, Math.ceil(p.text.length / 90))}
+                        aria-label={`${info.heading}, paragraph ${pi + 1}`}
+                        className="w-full rounded-md border border-gray-200 p-2 text-sm leading-relaxed text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                      />
+                    ) : (
+                      <p className="text-sm leading-relaxed text-resend-ink">
+                        {p.text}
+                      </p>
+                    )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                      {p.sourceIds.length > 0 ? (
+                        <span className="text-gray-600">
+                          From{' '}
+                          {p.sourceIds.map((id) => (
+                            <a
+                              key={id}
+                              href={`#source-${id}`}
+                              className="mr-1 rounded bg-gray-100 px-1.5 py-0.5 font-medium text-resend-ink hover:bg-gray-200"
+                            >
+                              [{sourceNumber.get(id)}]
+                            </a>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">
+                          Written by a caseworker
+                        </span>
+                      )}
+                      {p.edited && p.sourceIds.length > 0 && (
+                        <span className="text-gray-600">· edited</span>
+                      )}
+                      {editable && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            update((all) =>
+                              all.map((s, i) =>
+                                i !== si
+                                  ? s
+                                  : {
+                                      ...s,
+                                      paragraphs: s.paragraphs.filter(
+                                        (_q, j) => j !== pi,
+                                      ),
+                                    },
+                              ),
+                            )
+                          }
+                          className="ml-auto text-status-amber-text hover:underline"
+                        >
+                          Remove paragraph
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    update((all) =>
+                      all.map((s, i) =>
+                        i !== si
+                          ? s
+                          : {
+                              ...s,
+                              paragraphs: [
+                                ...s.paragraphs,
+                                { text: '', sourceIds: [], edited: true },
+                              ],
+                            },
+                      ),
+                    )
+                  }
+                  className="mt-1 text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                >
+                  + Add a paragraph
+                </button>
+              )}
+            </section>
+          );
+        })}
+
+        {draft.missingInformation.length > 0 && (
+          <section aria-labelledby="missing-h">
+            <h3 id="missing-h" className="mb-1 text-base font-semibold">
+              To obtain or check
+            </h3>
+            <ul className="list-disc space-y-0.5 pl-5 text-sm text-resend-ink">
+              {draft.missingInformation.map((m, i) => (
+                <li key={i}>{m}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {error && (
+          <p role="alert" className="text-sm text-status-amber-text">
+            {error}
+          </p>
+        )}
+
+        {editable && (
+          <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 bg-white py-3">
+            {dirty && (
+              <span className="mr-auto text-xs text-gray-600">
+                Unsaved changes
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={!dirty || busy}
+              className="rounded-md border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            >
+              Save changes
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              disabled={busy}
+              className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            >
+              Approve and file…
+            </button>
+          </div>
+        )}
+      </div>
+
+      <aside
+        aria-labelledby="sources-h"
+        className="lg:sticky lg:top-0 lg:self-start"
+      >
+        <h3
+          id="sources-h"
+          className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600"
+        >
+          Sources ({draft.sources.length})
+        </h3>
+        <ol className="space-y-2">
+          {draft.sources.map((s, i) => (
+            <SourceCard key={s.id} source={s} n={i + 1} />
+          ))}
+        </ol>
+      </aside>
+
+      {confirming && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="approve-title"
+        >
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-lg">
+            <h2 id="approve-title" className="text-base font-semibold">
+              Approve this {DRAFT_KIND_LABELS[draft.kind].toLowerCase()}?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              It will be locked, recorded as approved by you, and filed in
+              Documents as a Word document. Further changes can be made in Word.
+            </p>
+            <label className="mt-3 flex items-start gap-2 text-sm text-resend-ink">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => setChecked(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+              />
+              I have read the whole statement and checked it against its
+              sources.
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!checked || busy}
+                onClick={() => void approve()}
+                className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+              >
+                {busy ? 'Filing…' : 'Approve and file'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourceCard({ source, n }: { source: DraftSource; n: number }) {
+  return (
+    <li
+      id={`source-${source.id}`}
+      className="scroll-mt-4 rounded-md border border-gray-200 p-2 text-xs target:border-resend-purple"
+    >
+      <p className="font-medium text-resend-ink">
+        [{n}] {source.title}
+      </p>
+      <p className="text-gray-600">
+        {SOURCE_TYPE_LABELS[source.type] ?? source.type}
+        {source.date && ` · ${formatCivilDate(source.date)}`}
+      </p>
+      <p className="mt-1 whitespace-pre-wrap text-gray-700">{source.excerpt}</p>
+      {source.type === 'document' && (
+        <a
+          href={documentContentUrl(source.id)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block text-resend-purple hover:underline"
+        >
+          Open document
+        </a>
+      )}
+    </li>
+  );
+}

@@ -214,7 +214,7 @@ function RateCell({
                     type="button"
                     onClick={() => remove.mutate(h.id)}
                     disabled={remove.isPending}
-                    className="font-semibold text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                    className="font-semibold text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
                   >
                     Yes, remove
                   </button>
@@ -230,7 +230,7 @@ function RateCell({
                 <button
                   type="button"
                   onClick={() => setConfirmId(h.id)}
-                  className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                  className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
                 >
                   Remove
                 </button>
@@ -243,7 +243,7 @@ function RateCell({
             </li>
           )}
           {remove.isError && (
-            <li role="alert" className="text-status-amber">
+            <li role="alert" className="text-status-amber-text">
               Could not remove. Try again.
             </li>
           )}
@@ -321,10 +321,14 @@ function RateForm({
         />
       </label>
       {amount && pence === null && (
-        <p className="text-xs text-status-amber">Enter an amount like 18.50</p>
+        <p className="text-xs text-status-amber-text">
+          Enter an amount like 18.50
+        </p>
       )}
       {save.isError && (
-        <p className="text-xs text-status-amber">Could not save. Try again.</p>
+        <p className="text-xs text-status-amber-text">
+          Could not save. Try again.
+        </p>
       )}
       <div className="flex gap-2">
         <button

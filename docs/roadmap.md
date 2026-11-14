@@ -18,6 +18,9 @@ between pieces of work.
 - **Time recording**: billables carry their time (15-minute units, required),
   case totals, a "My time" page with earnings, and admin-set dated pay and work
   rates.
+- **Assisted drafting**: a position statement starter drawn only from the
+  case file, every paragraph tied to its sources, reviewed and approved by a
+  caseworker and filed as a Word document.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
@@ -64,6 +67,8 @@ Time recording decisions agreed:
 
 ### Also outstanding from the proposal
 
-- Assisted drafting (SEND tribunal forms, position statement starter).
+- Assisted drafting, next: complete SEND Tribunal forms (e.g. the appeal
+  form) from the case record and documents, with the same grounding and
+  approval.
 - Staff administration screen (joiners and leavers) and full data export.
 - SharePoint library migration.

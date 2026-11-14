@@ -119,7 +119,7 @@ export function CaseSchoolsSection({
           </p>
         ))}
       {error && (
-        <p role="alert" className="text-sm text-status-amber">
+        <p role="alert" className="text-sm text-status-amber-text">
           {error}
         </p>
       )}
@@ -266,7 +266,7 @@ function LinkedSchool({
               <button
                 type="button"
                 onClick={onUnlink}
-                className="font-semibold text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                className="font-semibold text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
               >
                 Yes, unlink
               </button>
@@ -282,7 +282,7 @@ function LinkedSchool({
             <button
               type="button"
               onClick={() => setConfirm(true)}
-              className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+              className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
             >
               Unlink
             </button>

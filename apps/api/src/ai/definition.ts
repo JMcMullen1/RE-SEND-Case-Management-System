@@ -12,12 +12,30 @@ export interface AiJobDefinition<TSchema extends z.ZodTypeAny> {
   name: string;
   /** Per-job model. This is configuration, never a code change. */
   model: ClaudeModel;
-  /** The shape of the output. Converted to the tool the model is forced to call. */
+  /** The shape of the output: a forced tool's input, or the response format. */
   outputSchema: TSchema;
   /** System prompt. Never logged — it may reference case content. */
   systemPrompt: string;
   /** Hard output ceiling. Defaults to 4096. */
   maxTokens?: number;
+  /**
+   * How the structured result is obtained.
+   * - `forced_tool` (default): the schema becomes a tool the model is forced to
+   *   call, with thinking off. For models that accept forced tool use.
+   * - `structured_output`: the schema is the response format
+   *   (`output_config.format`), with adaptive thinking, streamed. For models
+   *   that do not accept forced tool use (e.g. Claude Opus 5.5) and for long,
+   *   judgement-heavy outputs such as drafting.
+   */
+  outputMode?: 'forced_tool' | 'structured_output';
+  /** Effort for `structured_output` jobs (thinking depth and token spend). */
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  /**
+   * On a safety refusal, re-run on the model's server-defined fallback in the
+   * same call (`structured_output` jobs; beta). A refusal by the whole chain
+   * still surfaces as a refusal.
+   */
+  refusalFallback?: boolean;
   /** Name of the generated tool. Defaults to a slug of the job name. */
   toolName?: string;
   /** Description shown to the model for the generated tool. */

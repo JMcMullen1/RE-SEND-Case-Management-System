@@ -80,6 +80,11 @@ const REGISTRY: Record<string, EntityMapping> = {
           ]
         : [],
   },
+  // Drafts on a case: generating, ready, edited, approved (approval also
+  // files a document, which refreshes through the documents entry).
+  drafts: {
+    keys: (_id, scopeId) => (scopeId ? [['drafts', scopeId]] : []),
+  },
   // The schools directory, a school's contacts, and the schools on a case
   // (linking a current or proposed school also updates the child's details).
   schools: {

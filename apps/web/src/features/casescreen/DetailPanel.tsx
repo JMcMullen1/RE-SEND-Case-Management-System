@@ -418,7 +418,7 @@ function LaContactsEditor({
               commit(next);
             }}
             aria-label={`Remove LA contact ${i + 1}`}
-            className="shrink-0 rounded px-1 text-gray-400 hover:text-status-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+            className="shrink-0 rounded px-1 text-gray-400 hover:text-status-amber-text focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
           >
             ×
           </button>
