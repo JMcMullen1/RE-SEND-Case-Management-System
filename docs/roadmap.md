@@ -27,6 +27,10 @@ between pieces of work.
   appeal a decision about an EHC plan — child and appellant copied from the
   case record, the rest drafted with sources, the time limit worked out and
   flagged, filed with a "before you submit" list.
+- **Case list import**: the existing Excel case list brought in by an admin,
+  columns matched to the system's headings, every row checked (new or
+  existing client, duplicate, needs fixing) in simple and advanced views before
+  one audited import.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
@@ -75,4 +79,6 @@ Time recording decisions agreed:
 
 - Assisted drafting, next: other Tribunal forms on the same pattern — SEND35A
   (refusal to assess) and the forms used once an appeal is registered.
-- SharePoint library migration.
+- SharePoint library migration: documents filed against the imported cases
+  (folder per family or child, matched to clients and children, an admin
+  confirming each match).
