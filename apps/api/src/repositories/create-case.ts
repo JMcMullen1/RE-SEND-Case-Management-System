@@ -83,7 +83,7 @@ function confidenceBucket(c: number | undefined): string | null {
 }
 
 /** "Nadia Rahman" -> "Rahman, Nadia"; single-word names pass through. */
-function toDisplayName(fullName: string): string {
+export function toDisplayName(fullName: string): string {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length < 2) return fullName.trim();
   const last = parts[parts.length - 1]!;
@@ -91,7 +91,7 @@ function toDisplayName(fullName: string): string {
   return `${last}, ${rest}`;
 }
 
-async function nextReference(
+export async function nextReference(
   tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
   year: string,
 ): Promise<string> {

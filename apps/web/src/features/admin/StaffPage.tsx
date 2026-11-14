@@ -70,6 +70,12 @@ export function StaffPage() {
             </p>
           </div>
           <a
+            href="/admin/import"
+            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            Import the case list
+          </a>
+          <a
             href="/admin/rates"
             className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >

@@ -32,6 +32,7 @@ import { registerTimeRoutes } from './routes/time';
 import { registerSchoolRoutes } from './routes/schools';
 import { registerDraftRoutes } from './routes/drafts';
 import { registerAdminRoutes } from './routes/admin';
+import { registerCaseImportRoutes } from './routes/case-import';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -164,6 +165,7 @@ export async function buildServer() {
   registerSchoolRoutes(app);
   registerDraftRoutes(app);
   registerAdminRoutes(app);
+  registerCaseImportRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);
