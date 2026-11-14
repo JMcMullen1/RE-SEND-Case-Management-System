@@ -150,7 +150,14 @@ export function registerSchoolRoutes(fastify: FastifyInstance): void {
       const fields = withDefaults(request.body);
       const problem = schoolFieldsProblem(fields);
       if (problem) return reply.code(400).send({ message: problem });
-      const result = await createSchool(fields, user.id, request.query.force);
+      let result: Awaited<ReturnType<typeof createSchool>>;
+      try {
+        result = await createSchool(fields, user.id, request.query.force);
+      } catch (err) {
+        if (err instanceof SchoolConflict)
+          return reply.code(409).send({ message: err.message, duplicates: [] });
+        throw err;
+      }
       if ('duplicates' in result)
         return reply.code(409).send({
           message: 'This school may already be in the directory.',

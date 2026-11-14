@@ -843,10 +843,11 @@ const optionalText = (max: number) => z.string().max(max).nullable().optional();
 
 export const SchoolFieldsInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
+  // Spaces are allowed as typed ("123 456") and removed before checking.
   urn: z
     .string()
-    .trim()
-    .regex(/^(\d{5,7})?$/, 'A URN is 5 to 7 digits.')
+    .transform((v) => v.replace(/\s+/g, ''))
+    .pipe(z.string().regex(/^(\d{5,7})?$/, 'A URN is 5 to 7 digits.'))
     .nullable()
     .optional(),
   address: optionalText(500),

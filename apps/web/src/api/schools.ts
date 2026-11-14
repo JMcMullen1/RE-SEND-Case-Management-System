@@ -55,7 +55,13 @@ export async function createSchool(
   } catch (err) {
     const dupes = (err as ApiError).body as
       { duplicates?: SchoolSummary[] } | undefined;
-    if (err instanceof ApiError && err.status === 409 && dupes?.duplicates)
+    // A 409 with matches is a duplicate warning; one without (a URN already
+    // taken) is an error the form shows as it is.
+    if (
+      err instanceof ApiError &&
+      err.status === 409 &&
+      dupes?.duplicates?.length
+    )
       return { duplicates: dupes.duplicates };
     throw err;
   }

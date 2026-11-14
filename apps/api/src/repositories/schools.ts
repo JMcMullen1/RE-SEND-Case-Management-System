@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  desc,
   eq,
   ilike,
   inArray,
@@ -33,6 +34,12 @@ import {
 import { recordAudit } from './audit';
 
 export class SchoolConflict extends Error {}
+
+const URN_IN_USE = 'Another school in the directory already has this URN.';
+
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string }).code === '23505';
+}
 export class SchoolNotFound extends Error {}
 
 type Db = ReturnType<typeof getDb>;
@@ -74,6 +81,11 @@ const summaryColumns = {
   caseCount,
 };
 
+/** Escape LIKE wildcards so a typed % or _ matches itself. */
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export interface SchoolFilters {
   q?: string;
   section41?: boolean;
@@ -91,7 +103,7 @@ export async function searchSchools(
   if (!filters.includeArchived) conditions.push(isNull(schools.deletedAt));
   const q = filters.q?.trim();
   if (q) {
-    const like = `%${q}%`;
+    const like = `%${escapeLike(q)}%`;
     const key = schoolNameKey(q);
     conditions.push(
       or(
@@ -102,7 +114,7 @@ export async function searchSchools(
           ? and(
               ...key
                 .split(' ')
-                .map((word) => ilike(schools.nameKey, `%${word}%`)),
+                .map((word) => ilike(schools.nameKey, `%${escapeLike(word)}%`)),
             )!
           : sql`false`,
         ilike(schools.urn, like),
@@ -241,26 +253,37 @@ export async function createSchool(
 ): Promise<{ school: SchoolDetail } | { duplicates: SchoolSummary[] }> {
   const values = clean(fields) as SchoolFields;
   const dupes = await findLikelyDuplicates(values);
-  if (values.urn && dupes.some((d) => d.urn === values.urn)) {
-    return { duplicates: dupes.filter((d) => d.urn === values.urn) };
+  // A URN in use by a live school is never shared; an archived school with the
+  // URN is shown as a match but does not block (an admin can restore it).
+  if (values.urn && dupes.some((d) => d.urn === values.urn && !d.archived)) {
+    return {
+      duplicates: dupes.filter((d) => d.urn === values.urn && !d.archived),
+    };
   }
   if (dupes.length && !force) return { duplicates: dupes };
 
   const db = getDb();
-  const id = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(schools)
-      .values({ ...values, nameKey: schoolNameKey(values.name) })
-      .returning({ id: schools.id });
-    await recordAudit(tx, {
-      actorUserId: actor,
-      action: 'school.create',
-      entityType: 'school',
-      entityId: row!.id,
-      after: { name: values.name, urn: values.urn },
+  let id: string;
+  try {
+    id = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(schools)
+        .values({ ...values, nameKey: schoolNameKey(values.name) })
+        .returning({ id: schools.id });
+      await recordAudit(tx, {
+        actorUserId: actor,
+        action: 'school.create',
+        entityType: 'school',
+        entityId: row!.id,
+        after: { name: values.name, urn: values.urn },
+      });
+      return row!.id;
     });
-    return row!.id;
-  });
+  } catch (err) {
+    // Someone added the same URN at the same moment.
+    if (isUniqueViolation(err)) throw new SchoolConflict(URN_IN_USE);
+    throw err;
+  }
   return { school: (await getSchool(id))! };
 }
 
@@ -290,8 +313,7 @@ export async function updateSchool(
             sql`${schools.id} <> ${id}`,
           ),
         );
-      if (clash)
-        throw new SchoolConflict('Another school already has this URN.');
+      if (clash) throw new SchoolConflict(URN_IN_USE);
     }
     const changed: Record<string, unknown> = {};
     const was: Record<string, unknown> = {};
@@ -303,14 +325,19 @@ export async function updateSchool(
       }
     }
     if (Object.keys(changed).length === 0) return;
-    await tx
-      .update(schools)
-      .set({
-        ...changed,
-        ...(values.name ? { nameKey: schoolNameKey(values.name) } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(schools.id, id));
+    try {
+      await tx
+        .update(schools)
+        .set({
+          ...changed,
+          ...(values.name ? { nameKey: schoolNameKey(values.name) } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(schools.id, id));
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new SchoolConflict(URN_IN_USE);
+      throw err;
+    }
     await recordAudit(tx, {
       actorUserId: actor,
       action: 'school.edit',
@@ -319,6 +346,22 @@ export async function updateSchool(
       before: was,
       after: changed,
     });
+    // Children whose Current / Desired school comes from this school follow
+    // a change to its name or address.
+    if ('name' in changed || 'address' in changed || 'postcode' in changed) {
+      const links = await tx
+        .select({ caseId: caseSchools.caseId, role: caseSchools.role })
+        .from(caseSchools)
+        .where(
+          and(eq(caseSchools.schoolId, id), isNull(caseSchools.deletedAt)),
+        );
+      for (const l of links) {
+        await resyncRole(tx, l.caseId, l.role, actor, {
+          name: before.name,
+          address: formatAddress(before),
+        });
+      }
+    }
   });
   return (await getSchool(id))!;
 }
@@ -329,19 +372,32 @@ export async function setSchoolArchived(
   archived: boolean,
   actor: string,
 ): Promise<SchoolDetail> {
-  const db = getDb();
-  const [row] = await db
-    .update(schools)
-    .set({ deletedAt: archived ? new Date() : null, updatedAt: new Date() })
-    .where(eq(schools.id, id))
-    .returning({ id: schools.id });
-  if (!row) throw new SchoolNotFound('School not found');
-  await recordAudit(db, {
-    actorUserId: actor,
-    action: archived ? 'school.archive' : 'school.restore',
-    entityType: 'school',
-    entityId: id,
-  });
+  try {
+    await getDb().transaction(async (tx) => {
+      const [row] = await tx
+        .update(schools)
+        .set({
+          deletedAt: archived ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schools.id, id))
+        .returning({ id: schools.id });
+      if (!row) throw new SchoolNotFound('School not found');
+      await recordAudit(tx, {
+        actorUserId: actor,
+        action: archived ? 'school.archive' : 'school.restore',
+        entityType: 'school',
+        entityId: id,
+      });
+    });
+  } catch (err) {
+    // Restoring a school whose URN has since been given to another.
+    if (isUniqueViolation(err))
+      throw new SchoolConflict(
+        `${URN_IN_USE} Clear the URN on one of them first.`,
+      );
+    throw err;
+  }
   return (await getSchool(id))!;
 }
 
@@ -455,13 +511,23 @@ export async function removeContact(id: string, actor: string): Promise<void> {
       .where(and(eq(schoolContacts.id, id), isNull(schoolContacts.deletedAt)))
       .returning({ id: schoolContacts.id, schoolId: schoolContacts.schoolId });
     if (!row) throw new SchoolNotFound('Contact not found');
-    await tx
+    const changed = await tx
       .update(caseSchools)
       .set({
         contactIds: sql`array_remove(${caseSchools.contactIds}, ${id}::uuid)`,
         updatedAt: new Date(),
       })
-      .where(sql`${id}::uuid = ANY(${caseSchools.contactIds})`);
+      .where(sql`${id}::uuid = ANY(${caseSchools.contactIds})`)
+      .returning({ id: caseSchools.id, caseId: caseSchools.caseId });
+    for (const link of changed) {
+      await recordAudit(tx, {
+        actorUserId: actor,
+        action: 'case_school.edit',
+        entityType: 'case_school',
+        entityId: link.id,
+        after: { caseId: link.caseId, removedContactId: id },
+      });
+    }
     await recordAudit(tx, {
       actorUserId: actor,
       action: 'school_contact.delete',
@@ -503,53 +569,172 @@ export async function listCaseSchools(caseId: string): Promise<CaseSchool[]> {
   }));
 }
 
-/** The child's free-text school field each link role keeps in step. */
-const SYNCED_FIELD: Partial<
-  Record<CaseSchoolRole, 'currentSchoolName' | 'desiredSchool'>
+/** "12 High Street, AL1 2AB" from a school's address and postcode, or null. */
+function formatAddress(s: {
+  address: string | null;
+  postcode: string | null;
+}): string | null {
+  return [s.address, s.postcode].filter(Boolean).join(', ') || null;
+}
+
+/** The child's text fields each link role keeps in step. */
+const SYNCED: Partial<
+  Record<
+    CaseSchoolRole,
+    {
+      name: 'currentSchoolName' | 'desiredSchool';
+      address?: 'currentSchoolAddress';
+    }
+  >
 > = {
-  current: 'currentSchoolName',
-  proposed: 'desiredSchool',
+  current: { name: 'currentSchoolName', address: 'currentSchoolAddress' },
+  proposed: { name: 'desiredSchool' },
 };
 
 /**
- * Keep the child's "Current school" / "Desired school" text in step with a
- * current / proposed link, so the case list, smart fill and corpus (which read
- * those fields) say the same as the directory. Audited as a child edit.
+ * Bring the child's Current / Desired school (and current school address) in
+ * line with the case's links in `role`: the most recently linked live school
+ * in that role wins. With no link left in the role, a field still naming the
+ * school that `leaving` describes is cleared — but text someone typed that
+ * names a different school is never touched. Each change is audited.
  */
-async function syncChildSchoolField(
+async function resyncRole(
   tx: Tx,
   caseId: string,
   role: CaseSchoolRole,
-  schoolName: string,
   actor: string,
+  leaving?: { name: string; address: string | null },
 ): Promise<void> {
-  const field = SYNCED_FIELD[role];
-  if (!field) return;
-  const [row] = await tx
+  const fields = SYNCED[role];
+  if (!fields) return;
+  const [kase] = await tx
     .select({ childId: cases.childId })
     .from(cases)
     .where(eq(cases.id, caseId));
-  if (!row?.childId) return;
+  if (!kase?.childId) return;
   const [child] = await tx
-    .select({ value: children[field] })
+    .select({
+      currentSchoolName: children.currentSchoolName,
+      desiredSchool: children.desiredSchool,
+      currentSchoolAddress: children.currentSchoolAddress,
+    })
     .from(children)
-    .where(eq(children.id, row.childId));
-  if (!child || child.value === schoolName) return;
+    .where(eq(children.id, kase.childId));
+  if (!child) return;
+
+  const [winner] = await tx
+    .select({
+      name: schools.name,
+      address: schools.address,
+      postcode: schools.postcode,
+    })
+    .from(caseSchools)
+    .innerJoin(schools, eq(schools.id, caseSchools.schoolId))
+    .where(
+      and(
+        eq(caseSchools.caseId, caseId),
+        eq(caseSchools.role, role),
+        isNull(caseSchools.deletedAt),
+      ),
+    )
+    .orderBy(desc(caseSchools.updatedAt))
+    .limit(1);
+
+  const next: Record<string, string | null> = {};
+  if (winner) {
+    next[fields.name] = winner.name;
+    const address = formatAddress(winner);
+    if (fields.address && address) next[fields.address] = address;
+    else if (
+      fields.address &&
+      leaving?.address &&
+      child[fields.address] === leaving.address
+    )
+      next[fields.address] = null;
+  } else if (leaving) {
+    if (child[fields.name] === leaving.name) next[fields.name] = null;
+    if (
+      fields.address &&
+      leaving.address &&
+      child[fields.address] === leaving.address
+    )
+      next[fields.address] = null;
+  }
+  const before: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(next)) {
+    const prior = child[k as keyof typeof child];
+    if (prior === v) delete next[k];
+    else before[k] = prior;
+  }
+  if (Object.keys(next).length === 0) return;
   await tx
     .update(children)
-    .set({ [field]: schoolName, updatedAt: new Date() })
-    .where(eq(children.id, row.childId));
+    .set({ ...next, updatedAt: new Date() })
+    .where(eq(children.id, kase.childId));
   await recordAudit(tx, {
     actorUserId: actor,
     action: 'child.edit',
     entityType: 'child',
-    entityId: row.childId,
-    before: { [field]: child.value },
-    after: { [field]: schoolName, source: 'school_link' },
+    entityId: kase.childId,
+    before,
+    after: { ...next, source: 'school_link' },
   });
 }
 
-/** Link a school to a case in a role. Linking the same school in the same role again is a no-op. */
+async function schoolOf(tx: Tx, schoolId: string) {
+  const [school] = await tx
+    .select({
+      name: schools.name,
+      address: schools.address,
+      postcode: schools.postcode,
+    })
+    .from(schools)
+    .where(eq(schools.id, schoolId));
+  return school
+    ? { name: school.name, address: formatAddress(school) }
+    : undefined;
+}
+
+/**
+ * A child has one current school: linking a new current school moves any
+ * other current link to "previous", keeping the history. Audited.
+ */
+async function demoteOtherCurrent(
+  tx: Tx,
+  caseId: string,
+  keepLinkId: string,
+  actor: string,
+): Promise<{ name: string; address: string | null } | undefined> {
+  const moved = await tx
+    .update(caseSchools)
+    .set({ role: 'previous', updatedAt: new Date() })
+    .where(
+      and(
+        eq(caseSchools.caseId, caseId),
+        eq(caseSchools.role, 'current'),
+        isNull(caseSchools.deletedAt),
+        sql`${caseSchools.id} <> ${keepLinkId}`,
+      ),
+    )
+    .returning({ id: caseSchools.id, schoolId: caseSchools.schoolId });
+  for (const m of moved) {
+    await recordAudit(tx, {
+      actorUserId: actor,
+      action: 'case_school.edit',
+      entityType: 'case_school',
+      entityId: m.id,
+      before: { role: 'current' },
+      after: { role: 'previous', reason: 'new current school' },
+    });
+  }
+  // The school moved out, so its details can be cleared from the child.
+  return moved[0] ? schoolOf(tx, moved[0].schoolId) : undefined;
+}
+
+/**
+ * Link a school to a case in a role. Linking the same school in the same role
+ * again is a no-op. A new current school moves the old one to "previous".
+ */
 export async function linkSchool(
   caseId: string,
   schoolId: string,
@@ -559,7 +744,7 @@ export async function linkSchool(
   const db = getDb();
   await db.transaction(async (tx) => {
     const [school] = await tx
-      .select({ name: schools.name })
+      .select({ id: schools.id })
       .from(schools)
       .where(and(eq(schools.id, schoolId), isNull(schools.deletedAt)));
     if (!school) throw new SchoolNotFound('School not found');
@@ -582,7 +767,11 @@ export async function linkSchool(
       entityId: row.id,
       after: { caseId, schoolId, role },
     });
-    await syncChildSchoolField(tx, caseId, role, school.name, actor);
+    const replaced =
+      role === 'current'
+        ? await demoteOtherCurrent(tx, caseId, row.id, actor)
+        : undefined;
+    await resyncRole(tx, caseId, role, actor, replaced);
   });
   return listCaseSchools(caseId);
 }
@@ -636,7 +825,7 @@ export async function updateCaseSchool(
         })
         .where(eq(caseSchools.id, linkId));
     } catch (err) {
-      if ((err as { code?: string }).code === '23505')
+      if (isUniqueViolation(err))
         throw new SchoolConflict('This school is already linked in that role.');
       throw err;
     }
@@ -649,41 +838,51 @@ export async function updateCaseSchool(
       after: { role: patch.role, contactIds },
     });
     if (patch.role && patch.role !== before.role) {
-      const [school] = await tx
-        .select({ name: schools.name })
-        .from(schools)
-        .where(eq(schools.id, before.schoolId));
-      await syncChildSchoolField(tx, caseId, patch.role, school!.name, actor);
+      const replaced =
+        patch.role === 'current'
+          ? await demoteOtherCurrent(tx, caseId, linkId, actor)
+          : undefined;
+      const leaving = await schoolOf(tx, before.schoolId);
+      await resyncRole(tx, caseId, before.role, actor, leaving);
+      await resyncRole(tx, caseId, patch.role, actor, replaced);
     }
   });
   return listCaseSchools(caseId);
 }
 
-/** Unlink a school from a case (soft, audited). */
+/** Unlink a school from a case (soft, audited), updating the child's fields. */
 export async function unlinkSchool(
   caseId: string,
   linkId: string,
   actor: string,
 ): Promise<CaseSchool[]> {
-  const db = getDb();
-  const [row] = await db
-    .update(caseSchools)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(caseSchools.id, linkId),
-        eq(caseSchools.caseId, caseId),
-        isNull(caseSchools.deletedAt),
-      ),
-    )
-    .returning({ schoolId: caseSchools.schoolId, role: caseSchools.role });
-  if (!row) throw new SchoolNotFound('Link not found');
-  await recordAudit(db, {
-    actorUserId: actor,
-    action: 'case_school.unlink',
-    entityType: 'case_school',
-    entityId: linkId,
-    before: { caseId, schoolId: row.schoolId, role: row.role },
+  await getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .update(caseSchools)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(caseSchools.id, linkId),
+          eq(caseSchools.caseId, caseId),
+          isNull(caseSchools.deletedAt),
+        ),
+      )
+      .returning({ schoolId: caseSchools.schoolId, role: caseSchools.role });
+    if (!row) throw new SchoolNotFound('Link not found');
+    await recordAudit(tx, {
+      actorUserId: actor,
+      action: 'case_school.unlink',
+      entityType: 'case_school',
+      entityId: linkId,
+      before: { caseId, schoolId: row.schoolId, role: row.role },
+    });
+    await resyncRole(
+      tx,
+      caseId,
+      row.role,
+      actor,
+      await schoolOf(tx, row.schoolId),
+    );
   });
   return listCaseSchools(caseId);
 }

@@ -11,12 +11,21 @@
  * NOTIFY channel or a cache.
  */
 
-import { invalidateCorpus } from './corpus/cache';
+import { invalidateAllCorpora, invalidateCorpus } from './corpus/cache';
 
 type QueryKey = (string | number)[];
 
 /** Entities whose changes must drop the cached corpus for their case. */
-const CORPUS_ENTITIES = new Set(['cases', 'case_notes', 'documents', 'emails']);
+const CORPUS_ENTITIES = new Set([
+  'cases',
+  'case_notes',
+  'documents',
+  'emails',
+  'case_schools',
+]);
+
+/** Entities read into many cases' corpora at once: a change drops them all. */
+const CORPUS_WIDE_ENTITIES = new Set(['schools', 'school_contacts']);
 
 interface EntityMapping {
   /** Query keys to invalidate, given the row id and its scope (case) id. */
@@ -74,7 +83,10 @@ const REGISTRY: Record<string, EntityMapping> = {
   // The schools directory, a school's contacts, and the schools on a case
   // (linking a current or proposed school also updates the child's details).
   schools: {
-    keys: (id) => (id ? [['schools'], ['school', id]] : [['schools']]),
+    keys: (id) =>
+      id
+        ? [['schools'], ['school', id], ['case-schools']]
+        : [['schools'], ['case-schools']],
   },
   school_contacts: {
     keys: (_id, scopeId) =>
@@ -191,6 +203,7 @@ export function dispatchEntityChange(
   if (corpusCaseId && CORPUS_ENTITIES.has(entity)) {
     invalidateCorpus(corpusCaseId);
   }
+  if (CORPUS_WIDE_ENTITIES.has(entity)) invalidateAllCorpora();
 
   const mapping = REGISTRY[entity];
   if (!mapping) return;

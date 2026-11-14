@@ -238,6 +238,14 @@ export function AddSchoolDialog({
 
   const save = async (fields: SchoolFields, force = false) => {
     const res = await createSchool(fields, force);
+    if ('duplicates' in res && force) {
+      // Still refused when forced: its URN belongs to a school listed here.
+      setDuplicates(res.duplicates);
+      setError(
+        'This URN already belongs to the school shown, so a second record cannot be added. Use that school, or clear the URN.',
+      );
+      return;
+    }
     if ('duplicates' in res) {
       setPending(fields);
       setDuplicates(res.duplicates);
@@ -276,8 +284,9 @@ export function AddSchoolDialog({
                     <span className="block font-medium text-resend-ink">
                       {d.name}
                       {d.archived && (
-                        <span className="ml-1 text-xs font-normal text-gray-500">
-                          (archived)
+                        <span className="ml-1 text-xs font-normal text-gray-600">
+                          (archived — an admin can restore it from the schools
+                          list)
                         </span>
                       )}
                     </span>
@@ -307,7 +316,10 @@ export function AddSchoolDialog({
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setDuplicates(null)}
+                onClick={() => {
+                  setDuplicates(null);
+                  setError(null);
+                }}
                 className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
                 Back

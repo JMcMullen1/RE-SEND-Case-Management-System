@@ -206,7 +206,8 @@ run('schools directory API', () => {
           WHERE entity_id = ${link.linkId}
             AND action IN ('case_school.link','case_school.edit','case_school.unlink')`,
     )) as unknown as { n: number }[];
-    expect(audit!.n).toBe(3);
+    // Linked, contacts ticked, contact removed from the link, unlinked.
+    expect(audit!.n).toBe(4);
     await app.close();
   });
 
@@ -237,6 +238,168 @@ run('schools directory API', () => {
       })
     ).json().schools;
     expect(withArchived).toHaveLength(1);
+    await app.close();
+  });
+
+  it("keeps the child's school fields in step as links change, and follows renames", async () => {
+    const app = await buildServer();
+    const add = async (name: string, extra: Record<string, unknown> = {}) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/schools?force=true',
+          headers: as(worker()),
+          payload: { name, ...extra },
+        })
+      ).json() as { id: string };
+    const a = await add(`Alder ${stamp}`, {
+      address: '1 Alder Road',
+      postcode: 'AL1 1AA',
+    });
+    const b = await add(`Birch ${stamp}`);
+    // A fresh case so earlier links do not interfere.
+    const kase = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/cases',
+        headers: as(worker()),
+        payload: {
+          client: { fullName: 'Sync Parent' },
+          child: { fullName: 'Sync Child' },
+          case: { currentWork: 'Section Appeal' },
+        },
+      })
+    ).json().caseId as string;
+    const child = async () =>
+      (
+        await app.inject({ method: 'GET', url: `/api/cases/${kase}/detail` })
+      ).json().child as {
+        currentSchoolName: string | null;
+        currentSchoolAddress: string | null;
+        desiredSchool: string | null;
+      };
+    const link = async (schoolId: string, role: string) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/cases/${kase}/schools`,
+          headers: as(worker()),
+          payload: { schoolId, role },
+        })
+      ).json().schools as {
+        linkId: string;
+        role: string;
+        school: { id: string };
+      }[];
+
+    // Current school brings its name and address.
+    await link(a.id, 'current');
+    expect(await child()).toMatchObject({
+      currentSchoolName: `Alder ${stamp}`,
+      currentSchoolAddress: '1 Alder Road, AL1 1AA',
+    });
+
+    // Renaming the school follows through to the child.
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/schools/${a.id}`,
+      headers: as(worker()),
+      payload: { name: `Alder Park ${stamp}` },
+    });
+    expect((await child()).currentSchoolName).toBe(`Alder Park ${stamp}`);
+
+    // A new current school moves the old one to "previous".
+    const links = await link(b.id, 'current');
+    expect(links.find((l) => l.school.id === a.id)?.role).toBe('previous');
+    expect(await child()).toMatchObject({
+      currentSchoolName: `Birch ${stamp}`,
+      currentSchoolAddress: null,
+    });
+
+    // Moving Birch from current to proposed: current is now empty, desired is Birch.
+    const birch = links.find((l) => l.school.id === b.id)!;
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/cases/${kase}/schools/${birch.linkId}`,
+      headers: as(worker()),
+      payload: { role: 'proposed' },
+    });
+    expect(await child()).toMatchObject({
+      currentSchoolName: null,
+      desiredSchool: `Birch ${stamp}`,
+    });
+
+    // Unlinking clears the desired school it set...
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${kase}/schools/${birch.linkId}`,
+      headers: as(worker()),
+    });
+    expect((await child()).desiredSchool).toBeNull();
+
+    // ...but never text someone typed for a different school.
+    const [row] = (await getDb().execute(
+      sql`SELECT child_id FROM cases WHERE id = ${kase}`,
+    )) as unknown as { child_id: string }[];
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/children/${row!.child_id}`,
+      headers: as(worker()),
+      payload: { desiredSchool: 'A school typed by hand' },
+    });
+    const again = await link(b.id, 'proposed');
+    expect((await child()).desiredSchool).toBe(`Birch ${stamp}`);
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/cases/${kase}/schools/${
+        again.find((l) => l.school.id === b.id && l.role === 'proposed')!.linkId
+      }`,
+      headers: as(worker()),
+    });
+    expect((await child()).desiredSchool).toBeNull();
+    await app.close();
+  });
+
+  it('handles URNs: spaces, archived schools, and a clash on restore', async () => {
+    const app = await buildServer();
+    const urn2 = String(200000 + (stamp % 700000));
+    const spaced = await app.inject({
+      method: 'POST',
+      url: '/api/schools',
+      headers: as(worker()),
+      payload: {
+        name: `Cedar ${stamp}`,
+        urn: `${urn2.slice(0, 3)} ${urn2.slice(3)}`,
+      },
+    });
+    expect(spaced.statusCode).toBe(200);
+    expect(spaced.json().urn).toBe(urn2);
+    const cedar = spaced.json().id as string;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/schools/${cedar}/archive`,
+      headers: as(admin()),
+      payload: { archived: true },
+    });
+    // With the URN's school archived, a new record may use it (forced past
+    // the archived match).
+    const reuse = await app.inject({
+      method: 'POST',
+      url: '/api/schools?force=true',
+      headers: as(worker()),
+      payload: { name: `Cedar Two ${stamp}`, urn: urn2 },
+    });
+    expect(reuse.statusCode).toBe(200);
+    // Restoring the archived one now clashes: a clear 409, not a 500.
+    const restore = await app.inject({
+      method: 'POST',
+      url: `/api/schools/${cedar}/archive`,
+      headers: as(admin()),
+      payload: { archived: false },
+    });
+    expect(restore.statusCode).toBe(409);
+    expect(restore.json().message).toMatch(/URN/);
     await app.close();
   });
 });
