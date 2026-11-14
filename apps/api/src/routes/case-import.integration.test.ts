@@ -78,7 +78,11 @@ run('case list import API', () => {
         method: 'POST',
         url,
         headers: as(worker()),
-        payload: { ...body(), expectedToImport: 1 },
+        payload: {
+          ...body(),
+          expectedFingerprint: 'f'.repeat(64),
+          expectedToImport: 1,
+        },
       });
       expect(res.statusCode).toBe(403);
     }
@@ -111,12 +115,30 @@ run('case list import API', () => {
     expect(analysis.rows[0]).not.toHaveProperty('plan');
     expect(await count()).toBe(before);
 
-    // A stale preview is refused, and nothing is imported.
+    // A list or matches other than those previewed are refused, and
+    // nothing is imported.
+    const fingerprint = analysis.fingerprint as string;
+    const changed = await app.inject({
+      method: 'POST',
+      url: '/api/admin/import/cases',
+      headers: as(admin()),
+      payload: {
+        ...body(),
+        valueMaps: { status: { Odd: 'Active' } },
+        expectedFingerprint: fingerprint,
+        expectedToImport: 2,
+      },
+    });
+    expect(changed.statusCode).toBe(409);
     const stale = await app.inject({
       method: 'POST',
       url: '/api/admin/import/cases',
       headers: as(admin()),
-      payload: { ...body(), expectedToImport: 3 },
+      payload: {
+        ...body(),
+        expectedFingerprint: fingerprint,
+        expectedToImport: 3,
+      },
     });
     expect(stale.statusCode).toBe(409);
     expect(await count()).toBe(before);
@@ -125,7 +147,11 @@ run('case list import API', () => {
       method: 'POST',
       url: '/api/admin/import/cases',
       headers: as(admin()),
-      payload: { ...body(), expectedToImport: 2 },
+      payload: {
+        ...body(),
+        expectedFingerprint: fingerprint,
+        expectedToImport: 2,
+      },
     });
     expect(done.statusCode).toBe(200);
     expect(done.json()).toMatchObject({

@@ -104,7 +104,7 @@ export function ImportPage() {
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
   const importNow = useMutation({
-    mutationFn: () => runImport(body!, preview!.summary.toImport),
+    mutationFn: () => runImport(body!, preview!),
     onSuccess: (r) => {
       setResult(r);
       setConfirming(false);
@@ -119,16 +119,23 @@ export function ImportPage() {
     const seq = ++checkSeq.current;
     setChecking(true);
     setCheckError(null);
-    previewImport(body)
-      .then((p) => {
-        if (seq === checkSeq.current) setPreview(p);
-      })
-      .catch((e: unknown) => {
-        if (seq === checkSeq.current) setCheckError(errorText(e));
-      })
-      .finally(() => {
-        if (seq === checkSeq.current) setChecking(false);
-      });
+    // Wait for a pause in changes, so a run of choices is checked once.
+    const timer = setTimeout(() => {
+      previewImport(body)
+        .then((p) => {
+          if (seq === checkSeq.current) setPreview(p);
+        })
+        .catch((e: unknown) => {
+          // Never leave an earlier result on screen to be imported.
+          if (seq !== checkSeq.current) return;
+          setPreview(null);
+          setCheckError(errorText(e));
+        })
+        .finally(() => {
+          if (seq === checkSeq.current) setChecking(false);
+        });
+    }, 400);
+    return () => clearTimeout(timer);
   }, [sheet, mapping, valueMaps]);
 
   const chooseSheet = (index: number, all = sheets) => {
@@ -429,11 +436,12 @@ export function ImportPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <h2 id="rows-h" className="mr-auto text-base font-semibold">
                   {preview?.valuesToMatch.length ? '4.' : '3.'} Check the rows
-                  {checking && (
-                    <span className="ml-2 text-sm font-normal text-gray-600">
-                      Checking…
-                    </span>
-                  )}
+                  <span
+                    aria-live="polite"
+                    className="ml-2 text-sm font-normal text-gray-600"
+                  >
+                    {checking ? 'Checking…' : ''}
+                  </span>
                 </h2>
                 <SegmentedControl mode={mode} onChange={setMode} />
               </div>
@@ -619,6 +627,10 @@ export function ImportPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-h"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !importNow.isPending)
+              setConfirming(false);
+          }}
         >
           <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-lg">
             <h2 id="confirm-h" className="text-base font-semibold">
@@ -644,6 +656,7 @@ export function ImportPage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
+                autoFocus
                 onClick={() => setConfirming(false)}
                 className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >

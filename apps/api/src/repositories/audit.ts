@@ -31,3 +31,22 @@ export async function recordAudit(
     after: entry.after ?? null,
   });
 }
+
+/** Record many changes at once (a bulk import), in chunks. */
+export async function recordAudits(
+  tx: Db | Tx,
+  entries: readonly AuditEntry[],
+): Promise<void> {
+  for (let i = 0; i < entries.length; i += 1000) {
+    await tx.insert(auditLog).values(
+      entries.slice(i, i + 1000).map((entry) => ({
+        actorUserId: entry.actorUserId,
+        action: entry.action,
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        before: entry.before ?? null,
+        after: entry.after ?? null,
+      })),
+    );
+  }
+}

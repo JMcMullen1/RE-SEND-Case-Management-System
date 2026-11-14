@@ -15,7 +15,8 @@ import {
 
 const Message = z.object({ message: z.string() });
 const FieldId = z.enum(CASE_IMPORT_FIELD_IDS);
-const Cell = z.string().max(20_000);
+// Excel holds up to 32,767 characters in a cell.
+const Cell = z.string().max(40_000);
 
 const ImportRequestSchema = z.object({
   rows: z.array(z.array(Cell).max(200)).max(CASE_IMPORT_MAX_ROWS, {
@@ -53,6 +54,7 @@ const AnalysisSchema = z.object({
       matchedTo: z.string().nullable(),
     }),
   ),
+  fingerprint: z.string(),
   summary: z.object({
     total: z.number().int(),
     toImport: z.number().int(),
@@ -73,7 +75,7 @@ const ResultSchema = z.object({
 });
 
 /** The preview as sent to the browser: the import plan stays on the server. */
-function withoutPlans(analysis: CaseImportAnalysis) {
+function withoutPlans(analysis: CaseImportAnalysis & { fingerprint: string }) {
   return {
     ...analysis,
     rows: analysis.rows.map(({ plan: _plan, ...row }) => row),
@@ -122,6 +124,8 @@ export function registerCaseImportRoutes(fastify: FastifyInstance): void {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: ImportRequestSchema.extend({
+          /** The fingerprint of the list as previewed. */
+          expectedFingerprint: z.string().length(64),
           /** How many cases the preview said would be imported. */
           expectedToImport: z.number().int().min(1),
         }),
@@ -131,9 +135,13 @@ export function registerCaseImportRoutes(fastify: FastifyInstance): void {
     async (request, reply) => {
       const admin = await requireAdmin(request, reply);
       if (!admin) return;
-      const { expectedToImport, ...list } = request.body;
+      const { expectedFingerprint, expectedToImport, ...list } = request.body;
       try {
-        return await commitCaseImport(list, expectedToImport, admin.id);
+        return await commitCaseImport(
+          list,
+          { fingerprint: expectedFingerprint, toImport: expectedToImport },
+          admin.id,
+        );
       } catch (err) {
         if (err instanceof ImportChanged)
           return reply.code(409).send({ message: err.message });

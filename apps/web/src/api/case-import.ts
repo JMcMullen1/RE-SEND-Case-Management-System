@@ -8,6 +8,8 @@ import { request } from './client';
 /** The preview as the API returns it (the import plan stays on the server). */
 export type ImportPreview = Omit<CaseImportAnalysis, 'rows'> & {
   rows: Omit<CaseImportRow, 'plan'>[];
+  /** Identifies exactly the list checked; the import must match it. */
+  fingerprint: string;
 };
 
 export interface ImportResult {
@@ -28,10 +30,14 @@ export function previewImport(body: CaseImportRequest): Promise<ImportPreview> {
 
 export function runImport(
   body: CaseImportRequest,
-  expectedToImport: number,
+  preview: ImportPreview,
 ): Promise<ImportResult> {
   return request('/api/admin/import/cases', {
     method: 'POST',
-    body: JSON.stringify({ ...body, expectedToImport }),
+    body: JSON.stringify({
+      ...body,
+      expectedFingerprint: preview.fingerprint,
+      expectedToImport: preview.summary.toImport,
+    }),
   });
 }

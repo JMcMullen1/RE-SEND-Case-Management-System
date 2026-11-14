@@ -78,7 +78,7 @@ const context: CaseImportContext = {
   cases: [
     {
       caseReference: 'RS-2025-1001',
-      clientName: 'Kim Known',
+      clientId: 'c-known',
       childName: 'Ash',
       dateOfEnquiry: '2025-03-01',
     },
@@ -113,7 +113,8 @@ describe('matchImportHeadings', () => {
 describe('parseImportDate', () => {
   it('reads UK dates and ISO dates, and refuses anything else', () => {
     expect(parseImportDate('01/09/2026')).toBe('2026-09-01');
-    expect(parseImportDate('1/9/26')).toBe('2026-09-01');
+    expect(parseImportDate('1/9/26', '2026-11-14')).toBe('2026-09-01');
+    expect(parseImportDate('12/05/98', '2026-11-14')).toBe('1998-05-12');
     expect(parseImportDate('2026-09-01')).toBe('2026-09-01');
     expect(parseImportDate('31/02/2026')).toBeNull();
     expect(parseImportDate('September')).toBeNull();
@@ -277,5 +278,83 @@ describe('analyseCaseImport', () => {
     expect(text).toMatch(/Lee Leaver has left/);
     expect(text).toMatch(/does not look like an email/);
     expect(rows[0]!.plan!.clientFields!.email).toBeNull();
+  });
+
+  it('never joins two people who share an email address', () => {
+    const shared = 'office@school.example';
+    const { rows } = analyseCaseImport(
+      request([
+        row({
+          'Client Name': 'Alex Testone',
+          Email: shared,
+          "Child's Name": 'Kim',
+        }),
+        row({
+          'Client Name': 'Robin Testtwo',
+          Email: shared,
+          "Child's Name": 'Lee',
+        }),
+        // On the system, kim@example.org belongs to Kim Known.
+        row({ 'Client Name': 'Someone Else', Email: 'kim@example.org' }),
+      ]),
+      context,
+    );
+    expect(rows.map((r) => r.outcome)).toEqual([
+      'import',
+      'problem',
+      'problem',
+    ]);
+    expect(rows[1]!.issues.at(-1)!.message).toMatch(
+      /Row 2 gives the same email/,
+    );
+    expect(rows[2]!.issues.at(-1)!.message).toMatch(/belongs to Kim Known/);
+  });
+
+  it('does not let a name and postcode override a different email', () => {
+    const { rows } = analyseCaseImport(
+      request([
+        row({
+          'Client Name': 'Kim Known',
+          Email: 'another@example.org',
+          Postcode: 'LS1 1AA',
+        }),
+      ]),
+      context,
+    );
+    expect(rows[0]!.plan!.client.kind).toBe('new');
+    expect(rows[0]!.issues.map((i) => i.message).join(' ')).toMatch(
+      /with a different email/,
+    );
+  });
+
+  it('recognises a case already imported, by the client it was joined to', () => {
+    // Joined to Kim Known by email: the case on the system is found by client.
+    const { rows } = analyseCaseImport(
+      request([
+        row({
+          'Client Name': 'Kim Known',
+          Email: 'kim@example.org',
+          "Child's Name": 'Ash',
+          'Date of enquiry': '01/03/2025',
+        }),
+      ]),
+      {
+        ...context,
+        clients: [{ ...context.clients[0]!, fullName: 'Kim Known' }],
+      },
+    );
+    expect(rows[0]!.outcome).toBe('duplicate');
+  });
+
+  it('refuses a date of enquiry in the future, and marks the imported note', () => {
+    const { rows } = analyseCaseImport(
+      request([row({ 'Date of enquiry': '01/01/2027' }), row()]),
+      context,
+    );
+    expect(rows[0]!.outcome).toBe('problem');
+    expect(rows[0]!.issues[0]!.message).toMatch(/in the future/);
+    expect(rows[1]!.plan!.note!.body).toMatch(
+      /^From the case list \(imported\):\n22\/09\/2026/,
+    );
   });
 });

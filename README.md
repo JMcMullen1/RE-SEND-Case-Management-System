@@ -154,22 +154,28 @@ admins only; `packages/shared/src/case-import.ts`,
   "Enquiries" are queues. Anything not recognised is listed once under
   "Values to match" for an admin to choose what it means, for every row at once.
 - **Every row is checked before anything is saved**: to import, already there
-  (a case for the same client, child and date of enquiry, on the system or
-  earlier in the sheet — so importing a corrected file again only adds what is
-  new), or needs fixing (no date of enquiry, an unknown status, nobody named).
+  (a case for the same client — as matched, not as spelled — child and date of
+  enquiry, on the system or earlier in the sheet — so importing a corrected
+  file again only adds what is new), or needs fixing (no date of enquiry or one
+  in the future, an unknown status, nobody named, an email clash). Two-digit
+  years are read as this century up to this year (98 is 1998).
   Blank rows are skipped; row numbers are the spreadsheet's own.
 - **Families are never joined by guesswork.** A row joins an existing client
-  only on the same email, or the same name and postcode; siblings in the sheet
-  share one new client the same way. A name alone makes a separate record and
-  says so.
+  on the same email and name, or on the same name and postcode when the two do
+  not have different emails; siblings in the sheet share one new client the
+  same way. One email given for two different names (a school's or a
+  professional's address, say) is a problem to fix in the sheet, never a join.
+  A name alone makes a separate record and says so.
 - **Simple and advanced views**, as in the case list: the simple view shows the
   essentials; the advanced view shows every column. "More" on a row shows what
   to look at and each value as written and as it will be imported. Rows can be
   filtered by outcome.
-- **Importing.** The list is checked again and imported in one transaction —
-  all of it or none — and refused if it no longer matches the preview. Cases
-  get references for their year of enquiry; the Notes column becomes a case
-  note dated by its latest entry. Each case is audited as created by import
+- **Importing.** The import must be of exactly the list and matches checked (a
+  fingerprint of both), is checked again, and runs in one transaction — all of
+  it or none — refused if it no longer matches the preview. It writes in bulk
+  (3,000 cases in about a second). Cases get references for their year of
+  enquiry; the Notes column becomes a case note, headed as imported and dated
+  by its latest entry. Each case is audited as created by import
   (batch and row), and the import with its counts.
 
 ## Assisted drafting

@@ -13,6 +13,7 @@ import {
   CASE_IMPORT_DEFAULT_QUEUE,
   CASE_IMPORT_DEFAULT_STATUS,
   CASE_IMPORT_FIELDS,
+  CASE_IMPORT_NOTE_HEADING,
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
   TEAM_VALUES,
@@ -56,7 +57,7 @@ export interface CaseImportContext {
   /** Live cases, by who and when (the duplicate check). */
   cases: readonly {
     caseReference: string;
-    clientName: string | null;
+    clientId: string | null;
     childName: string | null;
     dateOfEnquiry: string;
   }[];
@@ -185,12 +186,17 @@ export function matchImportHeadings(
  * A UK date as written in a spreadsheet — 01/09/2026, 1/9/26, 01.09.2026,
  * 01-09-2026 — or an ISO date (how date cells arrive), as YYYY-MM-DD.
  */
-export function parseImportDate(raw: string): string | null {
+export function parseImportDate(raw: string, today?: string): string | null {
   const value = raw.trim();
   if (isCivilDate(value)) return value;
   const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(value);
   if (!m) return null;
-  const year = m[3]!.length === 2 ? `20${m[3]}` : m[3]!;
+  // A two-digit year is this century up to this year, else the last (98 → 1998).
+  const thisYear = Number((today ?? new Date().toISOString()).slice(2, 4));
+  const year =
+    m[3]!.length === 2
+      ? `${Number(m[3]) <= thisYear ? '20' : '19'}${m[3]}`
+      : m[3]!;
   const iso = `${year}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`;
   return isCivilDate(iso) ? iso : null;
 }
@@ -219,7 +225,7 @@ function matchVocab(raw: string, values: readonly string[]): string | null {
 function latestDateIn(text: string, today: string): string | null {
   let latest: string | null = null;
   for (const m of text.matchAll(/\b(\d{1,2}\/\d{1,2}\/(?:\d{4}|\d{2}))\b/g)) {
-    const iso = parseImportDate(m[1]!);
+    const iso = parseImportDate(m[1]!, today);
     if (iso && iso <= today && (!latest || iso > latest)) latest = iso;
   }
   return latest;
@@ -255,15 +261,40 @@ export function analyseCaseImport(
   const manual = (field: CaseImportFieldId, value: string) =>
     request.valueMaps[field]?.[value];
 
-  // Clients and children made by earlier rows, by identity key.
-  const newClients = new Map<string, number>();
-  const seenCases = new Map<string, number>();
+  // What is on the system, indexed once (a list can have thousands of rows).
+  type Known = CaseImportContext['clients'][number];
+  const push = <K, V>(map: Map<K, V[]>, key: K, value: V) => {
+    const list = map.get(key);
+    if (list) list.push(value);
+    else map.set(key, [value]);
+  };
+  const byEmail = new Map<string, Known[]>();
+  const byNamePostcode = new Map<string, Known[]>();
+  const knownNames = new Set<string>();
+  for (const c of context.clients) {
+    const nameKey = importKey(c.fullName);
+    knownNames.add(nameKey);
+    if (c.email) push(byEmail, normaliseEmail(c.email), c);
+    if (c.postcode)
+      push(byNamePostcode, `${nameKey}|${importKey(c.postcode)}`, c);
+  }
+  const childrenOf = new Map<string, Map<string, string>>();
+  for (const c of context.children) {
+    let kids = childrenOf.get(c.clientId);
+    if (!kids) childrenOf.set(c.clientId, (kids = new Map()));
+    kids.set(importKey(c.fullName), c.childId);
+  }
+  // A case is the same case when it is for the same client and child, on the
+  // same date of enquiry — the client as resolved, not as spelled in the sheet.
   const existingCases = new Map(
     context.cases.map((c) => [
-      `${importKey(c.clientName ?? '')}|${importKey(c.childName ?? '')}|${c.dateOfEnquiry}`,
+      `${c.clientId ?? 'none'}|${importKey(c.childName ?? '')}|${c.dateOfEnquiry}`,
       c.caseReference,
     ]),
   );
+  // New clients made by earlier rows, by identity key.
+  const newClients = new Map<string, { rowNumber: number; name: string }>();
+  const seenCases = new Map<string, number>();
 
   const rows: CaseImportRow[] = [];
   request.rows.forEach((cells, index) => {
@@ -309,9 +340,13 @@ export function analyseCaseImport(
 
     // Date of enquiry: required.
     const dateOfEnquiry = raw.dateOfEnquiry
-      ? parseImportDate(raw.dateOfEnquiry)
+      ? parseImportDate(raw.dateOfEnquiry, context.today)
       : null;
     if (!raw.dateOfEnquiry) problem('No date of enquiry.');
+    else if (dateOfEnquiry && dateOfEnquiry > context.today)
+      problem(
+        `Date of enquiry “${raw.dateOfEnquiry}” is in the future. Check it in the sheet.`,
+      );
     else if (!dateOfEnquiry)
       problem(
         `Date of enquiry “${raw.dateOfEnquiry}” is not a date (use DD/MM/YYYY).`,
@@ -460,38 +495,50 @@ export function analyseCaseImport(
       shown.clientName = clientName;
       const postKey = importKey(contact.postcode ?? '');
       const nameKey = importKey(clientName);
-      const onSystem = context.clients.find(
-        (c) =>
-          (email && c.email && normaliseEmail(c.email) === email) ||
-          (postKey &&
-            importKey(c.fullName) === nameKey &&
-            importKey(c.postcode ?? '') === postKey),
-      );
-      const key = email
-        ? `e:${email}`
-        : postKey
-          ? `np:${nameKey}|${postKey}`
-          : `row:${rowNumber}`;
+      const sameName = (c: Known) => importKey(c.fullName) === nameKey;
+      let onSystem: Known | null = null;
+      let emailConflict = false;
+      // 1. An email names one family: the same email must be the same name.
+      const byThisEmail = email ? (byEmail.get(email) ?? []) : [];
+      if (byThisEmail.length > 0) {
+        onSystem = byThisEmail.find(sameName) ?? null;
+        emailConflict = !onSystem;
+        if (emailConflict)
+          problem(
+            `The email ${email} belongs to ${byThisEmail[0]!.fullName} on the system, but this row names ${clientName}. One email address cannot be two people’s (a school’s or a professional’s, say): correct the name or the email in the sheet.`,
+          );
+      } else if (postKey) {
+        // 2. Name and postcode — unless both sides have different emails.
+        const candidates = byNamePostcode.get(`${nameKey}|${postKey}`) ?? [];
+        const compatible = candidates.filter((c) => !email || !c.email);
+        if (compatible.length === 1) onSystem = compatible[0]!;
+        else if (candidates.length > 0)
+          warn(
+            `A client called ${clientName} with this postcode is already on the system${email ? ' with a different email' : ' more than once'}, so a separate client record will be made. Check whether it is the same person.`,
+          );
+      }
       if (onSystem) {
         client = { kind: 'existing', id: onSystem.id };
         clientNote = `Existing client (${onSystem.fullName})`;
-        if (importKey(onSystem.fullName) !== nameKey)
-          warn(
-            `Joined to the client ${onSystem.fullName}, who has the same email address. Check this is the same person.`,
-          );
-      } else {
-        client = { kind: 'new', key };
+      } else if (!emailConflict) {
+        const key = email
+          ? `e:${email}`
+          : postKey
+            ? `np:${nameKey}|${postKey}`
+            : `row:${rowNumber}`;
         const earlier = newClients.get(key);
-        clientNote =
-          earlier !== undefined
-            ? `Same new client as row ${earlier}`
+        if (earlier && importKey(earlier.name) !== nameKey)
+          problem(
+            `Row ${earlier.rowNumber} gives the same email (${email}) for ${earlier.name}. One email address cannot be two people’s: correct the name or the email in the sheet.`,
+          );
+        else {
+          client = { kind: 'new', key };
+          clientNote = earlier
+            ? `Same new client as row ${earlier.rowNumber}`
             : 'New client';
-        if (earlier === undefined) newClients.set(key, rowNumber);
-        if (
-          !email &&
-          !postKey &&
-          context.clients.some((c) => importKey(c.fullName) === nameKey)
-        )
+          if (!earlier) newClients.set(key, { rowNumber, name: clientName });
+        }
+        if (!email && !postKey && knownNames.has(nameKey))
           warn(
             `A client called ${clientName} is already on the system. With no email or postcode to confirm it is the same person, a separate client record will be made.`,
           );
@@ -500,10 +547,15 @@ export function analyseCaseImport(
 
     // The child.
     const childName = raw.childName ?? null;
-    const childDob = raw.childDateOfBirth
-      ? parseImportDate(raw.childDateOfBirth)
+    let childDob = raw.childDateOfBirth
+      ? parseImportDate(raw.childDateOfBirth, context.today)
       : null;
-    if (raw.childDateOfBirth && !childDob)
+    if (childDob && childDob > context.today) {
+      warn(
+        `Child’s date of birth “${raw.childDateOfBirth}” is in the future, so it is left out.`,
+      );
+      childDob = null;
+    } else if (raw.childDateOfBirth && !childDob)
       warn(
         `Child’s date of birth “${raw.childDateOfBirth}” is not a date, so it is left out.`,
       );
@@ -514,12 +566,9 @@ export function analyseCaseImport(
       const childKey = importKey(childName);
       const known =
         client.kind === 'existing'
-          ? context.children.find(
-              (c) =>
-                c.clientId === client.id && importKey(c.fullName) === childKey,
-            )
+          ? childrenOf.get(client.id)?.get(childKey)
           : undefined;
-      if (known) child = { kind: 'existing', id: known.childId };
+      if (known) child = { kind: 'existing', id: known };
       else {
         const key = `${client.kind === 'none' ? `row:${rowNumber}` : client.kind === 'new' ? client.key : `c:${client.id}`}|${childKey}`;
         child = { kind: 'new', key };
@@ -539,7 +588,7 @@ export function analyseCaseImport(
           latestDateIn(raw.notes, context.today) ??
           dateOfEnquiry ??
           context.today,
-        body: raw.notes,
+        body: `${CASE_IMPORT_NOTE_HEADING}\n${raw.notes}`,
       };
     }
 
@@ -548,7 +597,13 @@ export function analyseCaseImport(
       ? 'problem'
       : 'import';
     if (outcome === 'import' && dateOfEnquiry) {
-      const dupKey = `${importKey(clientName ?? '')}|${importKey(childName ?? '')}|${dateOfEnquiry}`;
+      const clientRef =
+        client.kind === 'existing'
+          ? client.id
+          : client.kind === 'new'
+            ? `new:${client.key}`
+            : 'none';
+      const dupKey = `${clientRef}|${importKey(childName ?? '')}|${dateOfEnquiry}`;
       const existing = existingCases.get(dupKey);
       const earlier = seenCases.get(dupKey);
       if (existing) {

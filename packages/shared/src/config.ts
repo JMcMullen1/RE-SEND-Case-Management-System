@@ -1351,3 +1351,5 @@ export const CASE_IMPORT_MAX_ROWS = 10_000;
 export const CASE_IMPORT_DEFAULT_STATUS: Status = 'Enquiry';
 /** Owner queue for a row with no recognisable "Allocated to". */
 export const CASE_IMPORT_DEFAULT_QUEUE: OwnerQueue = 'Enquiries';
+/** First line of the case note made from a row's Notes column. */
+export const CASE_IMPORT_NOTE_HEADING = 'From the case list (imported):';
