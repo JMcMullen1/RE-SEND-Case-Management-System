@@ -217,6 +217,39 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await expect(sentEmail).toBeVisible();
   await expect(sentEmail.getByText('Sent', { exact: true })).toBeVisible();
 
+  // 5c. Record a billable with its time; it needs a time before it can be
+  // added, and the time is rounded up to 15-minute units.
+  await page.getByRole('tab', { name: 'Billables' }).click();
+  await page
+    .getByLabel('New billable')
+    .fill('Telephone advice on the draft plan.');
+  await page.getByRole('button', { name: 'Add billable' }).click();
+  await expect(page.getByText(/Enter the time spent/)).toBeVisible();
+  await page.getByLabel('Time spent').fill('40m');
+  await expect(page.getByText(/Recorded as 45m/)).toBeVisible();
+  await page.getByRole('button', { name: 'Add billable' }).click();
+  await expect(page.getByText('45m recorded on this case')).toBeVisible();
+
+  // An admin sets a pay rate (backdated), and My time shows the earnings.
+  await page.goto('/admin/rates');
+  await page
+    .getByRole('button', { name: 'Set pay rate for Jamie McMullen' })
+    .click();
+  await page
+    .getByLabel('Pay rate for Jamie McMullen, pounds per hour')
+    .fill('20');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('£20.00 / hour')).toBeVisible();
+  await page.goto('/time');
+  await expect(
+    page.getByRole('region', { name: 'Totals' }).getByText('45m'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: 'Totals' }).getByText('£15.00'),
+  ).toBeVisible();
+  await page.goBack();
+  await page.goBack();
+
   // 6. The applied dates appear on the calendar.
   await page.goto('/calendar');
   await expect(

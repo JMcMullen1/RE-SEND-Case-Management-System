@@ -15,20 +15,30 @@ between pieces of work.
 - Document storage with folders, versions and full-text extraction.
 - **Email filing** (.msg and .eml) with attachments filed as documents,
   de-duplication, sent/received detection, live updates and the case corpus.
+- **Time recording**: billables carry their time (15-minute units, required),
+  case totals, a "My time" page with earnings, and admin-set dated pay and work
+  rates.
 
 ## Next
 
-### Time recording (QuickBooks preparation)
+### QuickBooks (when the integration is possible)
 
-The QuickBooks integration itself is not possible yet; time recording is built
-first so the data is ready for it. Decisions agreed:
+Time recording is built (decisions below, as agreed). Still to do: set the work
+rates once agreed; sync clients, time and invoices to QuickBooks; draft invoices
+from unbilled time for a director to approve; show invoice status on the case.
+
+Time recording decisions agreed:
 
 - **Billable = note + time.** A billable keeps its current form (a labelled
   note) and gains a time field when it is written, so caseworkers keep their
   habit and every billable becomes a real time entry (`time_entries`). Plain
   case notes are unchanged.
 - **15-minute units.** Time is entered in, and rounded up to, quarter hours.
-- **Minutes only for now.** No charging rates are applied at entry.
+- **Minutes only at entry.** No charging rate is applied when time is recorded.
+- **Time required on every billable**; billables written before this are
+  flagged for someone to add time.
+- **Earnings visible to the person and admins only.**
+- **Author or admin** may edit or delete a billable and its time (audited).
 - **Pay rate per user (admin-set).** An admin sets each user's rate so each
   person can see what they have earned per day, week and month.
 - **Work rate (admin-set, later).** A separate rate for the work, which is what

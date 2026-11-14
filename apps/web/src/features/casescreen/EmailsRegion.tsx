@@ -140,7 +140,7 @@ export function EmailsRegion({ caseId }: { caseId: string }) {
           }}
         />
       </div>
-      <p className="mb-3 text-xs text-gray-400">
+      <p className="mb-3 text-xs text-gray-500">
         Drop emails here — several at once is fine. In Outlook, drag a message
         to your desktop (or File › Save As) to get a .msg file. Attachments are
         filed in Documents under {EMAIL_ATTACHMENT_FOLDER}.
@@ -148,19 +148,19 @@ export function EmailsRegion({ caseId }: { caseId: string }) {
 
       <UploadList uploads={uploads} onClear={clearFinished} />
 
-      {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
+      {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
       {isError && (
         <p className="text-sm text-status-amber">
           Emails could not be loaded. Refresh to try again.
         </p>
       )}
       {!isLoading && !isError && emails.length === 0 && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-500">
           No emails filed on this case yet.
         </p>
       )}
       {emails.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-gray-400">No emails match “{query}”.</p>
+        <p className="text-sm text-gray-500">No emails match “{query}”.</p>
       )}
 
       <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-auto">
@@ -290,7 +290,7 @@ function EmailRow({
 
           <div className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-sm text-resend-ink">
             {email.bodyText?.trim() || (
-              <span className="text-gray-400">This email has no text.</span>
+              <span className="text-gray-500">This email has no text.</span>
             )}
           </div>
 
@@ -307,7 +307,7 @@ function EmailRow({
                   >
                     <span className="min-w-0 truncate text-resend-ink">
                       {a.originalFilename}
-                      <span className="text-gray-400">
+                      <span className="text-gray-500">
                         {' '}
                         · {a.category} · {formatFileSize(a.byteSize)}
                       </span>

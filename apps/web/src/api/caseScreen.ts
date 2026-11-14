@@ -1,5 +1,6 @@
 import type {
   CaseDetail,
+  CaseTimeSummary,
   DocumentInfo,
   KeyDateFull,
   NoteKind,
@@ -100,21 +101,31 @@ export function addNote(
   caseId: string,
   body: string,
   kind: NoteKind,
+  minutes?: number,
+  entryDate?: string,
 ): Promise<{ item: TimelineItem }> {
   return request(`/api/cases/${caseId}/notes`, {
     method: 'POST',
-    body: JSON.stringify({ body, kind }),
+    body: JSON.stringify({ body, kind, minutes, entryDate }),
   });
 }
 
 export function editNote(
   noteId: string,
-  body: string,
+  patch: { body?: string; minutes?: number; entryDate?: string },
 ): Promise<{ item: TimelineItem }> {
   return request(`/api/notes/${noteId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify(patch),
   });
+}
+
+export function deleteNote(noteId: string): Promise<{ deleted: true }> {
+  return request(`/api/notes/${noteId}`, { method: 'DELETE' });
+}
+
+export function fetchCaseTimeSummary(caseId: string): Promise<CaseTimeSummary> {
+  return request(`/api/cases/${caseId}/time-summary`);
 }
 
 export function fetchDocuments(
