@@ -243,6 +243,11 @@ run('time recording API', () => {
       ).statusCode,
     ).toBe(403);
 
+    // Start from no pay rates for this person: rates persist in a reused test
+    // database, and yesterday's "tomorrow" is today.
+    await getDb().execute(
+      sql`DELETE FROM user_rates WHERE user_id = ${worker!.id} AND kind = 'pay'`,
+    );
     // An admin sets a pay rate from long ago and a higher one from tomorrow:
     // today's work is earned at the earlier one.
     const tomorrow = new Date(`${today}T00:00:00Z`);

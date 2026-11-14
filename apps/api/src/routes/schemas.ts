@@ -21,6 +21,9 @@ import {
   DirectionsCategorySchema,
   EmailDirectionSchema,
   RateKindSchema,
+  CaseSchoolRoleSchema,
+  SchoolFundingSchema,
+  SchoolProvisionSchema,
   TIME_ENTRY_MAX_MINUTES,
 } from '@re-send/shared';
 
@@ -832,4 +835,114 @@ export const SetRateSchema = z.object({
   kind: RateKindSchema,
   ratePence: z.number().int().min(0).max(100_000),
   effectiveFrom: DateString,
+});
+
+// --- Schools directory -----------------------------------------------------------
+
+const optionalText = (max: number) => z.string().max(max).nullable().optional();
+
+export const SchoolFieldsInputSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  // Spaces are allowed as typed ("123 456") and removed before checking.
+  urn: z
+    .string()
+    .transform((v) => v.replace(/\s+/g, ''))
+    .pipe(z.string().regex(/^(\d{5,7})?$/, 'A URN is 5 to 7 digits.'))
+    .nullable()
+    .optional(),
+  address: optionalText(500),
+  postcode: optionalText(10),
+  localAuthority: optionalText(120),
+  phone: optionalText(40),
+  email: optionalText(200),
+  website: optionalText(300),
+  funding: SchoolFundingSchema.nullable().optional(),
+  provision: SchoolProvisionSchema.nullable().optional(),
+  section41: z.boolean().optional(),
+  ageFrom: z.number().int().min(0).max(25).nullable().optional(),
+  ageTo: z.number().int().min(0).max(25).nullable().optional(),
+  notes: optionalText(4000),
+});
+
+export const SchoolPatchSchema = SchoolFieldsInputSchema.partial();
+
+export const SchoolSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  urn: z.string().nullable(),
+  address: z.string().nullable(),
+  postcode: z.string().nullable(),
+  localAuthority: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  website: z.string().nullable(),
+  funding: SchoolFundingSchema.nullable(),
+  provision: SchoolProvisionSchema.nullable(),
+  section41: z.boolean(),
+  ageFrom: z.number().int().nullable(),
+  ageTo: z.number().int().nullable(),
+  notes: z.string().nullable(),
+  archived: z.boolean(),
+  contactCount: z.number().int(),
+  caseCount: z.number().int(),
+});
+
+export const SchoolContactSchema = z.object({
+  id: z.string(),
+  schoolId: z.string(),
+  name: z.string(),
+  role: z.string().nullable(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
+export const SchoolDetailSchema = SchoolSummarySchema.extend({
+  contacts: z.array(SchoolContactSchema),
+  cases: z.array(
+    z.object({
+      caseId: z.string(),
+      caseReference: z.string(),
+      childName: z.string().nullable(),
+      role: CaseSchoolRoleSchema,
+    }),
+  ),
+});
+
+export const ContactInputSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  role: optionalText(120),
+  email: optionalText(200),
+  phone: optionalText(40),
+  notes: optionalText(2000),
+});
+
+export const CaseSchoolSchema = z.object({
+  linkId: z.string(),
+  role: CaseSchoolRoleSchema,
+  school: SchoolSummarySchema,
+  contacts: z.array(SchoolContactSchema),
+  involvedContactIds: z.array(z.string()),
+});
+
+export const SchoolSearchQuerySchema = z.object({
+  q: z.string().max(200).optional(),
+  section41: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  funding: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',') : undefined))
+    .pipe(z.array(SchoolFundingSchema).optional()),
+  provision: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',') : undefined))
+    .pipe(z.array(SchoolProvisionSchema).optional()),
+  archived: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
 });

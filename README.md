@@ -29,7 +29,8 @@ view.
   for rows that belong to a case, the owning case id. Adding a table to live
   updates is **one `CREATE TRIGGER` line** in a migration — the function is
   never duplicated. It is applied to `cases`, `case_notes`, `key_dates`,
-  `case_reviews`, `documents`, `emails` and `time_entries`.
+  `case_reviews`, `documents`, `emails`, `time_entries`, `schools`,
+  `school_contacts` and `case_schools`.
 - The API holds a **single `LISTEN` connection** and fans each notification out
   over WebSockets, mapping entity type to the affected TanStack Query keys
   through a registry. Because the notification originates in Postgres, this
@@ -100,6 +101,33 @@ more than one set of conventions.
 - **Switchable without a deploy.** `AI_ENABLED` is a global kill switch; per-job
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
+
+## Schools directory
+
+One record per school, shared by every case (`/schools`,
+`apps/api/src/repositories/schools.ts`, `apps/web/src/features/schools`).
+
+- **What a school holds.** Name, DfE URN, address and postcode, local
+  authority, phone, email, website, type (maintained, academy, free school,
+  independent, non-maintained special), provision (mainstream, mainstream with
+  resource base, specialist, alternative provision), whether it is on the
+  **Section 41** list, age range and notes — vocabularies in `config.ts`. Each
+  school has named **contacts** (SENCo, headteacher and so on).
+- **Search** by name (any word order; "St Mary's C of E" finds "Saint Marys
+  CE"), URN, postcode, town or LA, and filter by type, provision and Section 41.
+- **No duplicates by accident.** Adding a school that matches one already there
+  (same URN, or the same name in the same postcode) shows the match and offers
+  it instead; a reused URN is always refused.
+- **Linked to cases.** A case's details list its schools — current, proposed,
+  named in the plan, previous — with their facts, and which of each school's
+  contacts are involved. A school can be found or added without leaving the
+  case. Linking a current or proposed school fills in the child's _Current
+  school_ / _Desired school_, so the case list, smart fill and the AI corpus say
+  the same; a school typed on a case but not in the directory is flagged with a
+  link to find it. The school's page lists every case it is linked to.
+- **Who.** Everyone except read-only users can add and edit schools and
+  contacts; only an admin can archive (hide) a school, which keeps existing
+  links. Every change is audited; the directory updates live.
 
 ## Time recording
 

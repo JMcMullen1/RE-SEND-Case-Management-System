@@ -56,6 +56,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The parsed JSON error body, when there was one (e.g. 409 details). */
+    public body?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -76,13 +78,15 @@ export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers, credentials: 'include' });
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
+    let body: unknown;
     try {
-      const body = (await res.json()) as { message?: string };
-      if (body.message) message = body.message;
+      body = await res.json();
+      const m = (body as { message?: string }).message;
+      if (m) message = m;
     } catch {
       /* non-JSON error */
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, body);
   }
   return (await res.json()) as T;
 }

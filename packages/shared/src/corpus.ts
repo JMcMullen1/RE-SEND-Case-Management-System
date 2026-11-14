@@ -104,6 +104,13 @@ export interface CaseRecordInput {
     desiredSchool: string | null;
     sendNeeds: string | null;
   } | null;
+  /** Schools linked from the directory, with their key facts. */
+  schools?: {
+    role: string;
+    name: string;
+    facts: string;
+    contacts: string[];
+  }[];
 }
 
 /**
@@ -138,6 +145,13 @@ export function renderCaseRecordText(record: CaseRecordInput): string {
     add('  Current school', record.child.currentSchoolName);
     add('  Desired school', record.child.desiredSchool);
     add('  SEND needs', record.child.sendNeeds);
+  }
+  if (record.schools?.length) {
+    lines.push('', 'Schools:');
+    for (const s of record.schools) {
+      lines.push(`  ${s.role}: ${s.name}${s.facts ? ` (${s.facts})` : ''}`);
+      for (const c of s.contacts) lines.push(`    Contact: ${c}`);
+    }
   }
   return lines.join('\n');
 }

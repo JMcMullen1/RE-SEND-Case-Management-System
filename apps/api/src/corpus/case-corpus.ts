@@ -1,5 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import {
+  CASE_SCHOOL_ROLE_LABELS,
+  schoolFactsLine,
   CORPUS_ITEM_TYPE_VALUES,
   renderEmailText,
   estimateTokenCount,
@@ -15,6 +17,7 @@ import { getDb } from '../db/client';
 import { caseNotes, documents, users } from '../db/schema';
 import { getCaseDetail } from '../repositories/case-detail';
 import { emailsForCorpus } from '../repositories/emails';
+import { listCaseSchools } from '../repositories/schools';
 import { getCachedCorpus, setCachedCorpus } from './cache';
 
 export interface CorpusOptions {
@@ -153,6 +156,14 @@ async function buildCaseRecord(caseId: string): Promise<CorpusItem | null> {
         }
       : null,
   };
+  input.schools = (await listCaseSchools(caseId)).map((l) => ({
+    role: CASE_SCHOOL_ROLE_LABELS[l.role],
+    name: l.school.name,
+    facts: schoolFactsLine(l.school),
+    contacts: l.contacts
+      .filter((c) => l.involvedContactIds.includes(c.id))
+      .map((c) => (c.role ? `${c.name}, ${c.role}` : c.name)),
+  }));
   return {
     id: caseId,
     type: 'case_record',

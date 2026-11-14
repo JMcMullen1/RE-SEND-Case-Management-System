@@ -18,6 +18,9 @@ between pieces of work.
 - **Time recording**: billables carry their time (15-minute units, required),
   case totals, a "My time" page with earnings, and admin-set dated pay and work
   rates.
+- **Schools directory**: shared schools with contacts, Section 41 and type
+  facts, duplicate detection, and links to cases (current, proposed, named in
+  the plan, previous).
 
 ## Next
 
@@ -54,9 +57,13 @@ Time recording decisions agreed:
   details held, with a queue for anything that cannot be matched confidently.
 - Emails in a single merged case history alongside notes and documents.
 
+### Schools directory, next steps
+
+- Import schools in bulk from the DfE's Get Information About Schools list
+  (URN, type, age range and address), and the published Section 41 list.
+
 ### Also outstanding from the proposal
 
-- Schools database (shared directory with contacts, linked to cases).
 - Assisted drafting (SEND tribunal forms, position statement starter).
 - Staff administration screen (joiners and leavers) and full data export.
 - SharePoint library migration.

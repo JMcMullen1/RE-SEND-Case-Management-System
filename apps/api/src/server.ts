@@ -29,6 +29,7 @@ import { registerCreateCaseRoutes } from './routes/create-case';
 import { registerDocumentRoutes } from './routes/documents';
 import { registerEmailRoutes } from './routes/emails';
 import { registerTimeRoutes } from './routes/time';
+import { registerSchoolRoutes } from './routes/schools';
 import { registerIntakeRoutes } from './routes/intake';
 import { registerDirectionsRoutes } from './routes/directions';
 import { registerCalendarRoutes } from './routes/calendar';
@@ -157,6 +158,7 @@ export async function buildServer() {
   registerDocumentRoutes(app);
   registerEmailRoutes(app);
   registerTimeRoutes(app);
+  registerSchoolRoutes(app);
   registerCorpusRoutes(app);
   registerAiRoutes(app);
   registerIntakeRoutes(app);

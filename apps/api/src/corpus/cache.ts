@@ -37,6 +37,15 @@ export function invalidateCorpus(caseId: string): void {
   cache.delete(caseId);
 }
 
+/**
+ * Drop every cached corpus. For changes that can touch many cases at once
+ * (e.g. a school's details, read into every linked case's record) — rare
+ * enough that a full clear is simpler and safer than tracking each case.
+ */
+export function invalidateAllCorpora(): void {
+  cache.clear();
+}
+
 /** Test seam. */
 export function clearCorpusCache(): void {
   cache.clear();

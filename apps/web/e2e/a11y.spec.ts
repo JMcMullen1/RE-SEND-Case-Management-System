@@ -68,4 +68,13 @@ test('the app screens have no serious accessibility violations', async ({
     .first()
     .click();
   await scan(page, 'staff rates (editing)');
+
+  await page.goto('/schools');
+  await expect(page.getByLabel('Search schools')).toBeVisible();
+  await scan(page, 'schools');
+  await page.getByRole('button', { name: 'Add a school' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Add a school' }),
+  ).toBeVisible();
+  await scan(page, 'add a school');
 });

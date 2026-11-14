@@ -11,6 +11,8 @@ import { ReviewModePage } from './features/review/ReviewModePage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { RatesPage } from './features/time/RatesPage';
 import { TimePage } from './features/time/TimePage';
+import { SchoolPage } from './features/schools/SchoolPage';
+import { SchoolsPage } from './features/schools/SchoolsPage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -58,6 +60,18 @@ const ratesRoute = createRoute({
   component: RatesPage,
 });
 
+const schoolsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/schools',
+  component: SchoolsPage,
+});
+
+const schoolRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/schools/$schoolId',
+  component: SchoolPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   newCaseRoute,
@@ -66,6 +80,8 @@ const routeTree = rootRoute.addChildren([
   calendarRoute,
   timeRoute,
   ratesRoute,
+  schoolsRoute,
+  schoolRoute,
 ]);
 
 export const router = createRouter({ routeTree });
