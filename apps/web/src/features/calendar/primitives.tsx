@@ -80,7 +80,7 @@ export function WorkingDayField({
         className="mt-0.5 rounded border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       />
       {note && (
-        <p className="mt-1 flex items-center gap-2 text-xs text-status-amber">
+        <p className="mt-1 flex items-center gap-2 text-xs text-status-amber-text">
           <span>{note}</span>
           <button
             type="button"

@@ -93,14 +93,14 @@ export function SchoolPage() {
                   .then(refresh)
                   .catch(() => setArchiveError('Could not change. Try again.'));
               }}
-              className="text-sm text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+              className="text-sm text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
             >
               {s.archived ? 'Restore' : 'Archive'}
             </button>
           )}
         </div>
         {archiveError && (
-          <p role="alert" className="mt-1 text-xs text-status-amber">
+          <p role="alert" className="mt-1 text-xs text-status-amber-text">
             {archiveError}
           </p>
         )}

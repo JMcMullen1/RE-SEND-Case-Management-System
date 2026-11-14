@@ -138,7 +138,7 @@ export function SchoolsPage() {
       <main className="mx-auto max-w-5xl px-6 py-6">
         {results.isLoading && <p className="text-sm text-gray-500">Loading…</p>}
         {results.isError && (
-          <p className="text-sm text-status-amber">
+          <p className="text-sm text-status-amber-text">
             Schools could not be loaded. Refresh to try again.
           </p>
         )}

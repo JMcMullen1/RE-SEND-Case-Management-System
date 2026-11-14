@@ -126,7 +126,7 @@ export function UploadList({
               </div>
             )}
             {u.status === 'error' && (
-              <p className="mt-0.5 text-status-amber">{u.error}</p>
+              <p className="mt-0.5 text-status-amber-text">{u.error}</p>
             )}
           </li>
         ))}
@@ -153,7 +153,7 @@ function UploadStatus({ upload }: { upload: Upload }) {
     );
   }
   if (upload.status === 'error') {
-    return <span className="shrink-0 text-status-amber">Failed</span>;
+    return <span className="shrink-0 text-status-amber-text">Failed</span>;
   }
   const outcome = upload.outcome ?? 'created';
   const duplicate = outcome === 'duplicate' || outcome === 'email-duplicate';

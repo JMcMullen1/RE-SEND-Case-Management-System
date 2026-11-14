@@ -150,7 +150,7 @@ export function EmailsRegion({ caseId }: { caseId: string }) {
 
       {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
       {isError && (
-        <p className="text-sm text-status-amber">
+        <p className="text-sm text-status-amber-text">
           Emails could not be loaded. Refresh to try again.
         </p>
       )}
@@ -348,7 +348,7 @@ function EmailRow({
             <button
               type="button"
               onClick={onDelete}
-              className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+              className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
             >
               Delete
             </button>
@@ -411,7 +411,9 @@ function ConfirmDeleteEmail({
             </span>
           </label>
         )}
-        {error && <p className="mt-2 text-sm text-status-amber">{error}</p>}
+        {error && (
+          <p className="mt-2 text-sm text-status-amber-text">{error}</p>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"

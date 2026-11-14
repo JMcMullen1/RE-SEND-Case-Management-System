@@ -114,7 +114,7 @@ export function ContactsEditor({
                       <button
                         type="button"
                         onClick={() => void remove(c.id)}
-                        className="font-semibold text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                        className="font-semibold text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
                       >
                         Yes, remove {c.name}
                       </button>
@@ -140,7 +140,7 @@ export function ContactsEditor({
                         type="button"
                         onClick={() => setConfirmRemove(c.id)}
                         aria-label={`Remove ${c.name}`}
-                        className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                        className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
                       >
                         Remove
                       </button>
@@ -153,7 +153,7 @@ export function ContactsEditor({
         )}
       </ul>
       {error && (
-        <p role="alert" className="mt-1 text-xs text-status-amber">
+        <p role="alert" className="mt-1 text-xs text-status-amber-text">
           {error}
         </p>
       )}
@@ -219,7 +219,7 @@ function ContactForm({
       className="grid gap-2 sm:grid-cols-2"
     >
       <label className="block text-xs text-gray-600">
-        Name <span className="text-status-amber">*</span>
+        Name <span className="text-status-amber-text">*</span>
         <input
           value={v.name}
           onChange={(e) => set('name', e.target.value)}
@@ -269,7 +269,10 @@ function ContactForm({
         />
       </label>
       {error && (
-        <p role="alert" className="text-xs text-status-amber sm:col-span-2">
+        <p
+          role="alert"
+          className="text-xs text-status-amber-text sm:col-span-2"
+        >
           {error}
         </p>
       )}

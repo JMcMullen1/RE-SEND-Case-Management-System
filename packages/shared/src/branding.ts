@@ -26,6 +26,10 @@ export const BRAND_COLORS = {
   green: '#008037',
   ink: '#000000',
   statusAmber: '#C77700',
+  // The status amber, darkened for text: #C77700 is 3.2:1 on white, below the
+  // WCAG AA 4.5:1 that small text needs. Use this for amber words (errors,
+  // Delete / Remove links); keep statusAmber for fills, borders and chips.
+  statusAmberText: '#9A5B00',
 } as const;
 
 export type BrandColorKey = keyof typeof BRAND_COLORS;
@@ -37,6 +41,7 @@ export const CSS_VAR_NAMES = {
   green: '--resend-green',
   ink: '--resend-ink',
   statusAmber: '--status-amber',
+  statusAmberText: '--status-amber-text',
 } as const satisfies Record<BrandColorKey, string>;
 
 /** Human-readable role for each colour, documenting intended usage. */
@@ -46,6 +51,7 @@ export const BRAND_COLOR_ROLES = {
   green: 'success',
   ink: 'body text',
   statusAmber: 'the only status colour in the interface',
+  statusAmberText: 'the status colour as text (meets WCAG AA on white)',
 } as const satisfies Record<BrandColorKey, string>;
 
 /**

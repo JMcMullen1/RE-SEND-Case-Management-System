@@ -60,10 +60,22 @@ export function serialiseCorpus(items: CorpusItem[]): string {
     .map((item) => {
       const header =
         `${ITEM_OPEN} id=${item.id} type=${item.type} ` +
-        `date=${item.date ?? 'none'} title=${JSON.stringify(item.title)} ${ITEM_CLOSE}`;
-      return `${header}\n${item.text}\n${ITEM_END}`;
+        `date=${item.date ?? 'none'} title=${neutraliseDelimiters(JSON.stringify(item.title))} ${ITEM_CLOSE}`;
+      return `${header}\n${neutraliseDelimiters(item.text)}\n${ITEM_END}`;
     })
     .join('\n\n');
+}
+
+/**
+ * Case-file text (an email, a document) is written by people outside the
+ * system. Break any run of three angle brackets so that text can never close
+ * its own item or forge another item's header (and with it a valid-looking
+ * id) — the delimiters only ever come from the serialiser.
+ */
+export function neutraliseDelimiters(text: string): string {
+  return text
+    .replace(/<{3,}/g, (m) => '‹'.repeat(m.length))
+    .replace(/>{3,}/g, (m) => '›'.repeat(m.length));
 }
 
 /**

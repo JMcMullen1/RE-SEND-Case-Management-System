@@ -32,3 +32,23 @@ export function schemaToTool(
     input_schema: jsonSchema as Anthropic.Tool.InputSchema,
   };
 }
+
+/**
+ * Convert a Zod object schema into the JSON Schema used as a structured-output
+ * response format (`output_config.format`). Refs are inlined; the top level
+ * must be an object.
+ */
+export function schemaToJsonSchema(
+  name: string,
+  schema: z.ZodTypeAny,
+): Record<string, unknown> {
+  const jsonSchema = zodToJsonSchema(schema, {
+    $refStrategy: 'none',
+    target: 'jsonSchema7',
+  }) as Record<string, unknown>;
+  if (jsonSchema.type !== 'object') {
+    throw new Error(`AI job output schema for "${name}" must be a Zod object`);
+  }
+  delete jsonSchema.$schema;
+  return jsonSchema;
+}

@@ -24,6 +24,12 @@ export interface MessagesClient {
   messages: {
     create: Anthropic['messages']['create'];
   };
+  /** Streaming beta surface, for structured-output jobs (fallbacks are beta). */
+  beta?: {
+    messages: {
+      stream: Anthropic['beta']['messages']['stream'];
+    };
+  };
 }
 
 /** Test seam: drop the memoised client. */

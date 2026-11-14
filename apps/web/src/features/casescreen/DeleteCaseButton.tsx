@@ -40,7 +40,7 @@ export function DeleteCaseButton({
           del.reset();
           setOpen(true);
         }}
-        className="rounded border border-status-amber px-2 py-1 text-xs font-medium text-status-amber hover:bg-status-amber hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+        className="rounded border border-status-amber px-2 py-1 text-xs font-medium text-status-amber-text hover:bg-status-amber hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
       >
         Delete case
       </button>
@@ -80,7 +80,7 @@ export function DeleteCaseButton({
               className="mt-2 w-full rounded-md border border-gray-300 px-2 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
             />
             {del.isError && (
-              <p className="mt-2 text-sm text-status-amber" role="alert">
+              <p className="mt-2 text-sm text-status-amber-text" role="alert">
                 {del.error instanceof Error
                   ? del.error.message
                   : 'Could not delete the case.'}

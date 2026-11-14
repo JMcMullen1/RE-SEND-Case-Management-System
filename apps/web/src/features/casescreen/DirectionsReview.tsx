@@ -209,7 +209,7 @@ function RowCard({
               {row.party}
             </span>
             {lowConfidence && (
-              <span className="flex items-center gap-1 text-xs text-status-amber">
+              <span className="flex items-center gap-1 text-xs text-status-amber-text">
                 <span className="inline-block h-2 w-2 rounded-full bg-status-amber" />
                 Low confidence
               </span>

@@ -337,6 +337,90 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
   outbound: 'Sent',
 };
 
+// --- Assisted drafting --------------------------------------------------------
+/** The AI job that drafts a position statement from the case file. */
+export const DRAFT_POSITION_STATEMENT_JOB = 'draft_position_statement';
+
+/** Kinds of document the drafting tools produce. */
+export const DRAFT_KIND_VALUES = ['position_statement'] as const;
+export type DraftKind = (typeof DRAFT_KIND_VALUES)[number];
+export const DraftKindSchema = z.enum(DRAFT_KIND_VALUES);
+export const DRAFT_KIND_LABELS: Record<DraftKind, string> = {
+  position_statement: 'Position statement',
+};
+
+/**
+ * A draft's life: being written by the model, ready for review, failed, or
+ * approved by a caseworker (then locked, and filed as a case document).
+ */
+export const DRAFT_STATUS_VALUES = [
+  'generating',
+  'ready',
+  'failed',
+  'approved',
+] as const;
+export type DraftStatus = (typeof DRAFT_STATUS_VALUES)[number];
+export const DraftStatusSchema = z.enum(DRAFT_STATUS_VALUES);
+
+/** A draft still "generating" after this long is treated as failed. */
+export const DRAFT_GENERATION_TIMEOUT_MINUTES = 15;
+/** Above this estimated size the case file is too large to draft from in one go. */
+export const DRAFT_MAX_CORPUS_TOKENS = 600_000;
+/** Roles that may request, edit and approve drafts (casework). */
+export const DRAFTING_ROLES = ['admin', 'caseworker'] as const;
+/** Folder an approved draft is filed into as a case document. */
+export const DRAFT_DOCUMENT_FOLDER = 'Working Document';
+
+/**
+ * The sections of an appellant's position statement for the SEND Tribunal, in
+ * order, with what each should cover. The model drafts each from the case file
+ * and leaves a section empty (saying so) when the file gives it no basis.
+ */
+export const POSITION_STATEMENT_SECTIONS = [
+  {
+    key: 'background',
+    heading: 'Background',
+    guidance:
+      'The child, their age and school year, current placement, and the history of the EHC needs assessment and plan that led to the appeal.',
+  },
+  {
+    key: 'needs',
+    heading: "The child's special educational needs (Section B)",
+    guidance:
+      "The child's needs as the evidence describes them, and where the plan's Section B is inaccurate or incomplete.",
+  },
+  {
+    key: 'provision',
+    heading: 'Special educational provision (Section F)',
+    guidance:
+      'The provision the evidence says the child needs, and where Section F fails to specify or quantify it.',
+  },
+  {
+    key: 'placement',
+    heading: 'Placement (Section I)',
+    guidance:
+      'The school or type of school sought, why it is suitable, and the response to the local authority’s position on placement.',
+  },
+  {
+    key: 'issues',
+    heading: 'Issues in dispute',
+    guidance: 'The points on which the parties disagree, each stated briefly.',
+  },
+  {
+    key: 'outcome',
+    heading: 'Outcome sought',
+    guidance: 'What the appellant asks the Tribunal to order.',
+  },
+] as const;
+export type PositionStatementSectionKey =
+  (typeof POSITION_STATEMENT_SECTIONS)[number]['key'];
+export const POSITION_STATEMENT_SECTION_KEYS = POSITION_STATEMENT_SECTIONS.map(
+  (s) => s.key,
+) as unknown as readonly [
+  PositionStatementSectionKey,
+  ...PositionStatementSectionKey[],
+];
+
 // --- Schools directory --------------------------------------------------------
 /**
  * How a school is run and funded (England). "Maintained" schools are run by the

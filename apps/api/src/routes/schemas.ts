@@ -22,6 +22,9 @@ import {
   EmailDirectionSchema,
   RateKindSchema,
   CaseSchoolRoleSchema,
+  DraftKindSchema,
+  DraftStatusSchema,
+  POSITION_STATEMENT_SECTION_KEYS,
   SchoolFundingSchema,
   SchoolProvisionSchema,
   TIME_ENTRY_MAX_MINUTES,
@@ -945,4 +948,68 @@ export const SchoolSearchQuerySchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
+});
+
+// --- Assisted drafting -------------------------------------------------------------
+
+export const DraftSchema = z.object({
+  id: z.string(),
+  caseId: z.string(),
+  kind: DraftKindSchema,
+  status: DraftStatusSchema,
+  instructions: z.string().nullable(),
+  sections: z.array(
+    z.object({
+      key: z.enum(POSITION_STATEMENT_SECTION_KEYS),
+      heading: z.string(),
+      paragraphs: z.array(
+        z.object({
+          id: z.string(),
+          text: z.string(),
+          sourceIds: z.array(z.string()),
+          edited: z.boolean(),
+        }),
+      ),
+      gap: z.string().nullable(),
+    }),
+  ),
+  missingInformation: z.array(z.string()),
+  sources: z.array(
+    z.object({
+      id: z.string(),
+      type: CorpusItemTypeSchema,
+      title: z.string(),
+      date: z.string().nullable(),
+      excerpt: z.string(),
+    }),
+  ),
+  removedUnsupported: z.number().int(),
+  failureReason: z.string().nullable(),
+  createdByName: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  approvedByName: z.string().nullable(),
+  approvedAt: z.string().nullable(),
+  documentId: z.string().nullable(),
+});
+
+export const DraftRequestSchema = z.object({
+  kind: DraftKindSchema,
+  instructions: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const DraftEditSchema = z.object({
+  /** The draft's updatedAt the editor started from. */
+  baseUpdatedAt: z.string(),
+  sections: z.array(
+    z.object({
+      key: z.enum(POSITION_STATEMENT_SECTION_KEYS),
+      paragraphs: z.array(
+        z.object({
+          id: z.string().uuid().optional(),
+          text: z.string().max(20000),
+        }),
+      ),
+    }),
+  ),
 });

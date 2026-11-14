@@ -31,6 +31,8 @@ import {
   paymentCodeEnum,
   queryTypeEnum,
   rateKindEnum,
+  draftKindEnum,
+  draftStatusEnum,
   caseSchoolRoleEnum,
   schoolFundingEnum,
   schoolProvisionEnum,
@@ -663,5 +665,40 @@ export const caseSchools = pgTable(
     uniqueLink: uniqueIndex('uq_case_schools_case_school_role')
       .on(t.caseId, t.schoolId, t.role)
       .where(sql`${t.deletedAt} IS NULL`),
+  }),
+);
+
+// --- drafts -----------------------------------------------------------------------
+// Documents drafted by the assisted-drafting tools for a caseworker to review.
+// `content` holds the grounded sections, their cited sources and what was
+// missing; nothing is filed until a caseworker approves, which records who and
+// when and files the statement as a case document.
+export const drafts = pgTable(
+  'drafts',
+  {
+    id: primaryId(),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => cases.id, { onDelete: 'restrict' }),
+    kind: draftKindEnum('kind').notNull(),
+    status: draftStatusEnum('status').notNull(),
+    instructions: text('instructions'),
+    content: jsonb('content'),
+    failureReason: text('failure_reason'),
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    approvedByUserId: uuid('approved_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    documentId: uuid('document_id').references(() => documents.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+    ...softDelete,
+  },
+  (t) => ({
+    caseIdIdx: index('idx_drafts_case_id').on(t.caseId),
   }),
 );

@@ -13,16 +13,19 @@ import { CaseHeader } from './CaseHeader';
 import { DetailPanel } from './DetailPanel';
 import { DirectionsReview } from './DirectionsReview';
 import { DocumentsRegion } from './DocumentsRegion';
+import { DraftsRegion } from './DraftsRegion';
 import { EmailsRegion } from './EmailsRegion';
 import { TimelineRegion } from './TimelineRegion';
 
-type Tab = 'details' | 'docs-emails' | 'billables' | 'notes' | 'all';
+type Tab =
+  'details' | 'docs-emails' | 'billables' | 'notes' | 'drafting' | 'all';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'details', label: 'Case details' },
   { id: 'docs-emails', label: 'Documents / Emails' },
   { id: 'billables', label: 'Billables' },
   { id: 'notes', label: 'Case notes' },
+  { id: 'drafting', label: 'Drafting' },
   { id: 'all', label: 'All' },
 ];
 
@@ -301,6 +304,12 @@ export function CaseScreenPage() {
         {tab === 'docs-emails' && docsEmailsSection}
         {tab === 'billables' && billablesSection}
         {tab === 'notes' && notesSection}
+        {tab === 'drafting' && (
+          <section className="h-full overflow-auto p-5">
+            <RegionHeading>Assisted drafting</RegionHeading>
+            <DraftsRegion caseId={caseId} />
+          </section>
+        )}
         {tab === 'all' && allSection}
       </main>
 

@@ -30,7 +30,7 @@ view.
   updates is **one `CREATE TRIGGER` line** in a migration — the function is
   never duplicated. It is applied to `cases`, `case_notes`, `key_dates`,
   `case_reviews`, `documents`, `emails`, `time_entries`, `schools`,
-  `school_contacts` and `case_schools`.
+  `school_contacts`, `case_schools` and `drafts`.
 - The API holds a **single `LISTEN` connection** and fans each notification out
   over WebSockets, mapping entity type to the affected TanStack Query keys
   through a registry. Because the notification originates in Postgres, this
@@ -101,6 +101,47 @@ more than one set of conventions.
 - **Switchable without a deploy.** `AI_ENABLED` is a global kill switch; per-job
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
+
+## Assisted drafting
+
+A first draft of a **position statement** for a SEND Tribunal appeal, written
+from the case file for a caseworker to check, edit and approve (Drafting tab;
+`apps/api/src/drafting`, `apps/api/src/ai/drafting-job.ts`).
+
+- **Grounded in the file.** The model reads the whole case corpus — case
+  record, documents, emails, notes, linked schools — each item carrying an id,
+  and must cite the items every paragraph rests on. The server then checks
+  every citation against the corpus (`groundDraft`): an invented citation is
+  dropped, and a paragraph left with nothing behind it is **removed**, and
+  counted, rather than shown as supported. Where the file gives a section no
+  basis, the section says so instead of guessing; what the caseworker should
+  obtain is listed.
+- **Shown with its sources.** Each paragraph is numbered against its sources,
+  with an excerpt of each and a link to open a document, so it can be checked
+  in seconds. The screen says plainly that a source shows where a passage came
+  from, not that it is right; a reworded paragraph is flagged for its sources
+  to be re-checked. Case-file text cannot forge or close corpus items (the
+  delimiters are neutralised for every AI feature).
+- **Always reviewed before use.** Paragraphs can be edited, removed or added
+  (a caseworker's own paragraph is marked as such). Approving needs an
+  explicit "I have read and checked it", locks the draft, records who approved
+  it and when, and files it as a Word document in Documents (Working
+  Document). Nothing is filed before that.
+- **The sections** — background, needs (B), provision (F), placement (I),
+  issues in dispute, outcome sought — and their guidance live in `config.ts`.
+- **How it runs.** Claude Opus 5.5 at high effort, through the AI job layer's
+  `structured_output` mode (structured outputs, adaptive thinking, streamed;
+  on a safety refusal the API retries on its default fallback model). The
+  case-file block is prompt-cached. A draft is written in the background — a
+  minute or two — and appears live; one stuck for 15 minutes is shown as
+  failed. Requests are rate-limited; every request, edit, approval and discard
+  is audited; spend shows under `GET /api/ai/spend` like every job.
+- **Who.** Caseworkers and admins (`DRAFTING_ROLES`).
+- **Can be switched off** with `AI_ENABLED` or the `draft_position_statement`
+  job flag; the rest of the system is unaffected.
+- **The AI key must have access to Claude Opus 5.5.** If it does not, a draft
+  fails with a message saying so (an administrator enables the model in the
+  Anthropic Console).
 
 ## Schools directory
 

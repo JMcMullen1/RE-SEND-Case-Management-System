@@ -54,7 +54,7 @@ export function FormField({
       <span className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
         <span>
           {label}
-          {required && <span className="ml-0.5 text-status-amber">*</span>}
+          {required && <span className="ml-0.5 text-status-amber-text">*</span>}
         </span>
         {machineFilled && (
           <span

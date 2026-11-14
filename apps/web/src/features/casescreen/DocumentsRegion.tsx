@@ -205,7 +205,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
               <button
                 type="button"
                 onClick={() => setPendingDelete([...selected])}
-                className="font-medium text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                className="font-medium text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
               >
                 Delete selected
               </button>
@@ -275,7 +275,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
                 <button
                   type="button"
                   onClick={() => setPendingDelete([doc.id])}
-                  className="text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
+                  className="text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-status-amber"
                 >
                   Delete
                 </button>
@@ -351,7 +351,9 @@ function ConfirmDeleteDialog({
           will be removed from this case. It is recoverable by an administrator
           and the deletion is recorded.
         </p>
-        {error && <p className="mt-2 text-sm text-status-amber">{error}</p>}
+        {error && (
+          <p className="mt-2 text-sm text-status-amber-text">{error}</p>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"

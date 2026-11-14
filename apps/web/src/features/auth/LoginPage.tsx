@@ -102,7 +102,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => void }) {
             </div>
 
             {signIn.isError && (
-              <p className="text-sm text-status-amber" role="alert">
+              <p className="text-sm text-status-amber-text" role="alert">
                 {signIn.error instanceof Error
                   ? signIn.error.message
                   : 'Sign in failed.'}

@@ -189,7 +189,7 @@ export function KeyDateDialog({
               type="button"
               onClick={() => onDelete(draft)}
               disabled={saving}
-              className="rounded px-2 py-1 text-sm text-status-amber hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
+              className="rounded px-2 py-1 text-sm text-status-amber-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:opacity-50"
             >
               Delete
             </button>

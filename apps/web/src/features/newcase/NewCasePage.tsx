@@ -983,7 +983,7 @@ export function NewCasePage() {
 
       <div className="sticky bottom-0 mt-8 flex items-center justify-end gap-3 border-t border-gray-200 bg-white py-4">
         {create.isError && (
-          <span className="mr-auto text-sm text-status-amber">
+          <span className="mr-auto text-sm text-status-amber-text">
             Could not create the case. Please try again.
           </span>
         )}
