@@ -67,6 +67,7 @@ function toDraft(r: Row, now: Date): Draft {
     missingInformation: content?.missingInformation ?? [],
     sources: content?.sources ?? [],
     removedUnsupported: content?.removedUnsupported ?? 0,
+    alerts: content?.alerts ?? [],
     failureReason: stale
       ? 'Drafting took too long and was stopped. Try again.'
       : r.failureReason,

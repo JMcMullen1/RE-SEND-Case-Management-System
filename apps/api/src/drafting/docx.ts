@@ -10,14 +10,16 @@ export async function draftToDocx(opts: {
   title: string;
   subtitle: string | null;
   sections: readonly DraftSection[];
+  /** Points to settle before the document is used, listed at the end. */
+  checklist?: readonly string[];
 }): Promise<Buffer> {
   const children: Paragraph[] = [
     new Paragraph({ text: opts.title, heading: HeadingLevel.TITLE }),
   ];
-  if (opts.subtitle) {
+  for (const line of opts.subtitle?.split('\n') ?? []) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: opts.subtitle, italics: true })],
+        children: [new TextRun({ text: line, italics: true })],
       }),
     );
   }
@@ -33,6 +35,17 @@ export async function draftToDocx(opts: {
           spacing: { after: 160 },
         }),
       );
+    }
+  }
+  if (opts.checklist?.length) {
+    children.push(
+      new Paragraph({
+        text: 'Before you submit',
+        heading: HeadingLevel.HEADING_1,
+      }),
+    );
+    for (const item of opts.checklist) {
+      children.push(new Paragraph({ text: item, bullet: { level: 0 } }));
     }
   }
   const doc = new Document({ sections: [{ children }] });

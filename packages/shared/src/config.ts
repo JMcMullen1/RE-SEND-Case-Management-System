@@ -364,12 +364,31 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
 /** The AI job that drafts a position statement from the case file. */
 export const DRAFT_POSITION_STATEMENT_JOB = 'draft_position_statement';
 
+/** The AI job that drafts answers to the SEND35 appeal form from the case file. */
+export const DRAFT_SEND35_JOB = 'draft_send35_appeal';
+
 /** Kinds of document the drafting tools produce. */
-export const DRAFT_KIND_VALUES = ['position_statement'] as const;
+export const DRAFT_KIND_VALUES = [
+  'position_statement',
+  'send35_appeal',
+] as const;
 export type DraftKind = (typeof DRAFT_KIND_VALUES)[number];
 export const DraftKindSchema = z.enum(DRAFT_KIND_VALUES);
 export const DRAFT_KIND_LABELS: Record<DraftKind, string> = {
   position_statement: 'Position statement',
+  send35_appeal: 'SEND35 appeal form',
+};
+/** One line on what each kind is for, shown where a caseworker chooses one. */
+export const DRAFT_KIND_DESCRIPTIONS: Record<DraftKind, string> = {
+  position_statement:
+    "The appellant's statement of their case for the Tribunal, section by section.",
+  send35_appeal:
+    'Answers to the SEND35 form for appealing a decision about an EHC plan, ready to copy into the online or paper form.',
+};
+/** The AI job behind each kind (each can be switched off on its own). */
+export const DRAFT_KIND_JOBS: Record<DraftKind, string> = {
+  position_statement: DRAFT_POSITION_STATEMENT_JOB,
+  send35_appeal: DRAFT_SEND35_JOB,
 };
 
 /**
@@ -443,6 +462,158 @@ export const POSITION_STATEMENT_SECTION_KEYS = POSITION_STATEMENT_SECTIONS.map(
   PositionStatementSectionKey,
   ...PositionStatementSectionKey[],
 ];
+
+/**
+ * The SEND35 form ("Appeal a decision about an EHC plan") as published by the
+ * First-tier Tribunal (SEND). When HMCTS issues a new version, update the
+ * version and the sections below to match it.
+ */
+export const SEND35_FORM = {
+  version: 'Version 02, 02.2026',
+  /** The GOV.UK page for the form (PDF and guidance). */
+  guidanceUrl:
+    'https://www.gov.uk/government/publications/form-send35-special-educational-needs-and-disability-tribunal-appeal',
+  /** The online version of the form. */
+  onlineUrl:
+    'https://appeal-about-ehc-plan-decision.form.service.justice.gov.uk/',
+  tribunalEmail: 'send@justice.gov.uk',
+} as const;
+
+/** Time limits for a SEND appeal: whichever of the two ends later applies. */
+export const SEND_APPEAL_MONTHS_FROM_DECISION_LETTER = 2;
+export const SEND_APPEAL_MONTHS_FROM_MEDIATION_CERTIFICATE = 1;
+/** A deadline this close (in calendar days) is flagged on the draft. */
+export const SEND_APPEAL_DEADLINE_WARNING_DAYS = 14;
+/** Compulsory school age ends with the academic year (to 31 August) in which a child turns this age. */
+export const COMPULSORY_SCHOOL_AGE_ENDS_AT = 16;
+/** The Tribunal hears appeals for young people under this age. */
+export const SEND_TRIBUNAL_AGE_LIMIT = 25;
+
+/**
+ * Where a SEND35 answer comes from: "record" sections are filled by the system
+ * straight from the case record (names, contact details) so they cannot be
+ * misread; "model" sections are drafted from the case file with sources.
+ */
+export type DraftSectionFill = 'record' | 'model';
+
+/** The SEND35 form's sections, as answered by a draft, in the form's order. */
+export const SEND35_SECTIONS = [
+  {
+    key: 'child',
+    heading: 'Section 1 – Child or young person’s information',
+    guidance: 'Name, gender and date of birth, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'appellant',
+    heading: 'Section 2 – Details of the person appealing',
+    guidance:
+      'Who is appealing and their contact details, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'people',
+    heading:
+      'Sections 3 to 7 – Other parent or carer, representative, advocate, communication and parental responsibility',
+    guidance:
+      'Only what the file shows: another parent or carer (3); whether anyone, including RE-SEND, acts as representative (4) or advocate (5); who should receive information about the appeal (6); and anyone else with parental responsibility, such as a social worker or foster carer, and whether they have been told of the appeal (7).',
+    fill: 'model',
+  },
+  {
+    key: 'appeal_type',
+    heading: 'Section 8 – Type of appeal',
+    guidance:
+      'What is being appealed (8.1: refusal to make a plan; refusal to secure a reassessment; disagreement with Section B, F or I; or a decision that a plan is no longer necessary), whether it follows an annual review (8.2), and which of Sections B, F and I are disputed (8.3), as the decision letter and file show.',
+    fill: 'model',
+  },
+  {
+    key: 'placement',
+    heading: 'Section 9 – School, college or education provider',
+    guidance:
+      'Only if Section I is disputed: whether the plan names the wrong provider or none (9.1); the provider or type of provider asked for, with its address (9.2 to 9.4); when the provider was contacted and how it responded (9.5, 9.6). The response is reported, not argued.',
+    fill: 'model',
+  },
+  {
+    key: 'reasons',
+    heading: 'Section 10 – Reasons for the appeal',
+    guidance:
+      'For each issue in dispute, in turn: what the issue is, why the appellant disagrees, what evidence supports them, and what they want the Tribunal to do. One paragraph per issue where possible.',
+    fill: 'model',
+  },
+  {
+    key: 'health_care',
+    heading: 'Section 11 – Health and social care (optional)',
+    guidance:
+      'Only if the file supports asking for recommendations about health (Sections C and G) or social care (Sections D and H): the issues for the Tribunal to consider and the recommendations sought (11.3 to 11.6).',
+    fill: 'model',
+  },
+  {
+    key: 'mediation',
+    heading: 'Section 12 – Mediation certificate',
+    guidance:
+      'Whether there is a mediation certificate (12.1). If not, why not (12.2) — for example that the appeal is only about Section I.',
+    fill: 'model',
+  },
+  {
+    key: 'timing',
+    heading: 'Section 13 – Appealing on time',
+    guidance:
+      'Only if the appeal is or may be late: the reasons for the delay, why the appeal should go ahead anyway, and why the appellant should not have to wait for an annual review (13.3). The dates on the decision letter and mediation certificate are reported separately.',
+    fill: 'model',
+  },
+  {
+    key: 'other_cases',
+    heading: 'Sections 14 and 15 – Other SEND appeals and other court cases',
+    guidance:
+      'Other SEND appeals involving the child, young person or their siblings, with reference numbers (14.1), and any other court or tribunal cases, including the family court, with any orders (15.1) — only as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'support',
+    heading: 'Section 17 – Support during your case',
+    guidance:
+      'Any spoken language interpreter needed, with languages and dialects (17.1), and reasonable adjustments or support for the appellant or anyone supporting them (17.2), as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'evidence',
+    heading: 'Supporting evidence',
+    guidance:
+      'One paragraph per document to send with the appeal, as a row of the form’s evidence table: what it is; who signed or wrote it; its date; and its number of pages if the file shows it. Cite the document itself.',
+    fill: 'model',
+  },
+] as const satisfies readonly {
+  key: string;
+  heading: string;
+  guidance: string;
+  fill: DraftSectionFill;
+}[];
+export type Send35SectionKey = (typeof SEND35_SECTIONS)[number]['key'];
+/** The sections the model drafts (the rest are filled from the case record). */
+export const SEND35_MODEL_SECTION_KEYS = SEND35_SECTIONS.filter(
+  (s) => s.fill === 'model',
+).map((s) => s.key) as unknown as readonly [
+  Send35SectionKey,
+  ...Send35SectionKey[],
+];
+
+/** What the appellant must do themselves, listed on every SEND35 draft. */
+export const SEND35_APPELLANT_CHECKLIST = [
+  'Section 16 (hearing preferences) and the declaration are for the appellant to choose and sign.',
+  'Send with the form: the local authority’s decision letter, the final EHC plan (if there is one) with the documents listed in its Section K, and the mediation certificate if the appeal needs one.',
+  'If the decision was a refusal to carry out an EHC needs assessment, the SEND35A form is used instead.',
+] as const;
+
+/** The sections of each kind of draft, in order. */
+export const DRAFT_KIND_SECTIONS: Record<
+  DraftKind,
+  readonly { key: string; heading: string; guidance: string }[]
+> = {
+  position_statement: POSITION_STATEMENT_SECTIONS,
+  send35_appeal: SEND35_SECTIONS,
+};
+/** Longest section key any kind uses (for request validation). */
+export const DRAFT_SECTION_KEY_MAX = 40;
 
 // --- Schools directory --------------------------------------------------------
 /**

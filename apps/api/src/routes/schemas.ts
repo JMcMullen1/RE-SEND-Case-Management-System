@@ -24,7 +24,7 @@ import {
   CaseSchoolRoleSchema,
   DraftKindSchema,
   DraftStatusSchema,
-  POSITION_STATEMENT_SECTION_KEYS,
+  DRAFT_SECTION_KEY_MAX,
   SchoolFundingSchema,
   SchoolProvisionSchema,
   TIME_ENTRY_MAX_MINUTES,
@@ -960,7 +960,7 @@ export const DraftSchema = z.object({
   instructions: z.string().nullable(),
   sections: z.array(
     z.object({
-      key: z.enum(POSITION_STATEMENT_SECTION_KEYS),
+      key: z.string(),
       heading: z.string(),
       paragraphs: z.array(
         z.object({
@@ -984,6 +984,7 @@ export const DraftSchema = z.object({
     }),
   ),
   removedUnsupported: z.number().int(),
+  alerts: z.array(z.string()),
   failureReason: z.string().nullable(),
   createdByName: z.string().nullable(),
   createdAt: z.string(),
@@ -1003,7 +1004,7 @@ export const DraftEditSchema = z.object({
   baseUpdatedAt: z.string(),
   sections: z.array(
     z.object({
-      key: z.enum(POSITION_STATEMENT_SECTION_KEYS),
+      key: z.string().max(DRAFT_SECTION_KEY_MAX),
       paragraphs: z.array(
         z.object({
           id: z.string().uuid().optional(),
