@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   NotAGiasFile,
   decodeGiasBytes,
@@ -78,24 +78,24 @@ describe('reading CSV', () => {
   });
 
   it('reads Windows-1252 right where the runtime decodes it as Latin-1 (Node 20)', () => {
-    const Real = globalThis.TextDecoder;
-    class Latin1For1252 extends Real {
-      private readonly latin1: boolean;
-      constructor(label?: string, options?: TextDecoderOptions) {
-        super(label, options);
-        this.latin1 = label === 'windows-1252';
+    const Real = TextDecoder;
+    class Latin1For1252 {
+      private readonly real: { decode(input: Uint8Array): string } | null;
+      constructor(label = 'utf-8', options?: { fatal?: boolean }) {
+        this.real = label === 'windows-1252' ? null : new Real(label, options);
       }
-      override decode(input?: AllowSharedBufferSource): string {
-        if (!this.latin1) return super.decode(input);
-        return String.fromCharCode(...new Uint8Array(input as ArrayBuffer));
+      decode(input: Uint8Array): string {
+        return this.real
+          ? this.real.decode(input)
+          : String.fromCharCode(...input);
       }
     }
-    globalThis.TextDecoder = Latin1For1252 as typeof TextDecoder;
+    vi.stubGlobal('TextDecoder', Latin1For1252);
     try {
       const bytes = new Uint8Array([0x93, 0x41, 0x94, 0x20, 0x96, 0x92, 0xe9]);
       expect(decodeGiasBytes(bytes)).toBe('“A” –’é');
     } finally {
-      globalThis.TextDecoder = Real;
+      vi.unstubAllGlobals();
     }
   });
 
