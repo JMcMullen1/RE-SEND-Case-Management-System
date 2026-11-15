@@ -28,6 +28,8 @@ export function useCaseDetail(id: string) {
   return useQuery({
     queryKey: ['case-detail', id],
     queryFn: () => fetchCaseDetail(id),
+    // Review mode renders before it knows which case is first.
+    enabled: id !== '',
   });
 }
 
@@ -44,6 +46,7 @@ export function useTimeline(
   return useQuery({
     queryKey: ['timeline', id, filters],
     queryFn: () => fetchTimeline(id, filters),
+    enabled: id !== '',
   });
 }
 

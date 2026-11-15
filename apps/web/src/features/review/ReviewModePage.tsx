@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   calculateAge,
+  CONSULTATION_STATE_LABELS,
   CONSULTATION_STATE_VALUES,
   decodeViewState,
   FILTER_DAY_DEFAULTS,
@@ -206,7 +207,7 @@ export function ReviewModePage() {
 
   return (
     <div className="flex h-screen flex-col bg-white text-resend-ink">
-      <header className="flex flex-wrap items-center gap-4 border-b border-gray-200 px-6 py-3">
+      <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 px-6 py-3">
         <a href="/" className="text-sm text-resend-purple hover:underline">
           ← Exit
         </a>
@@ -231,7 +232,7 @@ export function ReviewModePage() {
         >
           Finish
         </button>
-      </header>
+      </div>
 
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-px bg-gray-100 lg:grid-cols-3">
         {/* Detail + quick actions */}
@@ -297,7 +298,7 @@ export function ReviewModePage() {
               }}
               options={CONSULTATION_STATE_VALUES.map((s) => ({
                 value: s,
-                label: s,
+                label: CONSULTATION_STATE_LABELS[s],
               }))}
             />
           </div>

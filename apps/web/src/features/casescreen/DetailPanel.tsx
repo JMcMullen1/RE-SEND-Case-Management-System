@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   calculateAge,
+  CONSULTATION_STATE_LABELS,
   CONSULTATION_STATE_VALUES,
   ENQUIRY_METHOD_VALUES,
   formatCivilDate,
@@ -364,7 +365,10 @@ export function DetailPanel({
               'consultStatus',
               detail.consultStatus,
               'select',
-              opts(CONSULTATION_STATE_VALUES),
+              CONSULTATION_STATE_VALUES.map((v) => ({
+                value: v,
+                label: CONSULTATION_STATE_LABELS[v],
+              })),
             )}
           </Field>
           <Field label="Support level" copy={detail.supportLevel}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   calculateAge,
+  CONSULTATION_STATE_LABELS,
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
   ENQUIRY_METHOD_VALUES,
@@ -476,11 +477,11 @@ export function NewCasePage() {
   );
 
   return (
-    <div className="mx-auto min-h-screen max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-3xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <a href="/" className="text-sm text-resend-purple hover:underline">
-            ← Cases
+            ← All cases
           </a>
           <h1 className="text-2xl font-semibold text-resend-purple">
             Add a case
@@ -849,7 +850,10 @@ export function NewCasePage() {
           <FormField
             label="Consultation state"
             type="select"
-            options={opts(CONSULTATION_STATE_VALUES)}
+            options={CONSULTATION_STATE_VALUES.map((v) => ({
+              value: v,
+              label: CONSULTATION_STATE_LABELS[v],
+            }))}
             value={caseFields.consultStatus}
             onChange={(v) => setF('consultStatus', v)}
           />

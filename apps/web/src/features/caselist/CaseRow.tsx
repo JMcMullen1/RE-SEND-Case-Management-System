@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import {
+  consultationStateLabel,
   formatCivilDate,
   relativeSince,
   typeOfCase,
@@ -153,7 +154,9 @@ export function CaseRow({
         );
       case 'consultationState':
         return (
-          <span className="text-sm text-resend-ink">{row.consultStatus}</span>
+          <span className="text-sm text-resend-ink">
+            {consultationStateLabel(row.consultStatus)}
+          </span>
         );
       case 'lastReviewed':
         return (

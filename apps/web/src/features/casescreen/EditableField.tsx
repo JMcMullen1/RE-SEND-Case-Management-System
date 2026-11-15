@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { formatCivilDate } from '@re-send/shared';
 
 type FieldType = 'text' | 'textarea' | 'date' | 'number' | 'select';
 
@@ -131,7 +132,14 @@ export function EditableField({
     );
   }
 
-  const shown = display ? display(value) : (value ?? '');
+  // As it reads: a date in UK form, a choice by its label.
+  const shown = display
+    ? display(value)
+    : value && type === 'date'
+      ? formatCivilDate(value)
+      : value && type === 'select'
+        ? (options?.find((o) => o.value === value)?.label ?? value)
+        : (value ?? '');
   return (
     <button
       type="button"
