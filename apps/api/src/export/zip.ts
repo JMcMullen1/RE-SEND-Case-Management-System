@@ -189,7 +189,18 @@ export function streamExport(by: string): {
       const name = safeSegment(
         f.version > 1 ? withSuffix(f.filename, ` (v${f.version})`) : f.filename,
       );
-      const object = await getStorageProvider().get(f.storageKey);
+      let object: Awaited<
+        ReturnType<ReturnType<typeof getStorageProvider>['get']>
+      >;
+      try {
+        object = await getStorageProvider().get(f.storageKey);
+      } catch {
+        // E.g. encrypted with a key no longer configured: listed, not fatal.
+        missing.push(
+          `${folder}/${name} (document id ${f.id}, could not be read or decrypted)`,
+        );
+        continue;
+      }
       if (!object) {
         missing.push(`${folder}/${name} (document id ${f.id})`);
         continue;

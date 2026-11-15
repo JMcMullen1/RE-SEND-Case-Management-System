@@ -269,6 +269,7 @@ run('staff admin and data export API', () => {
       ]),
     });
 
+    const exportStarted = new Date().toISOString();
     const res = await app.inject({
       method: 'GET',
       url: '/api/admin/export',
@@ -296,14 +297,24 @@ run('staff admin and data export API', () => {
     expect(manifest).toMatch(/Export complete/);
     expect(manifest).toMatch(/cases: \d+ rows/);
 
-    // Both the start and the finished outcome are audited.
-    await new Promise((r) => setTimeout(r, 50));
-    const audits = (await getDb().execute(
-      sql`SELECT action FROM audit_log
-          WHERE action IN ('export.download', 'export.complete')
-            AND actor_user_id = ${admin().id}`,
-    )) as unknown as { action: string }[];
-    expect(new Set(audits.map((a) => a.action))).toEqual(
+    // Both the start and the finished outcome are audited. The outcome is
+    // written once the stream has ended, so wait for it (a slow machine can
+    // take longer than the response), and count only this export's entries.
+    const actions = async () =>
+      new Set(
+        (
+          (await getDb().execute(
+            sql`SELECT action FROM audit_log
+                WHERE action IN ('export.download', 'export.complete')
+                  AND actor_user_id = ${admin().id}
+                  AND created_at >= ${exportStarted}`,
+          )) as unknown as { action: string }[]
+        ).map((a) => a.action),
+      );
+    const deadline = Date.now() + 5000;
+    while ((await actions()).size < 2 && Date.now() < deadline)
+      await new Promise((r) => setTimeout(r, 50));
+    expect(await actions()).toEqual(
       new Set(['export.download', 'export.complete']),
     );
     await app.close();

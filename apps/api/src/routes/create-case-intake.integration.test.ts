@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { createCase } from '../repositories/create-case';
 import { getStorageProvider } from '../storage';
+import { decryptField } from '../crypto/encryption';
 
 const run = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -74,7 +75,8 @@ run('create case with smart-fill intake', () => {
       sql`SELECT appeal_lodged, aims FROM cases WHERE id = ${caseId}`,
     )) as unknown as { appeal_lodged: boolean; aims: string | null }[];
     expect(cases[0]!.appeal_lodged).toBe(true);
-    expect(cases[0]!.aims).toBe('Secure provision');
+    // Stored encrypted (see crypto/sensitive-fields.ts).
+    expect(decryptField(cases[0]!.aims)).toBe('Secure provision');
 
     const clients = (await db.execute(sql`
       SELECT cl.consent_contact, cl.consent_contact_at, cl.consent_information_sharing

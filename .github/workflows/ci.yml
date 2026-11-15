@@ -25,6 +25,8 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resend_test
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/resend_test
+      # A throwaway key for CI's own test data (never used for real data).
+      ENCRYPTION_KEY: ci-only-test-key-not-a-secret-0000000000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

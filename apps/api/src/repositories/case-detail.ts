@@ -7,6 +7,7 @@ import type {
   TimelineItem,
 } from '@re-send/shared';
 import { getDb } from '../db/client';
+import { readField } from '../crypto/encryption';
 import {
   caseNotes,
   caseTeams,
@@ -129,7 +130,7 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
     currentWork: row.currentWork,
     consultStatus: row.consultStatus,
     supportLevel: row.supportLevel,
-    aims: row.aims,
+    aims: readField(row.aims),
     client: client
       ? {
           id: client.id,
@@ -144,7 +145,7 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
           city: client.city,
           county: client.county,
           postcode: client.postcode,
-          additionalNeeds: client.additionalNeeds,
+          additionalNeeds: readField(client.additionalNeeds),
           consentDataProcessing: client.consentDataProcessing,
           consentInformationSharing: client.consentInformationSharing,
           consentContact: client.consentContact,
@@ -162,7 +163,7 @@ export async function getCaseDetail(id: string): Promise<CaseDetail | null> {
           currentSchoolName: child.currentSchoolName,
           currentSchoolAddress: child.currentSchoolAddress,
           desiredSchool: child.desiredSchool,
-          sendNeeds: child.sendNeeds,
+          sendNeeds: readField(child.sendNeeds),
           la: child.la,
           laContacts: (child.laContacts ?? []) as string[],
         }

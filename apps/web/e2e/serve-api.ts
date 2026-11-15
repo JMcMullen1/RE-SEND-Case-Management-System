@@ -20,6 +20,8 @@ async function main(): Promise<void> {
       DEMO_MODE: 'true',
       DEMO_PASSWORD: 'resend-demo',
       SESSION_SECRET: 'e2e-session-secret',
+      // A throwaway key for the e2e database's test data only.
+      ENCRYPTION_KEY: 'e2e-only-test-key-not-a-secret-000000000',
       NODE_ENV: 'development',
       PORT: '3000',
       AI_ENABLED: 'true',

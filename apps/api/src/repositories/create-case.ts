@@ -3,6 +3,8 @@ import { eq } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
 import { londonToday, type CaseClientDetail, type Team } from '@re-send/shared';
 import { getDb } from '../db/client';
+import { encryptField, readField } from '../crypto/encryption';
+import { encryptSensitive } from '../crypto/sensitive-fields';
 import { extractIntakeText } from '../ai/intake';
 import { getStorageProvider } from '../storage';
 import {
@@ -131,7 +133,7 @@ export async function createCase(
       const [row] = await tx
         .insert(clients)
         .values({
-          ...input.client,
+          ...encryptSensitive('clients', input.client),
           fullName: input.client.fullName,
           displayName:
             input.client.displayName ?? toDisplayName(input.client.fullName),
@@ -158,7 +160,10 @@ export async function createCase(
     if (!childId && input.child?.fullName) {
       const [row] = await tx
         .insert(children)
-        .values({ ...input.child, fullName: input.child.fullName })
+        .values({
+          ...encryptSensitive('children', input.child),
+          fullName: input.child.fullName,
+        })
         .returning({ id: children.id });
       childId = row!.id;
     }
@@ -196,7 +201,7 @@ export async function createCase(
         supportLevel: c.supportLevel ?? null,
         paymentCode: (c.paymentCode ?? null) as never,
         discountCode: (c.discountCode ?? null) as never,
-        aims: c.aims ?? null,
+        aims: encryptField(c.aims ?? null),
         finalPlanIssuedDate: c.finalPlanIssuedDate ?? null,
         mediationStatus: c.mediationStatus ?? null,
         appealLodged: c.appealLodged ?? false,
@@ -436,7 +441,7 @@ export async function getClientDetail(
     city: c.city,
     county: c.county,
     postcode: c.postcode,
-    additionalNeeds: c.additionalNeeds,
+    additionalNeeds: readField(c.additionalNeeds),
     consentDataProcessing: c.consentDataProcessing,
     consentInformationSharing: c.consentInformationSharing,
     consentContact: c.consentContact,

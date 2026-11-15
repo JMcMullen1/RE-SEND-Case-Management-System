@@ -3,6 +3,7 @@ import type { Team } from '@re-send/shared';
 import { getDb } from '../db/client';
 import { caseTeams, cases, children, clients, teams } from '../db/schema';
 import { recordAudit } from './audit';
+import { encryptSensitive, protectSensitive } from '../crypto/sensitive-fields';
 
 function subset(
   row: Record<string, unknown>,
@@ -16,6 +17,8 @@ export async function updateCaseFields(
   patch: Partial<typeof cases.$inferInsert>,
   actor: string | null,
 ): Promise<boolean> {
+  // Sensitive fields are stored, and audited, encrypted.
+  patch = encryptSensitive('cases', patch);
   const db = getDb();
   let ok = false;
   await db.transaction(async (tx) => {
@@ -30,7 +33,7 @@ export async function updateCaseFields(
       action: 'case.update',
       entityType: 'case',
       entityId: id,
-      before: subset(before, Object.keys(patch)),
+      before: protectSensitive('cases', subset(before, Object.keys(patch))),
       after: patch,
     });
     ok = true;
@@ -43,6 +46,8 @@ export async function updateClientFields(
   patch: Partial<typeof clients.$inferInsert>,
   actor: string | null,
 ): Promise<boolean> {
+  // Sensitive fields are stored, and audited, encrypted.
+  patch = encryptSensitive('clients', patch);
   const db = getDb();
   let ok = false;
   await db.transaction(async (tx) => {
@@ -57,7 +62,7 @@ export async function updateClientFields(
       action: 'client.update',
       entityType: 'client',
       entityId: id,
-      before: subset(before, Object.keys(patch)),
+      before: protectSensitive('clients', subset(before, Object.keys(patch))),
       after: patch,
     });
     ok = true;
@@ -70,6 +75,8 @@ export async function updateChildFields(
   patch: Partial<typeof children.$inferInsert>,
   actor: string | null,
 ): Promise<boolean> {
+  // Sensitive fields are stored, and audited, encrypted.
+  patch = encryptSensitive('children', patch);
   const db = getDb();
   let ok = false;
   await db.transaction(async (tx) => {
@@ -87,7 +94,7 @@ export async function updateChildFields(
       action: 'child.update',
       entityType: 'child',
       entityId: id,
-      before: subset(before, Object.keys(patch)),
+      before: protectSensitive('children', subset(before, Object.keys(patch))),
       after: patch,
     });
     ok = true;

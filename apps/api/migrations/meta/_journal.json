@@ -134,6 +134,13 @@
       "when": 1794768216783,
       "tag": "0018_search_vectors",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794773673218,
+      "tag": "0019_encryption_state",
+      "breakpoints": true
     }
   ]
 }

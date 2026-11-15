@@ -1,5 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
+import { readField } from '../crypto/encryption';
+import {
+  ALL_SENSITIVE_FIELDS,
+  SENSITIVE_COLUMNS,
+} from '../crypto/sensitive-fields';
 import { recordAudit } from './audit';
 
 /**
@@ -79,11 +84,36 @@ export async function exportTablePage(
   if (!EXPORT_TABLES.some((t) => t.table === table))
     throw new Error(`Table ${table} is not exportable`);
   const list = columns.map((c) => `"${c.replace(/"/g, '""')}"`).join(', ');
-  return (await getDb().execute(
+  const rows = (await getDb().execute(
     sql.raw(
       `SELECT ${list} FROM "${table}" ORDER BY 1 LIMIT ${Math.trunc(limit)} OFFSET ${Math.trunc(offset)}`,
     ),
   )) as unknown as Record<string, unknown>[];
+  // The export is the charity's own readable copy: encrypted fields (and the
+  // encrypted values the audit trail recorded for them) are written decrypted.
+  // A value that cannot be decrypted is written as a marker, never failing
+  // the export (e.g. audit entries after a key rotation).
+  const sensitive =
+    SENSITIVE_COLUMNS[table as keyof typeof SENSITIVE_COLUMNS] ?? [];
+  return rows.map((row) => {
+    const out = { ...row };
+    for (const column of sensitive)
+      out[column] = readField(out[column] as string | null);
+    if (table === 'audit_log')
+      for (const column of ['before', 'after'])
+        out[column] = readAuditValues(out[column]);
+    return out;
+  });
+}
+
+/** An audit entry's before/after with its sensitive fields readable. */
+function readAuditValues(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const out = { ...(value as Record<string, unknown>) };
+  for (const field of ALL_SENSITIVE_FIELDS)
+    if (typeof out[field] === 'string')
+      out[field] = readField(out[field] as string);
+  return out;
 }
 
 /** Audit an export: who started it, and how it ended (counts only). */

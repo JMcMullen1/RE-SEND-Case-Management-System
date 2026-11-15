@@ -3,19 +3,23 @@ import { env } from '../env';
 import { LocalDiskProvider } from './local-disk';
 import { S3CompatibleProvider } from './s3-compatible';
 import type { StorageProvider } from './provider';
+import { EncryptingProvider } from './encrypting';
 
 export type { StorageProvider, PutObject, GetObject } from './provider';
 export { keyFor } from './provider';
 
-let provider: StorageProvider | undefined;
+let provider: EncryptingProvider | undefined;
 
 /**
  * The process-wide StorageProvider, chosen once by STORAGE_PROVIDER. Callers get
  * back the interface and cannot tell which backend answers — that is the point.
  */
-export function getStorageProvider(): StorageProvider {
+export function getStorageProvider(): EncryptingProvider {
   if (provider) return provider;
-  provider = env.STORAGE_PROVIDER === 's3' ? buildS3() : buildLocal();
+  // Every file is encrypted on its way in and decrypted on its way out.
+  provider = new EncryptingProvider(
+    env.STORAGE_PROVIDER === 's3' ? buildS3() : buildLocal(),
+  );
   return provider;
 }
 

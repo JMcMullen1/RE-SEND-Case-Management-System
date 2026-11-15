@@ -4,6 +4,18 @@ import { z } from 'zod';
  * Validated process environment. Fastify, Drizzle and everything else read
  * configuration from here, never from `process.env` directly.
  */
+/** A secret of at least 32 characters, or unset (a blank line counts as unset). */
+const optionalSecret = z.preprocess(
+  (v) => (v === '' ? undefined : v),
+  z
+    .string()
+    .refine(
+      (v) => v.trim().length >= 32,
+      'must be at least 32 characters (e.g. `openssl rand -base64 32`)',
+    )
+    .optional(),
+);
+
 const EnvSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -46,9 +58,13 @@ const EnvSchema = z.object({
   // Signs the session cookie (HMAC). Required once auth is exercised; a random
   // fallback is generated in non-production so local dev needs no setup.
   SESSION_SECRET: z.string().optional(),
-  // Reserved for encrypting data at rest (future). Named here so it is a first
-  // class secret in .env.example and Render, not an afterthought.
-  ENCRYPTION_KEY: z.string().optional(),
+  // Encrypts sensitive fields and stored document files (crypto/encryption.ts).
+  // Required outside tests. Losing it makes that data unreadable: keep a copy
+  // somewhere safe, apart from the database backups.
+  ENCRYPTION_KEY: optionalSecret,
+  // The key before a rotation, still accepted for reading until the start-up
+  // pass has re-encrypted everything under ENCRYPTION_KEY.
+  ENCRYPTION_KEY_PREVIOUS: optionalSecret,
   LOG_LEVEL: z.string().default('info'),
 
   // --- Demo mode -----------------------------------------------------------
