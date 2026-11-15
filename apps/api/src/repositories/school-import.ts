@@ -76,6 +76,26 @@ export async function commitSchoolImport(
 ): Promise<SchoolImportResult> {
   const db = getDb();
   const batchId = randomUUID();
+  try {
+    return await importInTransaction(db, incoming, actor, batchId);
+  } catch (err) {
+    // A school saved with one of these URNs by someone else mid-import.
+    if ((err as { code?: string }).code === '23505')
+      throw new SchoolImportConflict(
+        'A school with one of these URNs was added while importing. Check again, then import.',
+      );
+    throw err;
+  }
+}
+
+export class SchoolImportConflict extends Error {}
+
+async function importInTransaction(
+  db: ReturnType<typeof getDb>,
+  incoming: ImportedSchool[],
+  actor: string,
+  batchId: string,
+): Promise<SchoolImportResult> {
   return db.transaction(async (tx) => {
     // One import at a time: two at once would both add the same schools.
     await tx.execute(

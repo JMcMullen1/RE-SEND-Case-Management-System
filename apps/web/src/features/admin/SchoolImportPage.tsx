@@ -152,7 +152,13 @@ export function SchoolImportPage() {
   const [areas, setAreas] = useState<string[]>(loadAreas);
   const [allSection41, setAllSection41] = useState(true);
   const [areaFilter, setAreaFilter] = useState('');
-  const [preview, setPreview] = useState<SchoolImportPreview | null>(null);
+  // The preview and exactly the schools it was made for: those are what an
+  // import sends, so what the admin approved is what is imported.
+  const [previewed, setPreviewed] = useState<{
+    schools: ImportedSchool[];
+    preview: SchoolImportPreview;
+  } | null>(null);
+  const preview = previewed?.preview ?? null;
 
   const counts = useMemo(
     () => (contents ? localAuthorityCounts(contents.schools) : []),
@@ -171,12 +177,21 @@ export function SchoolImportPage() {
     c.name.toLowerCase().includes(areaFilter.trim().toLowerCase()),
   );
 
+  // The selection as it is now, so a check answered after it changed is
+  // dropped rather than shown for the wrong schools.
+  const latest = useRef(chosen);
+  latest.current = chosen;
   const check = useMutation({
-    mutationFn: () => previewSchoolImport(chosen),
-    onSuccess: (p) => setPreview(p),
+    mutationFn: async (sent: ImportedSchool[]) => ({
+      sent,
+      preview: await previewSchoolImport(sent),
+    }),
+    onSuccess: ({ sent, preview: p }) => {
+      if (sent === latest.current) setPreviewed({ schools: sent, preview: p });
+    },
   });
   const run = useMutation({
-    mutationFn: () => runSchoolImport(chosen),
+    mutationFn: (schools: ImportedSchool[]) => runSchoolImport(schools),
     onSuccess: () => {
       saveAreas(areas);
       void qc.invalidateQueries({ queryKey: ['schools'] });
@@ -190,7 +205,7 @@ export function SchoolImportPage() {
     setReadError(null);
     setContents(null);
     setFileName(file.name);
-    setPreview(null);
+    setPreviewed(null);
     run.reset();
     check.reset();
     try {
@@ -214,10 +229,15 @@ export function SchoolImportPage() {
     }
   }
 
+  /** The selection changed: any preview or check result is out of date. */
+  function selectionChanged() {
+    setPreviewed(null);
+    check.reset();
+    run.reset();
+  }
   function changeAreas(next: string[]) {
     setAreas(next);
-    setPreview(null);
-    check.reset();
+    selectionChanged();
   }
 
   const todaysFile = `${GIAS_ALL_DATA_URL_PREFIX}${today.replace(/-/g, '')}.csv`;
@@ -314,7 +334,7 @@ export function SchoolImportPage() {
                 {reading
                   ? 'Reading the file…'
                   : contents
-                    ? `${fileName}: ${plural(contents.schools.length, 'open school')} in ${plural(counts.length, 'area')}. Left out: ${n(contents.closed)} closed, and ${n(contents.outOfScope)} abroad, universities, online-only or in Wales.`
+                    ? `${fileName}: ${plural(contents.schools.length, 'open school')} in ${plural(counts.length, 'area')}. Left out: ${n(contents.closed)} closed or not yet open, and ${n(contents.outOfScope)} abroad, universities, online-only or in Wales.`
                     : ''}
               </p>
               {readError && (
@@ -412,7 +432,7 @@ export function SchoolImportPage() {
                     checked={allSection41}
                     onChange={(e) => {
                       setAllSection41(e.target.checked);
-                      setPreview(null);
+                      selectionChanged();
                     }}
                   />
                   <span>
@@ -430,7 +450,7 @@ export function SchoolImportPage() {
                       chosen.length > SCHOOL_IMPORT_MAX ||
                       check.isPending
                     }
-                    onClick={() => check.mutate()}
+                    onClick={() => check.mutate(chosen)}
                   >
                     {check.isPending ? 'Checking…' : 'Check what will change'}
                   </button>
@@ -522,7 +542,7 @@ export function SchoolImportPage() {
                     disabled={
                       run.isPending || preview.toCreate + preview.toUpdate === 0
                     }
-                    onClick={() => run.mutate()}
+                    onClick={() => previewed && run.mutate(previewed.schools)}
                   >
                     {run.isPending
                       ? 'Importing…'

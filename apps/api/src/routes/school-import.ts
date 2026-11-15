@@ -11,6 +11,7 @@ import { resolveActingUser } from '../auth/context';
 import {
   commitSchoolImport,
   previewSchoolImport,
+  SchoolImportConflict,
 } from '../repositories/school-import';
 
 const Message = z.object({ message: z.string() });
@@ -111,13 +112,19 @@ export function registerSchoolImportRoutes(fastify: FastifyInstance): void {
       config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: RequestSchema,
-        response: { 200: ResultSchema, 403: Message },
+        response: { 200: ResultSchema, 403: Message, 409: Message },
       },
     },
     async (request, reply) => {
       const admin = await requireAdmin(request, reply);
       if (!admin) return;
-      return commitSchoolImport(request.body.schools, admin.id);
+      try {
+        return await commitSchoolImport(request.body.schools, admin.id);
+      } catch (err) {
+        if (err instanceof SchoolImportConflict)
+          return reply.code(409).send({ message: err.message });
+        throw err;
+      }
     },
   );
 }

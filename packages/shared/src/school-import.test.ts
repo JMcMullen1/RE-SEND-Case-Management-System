@@ -158,6 +158,10 @@ describe('reading the DfE establishment file', () => {
       file(
         row({ URN: '100010', 'EstablishmentStatus (name)': 'Closed' }),
         row({
+          URN: '100014',
+          'EstablishmentStatus (name)': 'Proposed to open',
+        }),
+        row({
           URN: '100011',
           'TypeOfEstablishment (name)': 'British schools overseas',
         }),
@@ -174,7 +178,7 @@ describe('reading the DfE establishment file', () => {
       ),
     );
     expect(contents.schools.map((s) => s.urn)).toEqual(['100013']);
-    expect(contents).toMatchObject({ closed: 1, outOfScope: 2, unreadable: 1 });
+    expect(contents).toMatchObject({ closed: 2, outOfScope: 2, unreadable: 1 });
   });
 
   it('says plainly when a different file was chosen', () => {
@@ -303,6 +307,24 @@ describe('planning an import against the directory', () => {
       [existing({ id: 'old', archived: true }), existing({ id: 'live' })],
     );
     expect(both.update[0]!.id).toBe('live');
+  });
+
+  it('never matches by a name the file itself uses twice (an academy and the school it replaces)', () => {
+    const byHand = existing({ id: 'hand', urn: null, postcode: 'TT1 1AA' });
+    const plan = planSchoolImport(
+      [incoming(), incoming({ urn: '100099', name: 'Meadow Primary' })],
+      [byHand],
+    );
+    expect(plan.update).toEqual([]);
+    expect(plan.create).toHaveLength(2);
+  });
+
+  it('never gives a URN to an archived school added by hand', () => {
+    const archived = existing({ id: 'gone', urn: null, archived: true });
+    const live = existing({ id: 'live', urn: null, postcode: null });
+    const plan = planSchoolImport([incoming()], [archived, live]);
+    expect(plan.update[0]).toMatchObject({ id: 'live', matchedBy: 'name' });
+    expect(planSchoolImport([incoming()], [archived]).create).toHaveLength(1);
   });
 
   it('ignores the same URN sent twice', () => {

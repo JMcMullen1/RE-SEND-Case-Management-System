@@ -419,7 +419,8 @@ One record per school, shared by every case (`/schools`,
   Schools' "all establishment data" CSV and choose it; the browser reads it
   (about a second for all of England) and lists the local authorities. Choose
   the areas the charity covers (remembered for next time) and, by default,
-  every Section 41 school wherever it is. Closed schools and ones abroad,
+  every Section 41 school wherever it is. Closed and not-yet-open schools, and
+  ones abroad,
   universities, online-only or in Wales are left out. Funding and provision
   come from the school's type (rules in `config.ts`, `GIAS_*`).
   - A school with the same URN is brought up to date: name, address, postcode,
@@ -428,8 +429,10 @@ One record per school, shared by every case (`/schools`,
     one. Email, notes, contacts and case links are never touched, and
     linked children's _Current school_ follow a name or address change.
   - A school added by hand without a URN is recognised when exactly one has the
-    same name and postcode (or no postcode); the preview lists these for
-    checking. Everything else is added. Nothing is ever removed.
+    same name and postcode (or no postcode), and no other school in the file
+    has that name; archived schools never are. The preview lists these for
+    checking, and the import sends exactly the schools previewed. Section 41
+    always follows the DfE's approval. Everything else is added. Nothing is ever removed.
   - The admin checks what will change, then imports. It runs in one
     transaction (about 3 seconds for all of England), every school added or
     changed is audited with the import's batch, and running it again changes

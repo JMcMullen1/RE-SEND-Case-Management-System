@@ -2584,11 +2584,14 @@ export const GIAS_DOWNLOAD_PAGE =
 /** The file's own daily name, for a direct link (yyyymmdd appended). */
 export const GIAS_ALL_DATA_URL_PREFIX =
   'https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata';
-/** Statuses imported; closed establishments are left out. */
+/**
+ * Statuses imported. Closed establishments are left out, and so are ones only
+ * proposed to open: an academy replacing a school appears twice, under the
+ * same name, until the change happens; it is imported once it is open.
+ */
 export const GIAS_IMPORTED_STATUSES = [
   'Open',
   'Open, but proposed to close',
-  'Proposed to open',
 ] as const;
 /**
  * Establishment types never imported: abroad, universities, online-only and
@@ -2652,8 +2655,11 @@ export const GIAS_MAINSTREAM_GROUPS = [
 export const GIAS_SECTION_41_APPROVED = 'Approved';
 /**
  * The facts an import keeps up to date on a school already in the directory,
- * when the DfE file has a value. Provision is only filled in when empty (staff
- * may have set it more precisely); email, notes and contacts are never touched.
+ * when the DfE file has a value. Section 41 always follows the file: GIAS
+ * records the DfE's approval itself, so a school no longer approved shows as
+ * "Section 41: Yes → No" in the preview. Provision is only filled in when
+ * empty (staff may have set it more precisely); email, notes and contacts are
+ * never touched.
  */
 export const SCHOOL_IMPORT_REFRESHED_FIELDS = [
   'name',

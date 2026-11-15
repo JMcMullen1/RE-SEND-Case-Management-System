@@ -51,7 +51,7 @@ export interface ImportedSchool {
 export interface GiasFileContents {
   /** Open schools of the kinds the charity deals with. */
   schools: ImportedSchool[];
-  /** Left out: closed. */
+  /** Left out: closed, or not open yet. */
   closed: number;
   /** Left out: abroad, universities, online-only, Welsh. */
   outOfScope: number;
@@ -350,8 +350,9 @@ export interface SchoolImportPlan {
  * What importing `incoming` would do to the directory. A school with the same
  * URN is the same school (archived ones too: their facts are refreshed, but
  * they stay archived). A school added by hand without a URN is the same school
- * when exactly one has the same name (as schoolNameKey compares names) and the
- * same postcode, or no postcode; it gains the URN. Anything else is new.
+ * when exactly one live school has the same name (as schoolNameKey compares
+ * names) and the same postcode, or no postcode, and no other school in the
+ * file has that name; it gains the URN. Anything else is new.
  */
 export function planSchoolImport(
   incoming: readonly ImportedSchool[],
@@ -364,10 +365,19 @@ export function planSchoolImport(
       // A live school wins over an archived one with the same URN.
       const had = byUrn.get(e.urn);
       if (!had || (had.archived && !e.archived)) byUrn.set(e.urn, e);
-    } else {
+    } else if (!e.archived) {
+      // Only live schools are recognised by name: an archived copy given the
+      // URN would keep the school out of the directory for good.
       const key = schoolNameKey(e.name);
       withoutUrn.set(key, [...(withoutUrn.get(key) ?? []), e]);
     }
+  }
+  // Names the file itself uses more than once (an academy and the school it
+  // replaced; "St Mary's" in two towns) are never matched by name.
+  const namesInFile = new Map<string, number>();
+  for (const s of incoming) {
+    const key = schoolNameKey(s.name);
+    namesInFile.set(key, (namesInFile.get(key) ?? 0) + 1);
   }
 
   const plan: SchoolImportPlan = {
@@ -387,9 +397,10 @@ export function planSchoolImport(
 
     let match = byUrn.get(school.urn);
     let matchedBy: 'urn' | 'name' = 'urn';
-    if (!match) {
+    const nameKey = schoolNameKey(school.name);
+    if (!match && namesInFile.get(nameKey) === 1) {
       const postcode = school.postcode;
-      const candidates = (withoutUrn.get(schoolNameKey(school.name)) ?? [])
+      const candidates = (withoutUrn.get(nameKey) ?? [])
         .filter((e) => !claimed.has(e.id))
         .filter((e) => !e.postcode || !postcode || e.postcode === postcode);
       if (candidates.length === 1) {
