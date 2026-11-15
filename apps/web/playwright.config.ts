@@ -15,6 +15,7 @@ export default defineConfig({
     'journey.spec.ts',
     'a11y.spec.ts',
     'migrate.spec.ts',
+    'schools-import.spec.ts',
     'search.spec.ts',
     'timeline-history.spec.ts',
   ],

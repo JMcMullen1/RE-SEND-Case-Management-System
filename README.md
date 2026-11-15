@@ -413,6 +413,30 @@ One record per school, shared by every case (`/schools`,
 - **Who.** Everyone except read-only users can add and edit schools and
   contacts; only an admin can archive (hide) a school, which keeps existing
   links. Every change is audited; the directory updates live.
+- **Import from the DfE's register** (admins, _Admin → Import schools_,
+  `apps/web/src/features/admin/SchoolImportPage.tsx`,
+  `packages/shared/src/school-import.ts`). Download Get Information About
+  Schools' "all establishment data" CSV and choose it; the browser reads it
+  (about a second for all of England) and lists the local authorities. Choose
+  the areas the charity covers (remembered for next time) and, by default,
+  every Section 41 school wherever it is. Closed and not-yet-open schools, and
+  ones abroad,
+  universities, online-only or in Wales are left out. Funding and provision
+  come from the school's type (rules in `config.ts`, `GIAS_*`).
+  - A school with the same URN is brought up to date: name, address, postcode,
+    LA, phone, website, funding, Section 41 and ages from the DfE. Provision is
+    only filled in when empty, and an empty value in the file never blanks
+    one. Email, notes, contacts and case links are never touched, and
+    linked children's _Current school_ follow a name or address change.
+  - A school added by hand without a URN is recognised when exactly one has the
+    same name and postcode (or no postcode), and no other school in the file
+    has that name; archived schools never are. The preview lists these for
+    checking, and the import sends exactly the schools previewed. Section 41
+    always follows the DfE's approval. Everything else is added. Nothing is ever removed.
+  - The admin checks what will change, then imports. It runs in one
+    transaction (about 3 seconds for all of England), every school added or
+    changed is audited with the import's batch, and running it again changes
+    nothing.
 
 ## Time recording
 

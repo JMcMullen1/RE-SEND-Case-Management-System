@@ -4,6 +4,7 @@ const TABS = [
   { to: '/admin/staff', label: 'Staff and export' },
   { to: '/admin/rates', label: 'Staff rates' },
   { to: '/admin/import', label: 'Import the case list' },
+  { to: '/admin/import-schools', label: 'Import schools' },
 ] as const;
 
 /** The admin screens, side by side, so each is one click from the others. */

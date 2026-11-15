@@ -5,6 +5,7 @@
  */
 
 import {
+  SCHOOL_AGE_MAX,
   SCHOOL_DIRECTORY_EDIT_ROLES,
   SCHOOL_FUNDING_LABELS,
   SCHOOL_PROVISION_LABELS,
@@ -154,8 +155,10 @@ export function schoolFieldsProblem(f: Partial<SchoolFields>): string | null {
   if (f.urn && !isValidUrn(f.urn)) return 'A URN is 5 to 7 digits.';
   const from = f.ageFrom ?? null;
   const to = f.ageTo ?? null;
-  if (from !== null && (from < 0 || from > 25)) return 'Enter a sensible age.';
-  if (to !== null && (to < 0 || to > 25)) return 'Enter a sensible age.';
+  if (from !== null && (from < 0 || from > SCHOOL_AGE_MAX))
+    return 'Enter a sensible age.';
+  if (to !== null && (to < 0 || to > SCHOOL_AGE_MAX))
+    return 'Enter a sensible age.';
   if (from !== null && to !== null && from > to)
     return 'The lower age is above the upper age.';
   return null;
