@@ -35,6 +35,8 @@ between pieces of work.
   columns matched to the system's headings, every row checked (new or
   existing client, duplicate, needs fixing) in simple and advanced views before
   one audited import.
+- **Search inside documents and emails**, across the caseload or one case,
+  with highlighted snippets.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).

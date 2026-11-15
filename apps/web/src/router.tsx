@@ -15,6 +15,7 @@ import { SchoolPage } from './features/schools/SchoolPage';
 import { SchoolsPage } from './features/schools/SchoolsPage';
 import { StaffPage } from './features/admin/StaffPage';
 import { ImportPage } from './features/admin/ImportPage';
+import { SearchPage } from './features/search/SearchPage';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -86,6 +87,12 @@ const importRoute = createRoute({
   component: ImportPage,
 });
 
+const searchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/search',
+  component: SearchPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   newCaseRoute,
@@ -98,6 +105,7 @@ const routeTree = rootRoute.addChildren([
   schoolRoute,
   staffRoute,
   importRoute,
+  searchRoute,
 ]);
 
 export const router = createRouter({ routeTree });

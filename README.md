@@ -64,6 +64,34 @@ outside that module knows where they live.
   direct-to-storage **pre-signed** uploads is marked `PRESIGNED-UPLOAD SWAP
 POINT` in `apps/web/src/api/documents.ts` and the S3 provider.
 
+## Search inside documents and emails
+
+**Search documents** on the case list searches every case; each case's
+Documents / Emails tab has a search box for that case alone
+(`apps/api/src/repositories/search.ts`, `apps/web/src/features/search`).
+
+- **What is searched:** the text extracted from every document, and each
+  filed email's subject, sender and body. Postgres full-text search with
+  English stemming, so "assess" finds "assessment" and "assessed"; a phrase in
+  quotes, OR and -word work as in a web search. A document's name, and an
+  email's subject, count for more than its text.
+- **What is shown:** the best 50 matches (and how many in all), each with its
+  folder or sender, date, case, and a snippet with the matched words
+  highlighted — rendered as plain text, never markup from a file. Documents
+  open in a new tab (through the audited content route); a result's case link
+  opens the case on its Documents / Emails tab.
+- **Left out:** deleted documents and cases; earlier versions (unless asked
+  for); and the original file of a filed email (its text is the email's).
+  Filter by folder, or by documents or emails only.
+- **Private and audited.** The words searched for travel in a POST body, so
+  they never appear in a logged URL. Each search is audited with its scope and
+  result count — never the words.
+- **Long documents.** Each document and email is indexed up to its first
+  300,000 characters (about 100 pages; `SEARCH_INDEXED_CHARS`). This also fixed
+  a bug: the earlier index covered the whole text, and Postgres refuses a search
+  index entry over 1 MB, so a very long document with many distinct words could
+  not be uploaded at all.
+
 ## Case corpus
 
 `caseCorpus(caseId, options)` (`apps/api/src/corpus`) is the single reading
