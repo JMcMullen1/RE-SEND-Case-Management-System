@@ -793,12 +793,22 @@ export interface TribunalFormDateDef {
   find: string;
 }
 
+/** How the forms are grouped where a caseworker chooses one, in order. */
+export const TRIBUNAL_FORM_GROUPS = [
+  { id: 'appeal', label: 'Starting an appeal' },
+  { id: 'claim', label: 'Disability discrimination claims' },
+  { id: 'during', label: 'During an appeal or claim' },
+  { id: 'after', label: 'After the hearing or decision' },
+] as const;
+export type TribunalFormGroup = (typeof TRIBUNAL_FORM_GROUPS)[number]['id'];
+
 /**
  * Each Tribunal form the drafting tools fill in. When HMCTS issues a new
  * version of a form, update its version and sections here to match.
  */
 export interface TribunalFormDef {
   code: string;
+  group: TribunalFormGroup;
   version: string;
   guidanceUrl: string;
   onlineUrl: string | null;
@@ -815,14 +825,42 @@ export interface TribunalFormDef {
    * What the dates decide, worked out whenever the draft is read: the appeal
    * time limit, or the earliest a request can be sent (SEND7).
    */
-  timing: { rule: 'appeal'; lateQuestion: string } | { rule: 'notice' } | null;
+  timing:
+    | { rule: 'appeal'; lateQuestion: string }
+    | { rule: 'notice' }
+    | {
+        /**
+         * A time limit counted from a date the model finds, or from the
+         * final hearing ('hearing'); negative counts are before it.
+         */
+        rule: 'limit';
+        /** A date key, or several in order of preference (the first found). */
+        from: string | readonly string[];
+        add: { months?: number; days?: number; workingDays?: number };
+        /** Where the form asks why it is late (or null if it does not). */
+        lateQuestion: string | null;
+        /** The rule in words, e.g. "28 days from the date the decision was sent". */
+        describe: string;
+      }
+    | null;
   /** What the appellant (or the caseworker) must still do, on every draft. */
   checklist: readonly string[];
+  /** What the "details" record section copies, beyond the name and appeal number. */
+  details?: {
+    localAuthority?: boolean;
+    finalHearing?: boolean;
+    /** The date the form is due (SEND45: the case review form date). */
+    dueDate?: boolean;
+    school?: boolean;
+  };
+  /** Warn when the young person is over the Tribunal's age limit (new appeals and claims). */
+  ageLimit?: boolean;
 }
 
 export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
   send35_appeal: {
     code: 'SEND35',
+    group: 'appeal',
     version: SEND35_FORM.version,
     guidanceUrl: SEND35_FORM.guidanceUrl,
     onlineUrl: SEND35_FORM.onlineUrl,
@@ -842,9 +880,11 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
     datesSection: 'timing',
     timing: { rule: 'appeal', lateQuestion: 'Question 13.3' },
     checklist: SEND35_APPELLANT_CHECKLIST,
+    ageLimit: true,
   },
   send35a_appeal: {
     code: 'SEND35A',
+    group: 'appeal',
     version: 'Version 04.23',
     guidanceUrl:
       'https://www.gov.uk/government/publications/form-send35a-special-educational-needs-and-disability-tribunal-appeal-a-refusal-to-secure-an-ehc-needs-assessment',
@@ -867,6 +907,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
       rule: 'appeal',
       lateQuestion: 'Section 3 (“My appeal is being made late”)',
     },
+    ageLimit: true,
     checklist: [
       'Section 4: whether to consent to the appeal being decided on the papers without a hearing is for the appellant to choose (consent is presumed unless they say otherwise).',
       'Section 8 checklist — send with the form: the local authority’s signed and dated decision letter, the signed mediation certificate, and the reasons for appealing.',
@@ -876,6 +917,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
   },
   send7_request: {
     code: 'SEND7',
+    group: 'during',
     version: 'Version 08.23',
     guidanceUrl:
       'https://www.gov.uk/government/publications/form-send7-request-for-change',
@@ -890,6 +932,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
     ],
     datesSection: 'details',
     timing: { rule: 'notice' },
+    details: { localAuthority: true, finalHearing: true },
     checklist: [
       'Tick the box on the form if the hearing has been adjourned before.',
       'The form is signed and dated, with “Request made by” ticked (parent, or parent’s representative).',
@@ -898,6 +941,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
   },
   send45_case_review: {
     code: 'SEND45',
+    group: 'during',
     version: 'Version 11.23',
     guidanceUrl:
       'https://www.gov.uk/government/publications/report-issues-with-a-case-to-the-tribunal-form-send45',
@@ -906,6 +950,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
     dates: [],
     datesSection: null,
     timing: null,
+    details: { dueDate: true },
     checklist: [
       'Question 14: whether to consent to the appeal being decided on the papers is for the appellant to choose.',
       'Question 15: anything else to tell the Tribunal about the hearing.',

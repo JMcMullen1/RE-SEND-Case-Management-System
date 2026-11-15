@@ -20,11 +20,9 @@ import {
 import Anthropic from '@anthropic-ai/sdk';
 import { caseCorpus } from '../corpus/case-corpus';
 import {
+  FORM_JOBS,
   draftPositionStatementJob,
   draftSend35Job,
-  draftSend35aJob,
-  draftSend45Job,
-  draftSend7Job,
 } from '../ai/drafting-job';
 import { AiJobDisabledError, AiJobRefusalError } from '../ai/errors';
 import { resolveEnabled, runAiJob, type AiJobResult } from '../ai/run';
@@ -55,30 +53,16 @@ type Runner = (
 const JOBS = {
   position_statement: draftPositionStatementJob,
   send35_appeal: draftSend35Job,
-  send35a_appeal: draftSend35aJob,
-  send7_request: draftSend7Job,
-  send45_case_review: draftSend45Job,
-} as const;
+  ...FORM_JOBS,
+} as const satisfies Record<DraftKind, unknown>;
 
 const defaultRunner: Runner = (input, kind) => {
-  switch (kind) {
-    case 'position_statement':
-      return runAiJob(draftPositionStatementJob, input);
-    case 'send35_appeal':
-      return runAiJob(draftSend35Job, input);
-    case 'send35a_appeal':
-      return runAiJob(draftSend35aJob, input) as Promise<
-        AiJobResult<TribunalFormOutput>
-      >;
-    case 'send7_request':
-      return runAiJob(draftSend7Job, input) as Promise<
-        AiJobResult<TribunalFormOutput>
-      >;
-    case 'send45_case_review':
-      return runAiJob(draftSend45Job, input) as Promise<
-        AiJobResult<TribunalFormOutput>
-      >;
-  }
+  if (kind === 'position_statement')
+    return runAiJob(draftPositionStatementJob, input);
+  if (kind === 'send35_appeal') return runAiJob(draftSend35Job, input);
+  return runAiJob(FORM_JOBS[kind], input) as Promise<
+    AiJobResult<TribunalFormOutput>
+  >;
 };
 let runner: Runner = defaultRunner;
 
@@ -102,10 +86,12 @@ function formAsk(kind: keyof typeof TRIBUNAL_FORMS): string {
 const ASK: Record<DraftKind, string> = {
   position_statement:
     "Draft the appellant's position statement from the case file above.",
-  send35_appeal: formAsk('send35_appeal'),
-  send35a_appeal: formAsk('send35a_appeal'),
-  send7_request: formAsk('send7_request'),
-  send45_case_review: formAsk('send45_case_review'),
+  ...(Object.fromEntries(
+    Object.keys(TRIBUNAL_FORMS).map((k) => [
+      k,
+      formAsk(k as keyof typeof TRIBUNAL_FORMS),
+    ]),
+  ) as Record<keyof typeof TRIBUNAL_FORMS, string>),
 };
 
 function buildInput(

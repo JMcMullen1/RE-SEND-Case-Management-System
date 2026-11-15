@@ -4,6 +4,7 @@ import {
   DRAFT_KIND_DESCRIPTIONS,
   DRAFT_KIND_LABELS,
   TRIBUNAL_FORMS,
+  TRIBUNAL_FORM_GROUPS,
   TRIBUNAL_FORM_KINDS,
   canDraft,
   formatCivilDate,
@@ -189,45 +190,60 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 <legend className="text-sm font-semibold text-resend-ink">
                   Which form?
                 </legend>
-                <div className="mt-1 space-y-1">
-                  {TRIBUNAL_FORM_KINDS.map((kind) => (
-                    <label
-                      key={kind}
-                      className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm ${
-                        asking === kind
-                          ? 'border-resend-purple bg-gray-50'
-                          : 'border-gray-200'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="form-kind"
-                        value={kind}
-                        checked={asking === kind}
-                        onChange={() => {
-                          ask.reset();
-                          setAsking(kind);
-                        }}
-                        aria-labelledby={`kind-${kind}`}
-                        aria-describedby={`kind-${kind}-about`}
-                        className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
-                      />
-                      <span>
-                        <span
-                          id={`kind-${kind}`}
-                          className="font-medium text-resend-ink"
-                        >
-                          {DRAFT_KIND_LABELS[kind]}
-                        </span>
-                        <span
-                          id={`kind-${kind}-about`}
-                          className="block text-gray-600"
-                        >
-                          {DRAFT_KIND_DESCRIPTIONS[kind]}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
+                <div className="mt-1 space-y-3">
+                  {TRIBUNAL_FORM_GROUPS.map((group) => {
+                    const kinds = TRIBUNAL_FORM_KINDS.filter(
+                      (k) => TRIBUNAL_FORMS[k].group === group.id,
+                    );
+                    if (kinds.length === 0) return null;
+                    return (
+                      <div key={group.id}>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          {group.label}
+                        </p>
+                        <div className="space-y-1">
+                          {kinds.map((kind) => (
+                            <label
+                              key={kind}
+                              className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm ${
+                                asking === kind
+                                  ? 'border-resend-purple bg-gray-50'
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="form-kind"
+                                value={kind}
+                                checked={asking === kind}
+                                onChange={() => {
+                                  ask.reset();
+                                  setAsking(kind);
+                                }}
+                                aria-labelledby={`kind-${kind}`}
+                                aria-describedby={`kind-${kind}-about`}
+                                className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
+                              />
+                              <span>
+                                <span
+                                  id={`kind-${kind}`}
+                                  className="font-medium text-resend-ink"
+                                >
+                                  {DRAFT_KIND_LABELS[kind]}
+                                </span>
+                                <span
+                                  id={`kind-${kind}-about`}
+                                  className="block text-gray-600"
+                                >
+                                  {DRAFT_KIND_DESCRIPTIONS[kind]}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </fieldset>
             )}

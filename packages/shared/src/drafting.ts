@@ -375,7 +375,17 @@ export type FormTiming =
       lateQuestion: string;
       dates: Record<string, FormDate | null>;
     }
-  | { rule: 'notice'; section: string; dates: Record<string, FormDate | null> };
+  | { rule: 'notice'; section: string; dates: Record<string, FormDate | null> }
+  | {
+      rule: 'limit';
+      section: string;
+      /** The date key it runs from ('hearing' for the final hearing), or keys in order of preference. */
+      from: string | readonly string[];
+      add: { months?: number; days?: number; workingDays?: number };
+      lateQuestion: string | null;
+      describe: string;
+      dates: Record<string, FormDate | null>;
+    };
 
 /** A date the model found, with the items it was found in. */
 export interface DatedFact {
@@ -498,12 +508,7 @@ export function completeTribunalForm(
   const client = detail.client;
   const dob = child?.dateOfBirth ?? null;
   const age = dob ? calculateAge(dob, today) : null;
-  if (
-    age !== null &&
-    age >= SEND_TRIBUNAL_AGE_LIMIT &&
-    kind !== 'send7_request' &&
-    kind !== 'send45_case_review'
-  )
+  if (form.ageLimit && age !== null && age >= SEND_TRIBUNAL_AGE_LIMIT)
     alerts.push(
       `${child?.fullName ?? 'The young person'} is ${age}. The Tribunal hears appeals only for young people under ${SEND_TRIBUNAL_AGE_LIMIT}.`,
     );
@@ -547,7 +552,9 @@ export function completeTribunalForm(
   {
     const paragraphs: DraftParagraph[] = [];
     let whoGap: string | null = null;
-    if (dob && age !== null) {
+    // Only SEND35 and SEND35A ask "who is making the appeal" in these words.
+    const asksWho = kind === 'send35_appeal' || kind === 'send35a_appeal';
+    if (asksWho && dob && age !== null) {
       if (kind === 'send35a_appeal') {
         if (!pastCompulsorySchoolAge(dob, today))
           paragraphs.push(
@@ -596,7 +603,7 @@ export function completeTribunalForm(
             ...(client?.mobile || client?.phone ? [] : ['phone number']),
             ...(client?.email ? [] : ['email address']),
             ...(client?.postcode ? [] : ['full postal address']),
-            ...(dob
+            ...(!asksWho || dob
               ? []
               : ['the child’s date of birth (needed to say who is appealing)']),
           ]),
@@ -606,27 +613,27 @@ export function completeTribunalForm(
     };
   }
 
-  // Case details for forms used once an appeal is registered.
+  // Case details, for the forms that ask for them (config `details`).
+  const want = form.details ?? {};
+  let hearingDate: FormDate | null = null;
   {
     const keyDates = detail.keyDates ?? [];
     // Directions title their key dates by category ("Final Hearing", "Case
     // Management Review", "Case Review Form", "Final Tribunal Bundle").
-    const hearing =
-      kind === 'send7_request'
-        ? pickKeyDate(keyDates, today, [
-            (k) => /final hearing/i.test(k.title),
-            (k) => k.type === 'hearing' && !isCmr(k),
-          ])
-        : null;
+    const hearing = want.finalHearing
+      ? pickKeyDate(keyDates, today, [
+          (k) => /final hearing/i.test(k.title),
+          (k) => k.type === 'hearing' && !isCmr(k),
+        ])
+      : null;
     // SEND45 is due by the case review form date in the directions, else the
     // final bundle — never a supplementary bundle.
-    const due =
-      kind === 'send45_case_review'
-        ? pickKeyDate(keyDates, today, [
-            (k) => /case review form/i.test(k.title),
-            (k) => /bundle/i.test(k.title) && !/supplementary/i.test(k.title),
-          ])
-        : null;
+    const due = want.dueDate
+      ? pickKeyDate(keyDates, today, [
+          (k) => /case review form/i.test(k.title),
+          (k) => /bundle/i.test(k.title) && !/supplementary/i.test(k.title),
+        ])
+      : null;
     const keyDateFact = (
       label: string,
       found: { keyDate: KeyDate; passed: boolean } | null,
@@ -637,11 +644,20 @@ export function completeTribunalForm(
             `${formatCivilDate(found.keyDate.date)} (key date “${found.keyDate.title}”)${found.passed ? ' — this date has passed' : ''}`,
           )
         : null;
+    const hearingPara = keyDateFact('Final hearing date', hearing);
+    if (hearing && hearingPara)
+      hearingDate = { date: hearing.keyDate.date, paragraphId: hearingPara.id };
+    const school = child?.currentSchoolName
+      ? [child.currentSchoolName, child.currentSchoolAddress]
+          .filter(Boolean)
+          .join(', ')
+      : null;
     const paragraphs = present([
       fact('Child or young person’s name', child?.fullName),
       fact('Appeal number', detail.appealNumber),
-      kind === 'send7_request' ? fact('Local authority', child?.la) : null,
-      keyDateFact('Final hearing date', hearing),
+      want.localAuthority ? fact('Local authority', child?.la) : null,
+      want.school ? fact('School', school) : null,
+      hearingPara,
       keyDateFact('Send this form by', due),
     ]);
     record.details = {
@@ -650,13 +666,12 @@ export function completeTribunalForm(
         [
           ...(child?.fullName ? [] : ['the child or young person’s name']),
           ...(detail.appealNumber ? [] : ['the appeal number']),
-          ...(kind === 'send7_request' && !child?.la
-            ? ['the local authority']
-            : []),
-          ...(kind === 'send7_request' && !hearing
+          ...(want.localAuthority && !child?.la ? ['the local authority'] : []),
+          ...(want.school && !school ? ['the school'] : []),
+          ...(want.finalHearing && !hearing
             ? ['the final hearing date (add it as a key date)']
             : []),
-          ...(kind === 'send45_case_review' && !due
+          ...(want.dueDate && !due
             ? [
                 'the date this form is due (the case review form or bundle deadline in the case directions; add it as a key date)',
               ]
@@ -752,17 +767,36 @@ export function completeTribunalForm(
     });
   sources.push(...corpus.filter((i) => cited.has(i.id)).map(toSource));
 
-  const formTiming: FormTiming | null =
-    form.timing && form.datesSection
-      ? form.timing.rule === 'appeal'
-        ? {
-            rule: 'appeal',
-            section: form.datesSection,
-            lateQuestion: form.timing.lateQuestion,
-            dates: timingDates,
-          }
-        : { rule: 'notice', section: form.datesSection, dates: timingDates }
-      : null;
+  // Where the note on the timing is shown: the dates section, else the details.
+  const timingSection =
+    form.datesSection ??
+    (form.sections.some((s) => s.key === 'details')
+      ? 'details'
+      : (form.sections[0]?.key ?? ''));
+  const t = form.timing;
+  const formTiming: FormTiming | null = !t
+    ? null
+    : t.rule === 'appeal'
+      ? {
+          rule: 'appeal',
+          section: timingSection,
+          lateQuestion: t.lateQuestion,
+          dates: timingDates,
+        }
+      : t.rule === 'notice'
+        ? { rule: 'notice', section: timingSection, dates: timingDates }
+        : {
+            rule: 'limit',
+            section: timingSection,
+            from: t.from,
+            add: t.add,
+            lateQuestion: t.lateQuestion,
+            describe: t.describe,
+            dates:
+              t.from === 'hearing'
+                ? { ...timingDates, hearing: hearingDate }
+                : timingDates,
+          };
 
   return {
     sections,
@@ -896,6 +930,61 @@ function reviewNotice(
   };
 }
 
+/** A time limit counted from a date in the file, or from the final hearing. */
+function reviewLimit(
+  timing: Extract<FormTiming, { rule: 'limit' }>,
+  sections: readonly DraftSection[],
+  today: string,
+  holidays: Holidays,
+): Review {
+  const paragraphs = new Map(
+    sections.flatMap((s) => s.paragraphs).map((p) => [p.id, p]),
+  );
+  // The first of the preferred dates the file gave (a later one changed or
+  // removed counts too: the caseworker is then asked to work it out).
+  const keys = typeof timing.from === 'string' ? [timing.from] : timing.from;
+  const key = keys.find((k) => timing.dates[k]) ?? keys[0]!;
+  const from = timing.dates[key] ?? null;
+  const state = dateState(from, paragraphs);
+  const fromHearing = key === 'hearing';
+  if (state === 'changed' || state === 'removed')
+    return {
+      alerts: [],
+      note: `The date the time limit runs from has been changed, so it is not worked out here: ${timing.describe}.`,
+    };
+  if (state === 'absent')
+    return {
+      alerts: [],
+      note: fromHearing
+        ? `There is no final hearing date on the case, so the time limit is not worked out here: ${timing.describe}.`
+        : `The date the time limit runs from was not found in the file, so it is not worked out here: ${timing.describe}.`,
+    };
+  const { months = 0, days = 0, workingDays = 0 } = timing.add;
+  let limit = from!.date;
+  if (months) limit = addCalendarMonths(limit, months);
+  if (days) limit = addCalendarDays(limit, days).date;
+  if (workingDays) limit = addWorkingDays(limit, workingDays, holidays).date;
+  // A limit running forward that ends on a non-working day runs to the next.
+  if (months > 0 || days > 0)
+    while (!isWorkingDay(limit, holidays))
+      limit = addCalendarDays(limit, 1).date;
+  const when = formatCivilDate(limit);
+  const daysLeft = calendarDaysBetween(today, limit);
+  const alerts: string[] = [];
+  if (daysLeft < 0)
+    alerts.push(
+      `The time limit (${timing.describe}) was ${when}, which has passed.${timing.lateQuestion ? ` ${timing.lateQuestion} must explain why it is late.` : ' Ask the Tribunal whether it will accept it late.'}`,
+    );
+  else if (daysLeft <= SEND_APPEAL_DEADLINE_WARNING_DAYS)
+    alerts.push(
+      `This must reach the Tribunal by ${when} — ${daysLeft === 0 ? 'today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} from now`}.`,
+    );
+  return {
+    alerts,
+    note: `Time limit worked out: ${when} (${timing.describe}). Check the date it runs from.`,
+  };
+}
+
 /** What a form's dates decide, as worked out on `today`. */
 export function reviewFormTiming(
   timing: FormTiming,
@@ -914,7 +1003,9 @@ export function reviewFormTiming(
         holidays,
         timing.lateQuestion,
       )
-    : reviewNotice(timing.dates, sections, today, holidays);
+    : timing.rule === 'notice'
+      ? reviewNotice(timing.dates, sections, today, holidays)
+      : reviewLimit(timing, sections, today, holidays);
 }
 
 /** The timing a stored draft carries (including SEND35 drafts stored before forms were generic). */
