@@ -1,3 +1,4 @@
+import { HistoryRegion } from './HistoryRegion';
 import { CaseSearch } from '../search/CaseSearch';
 import { useState, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
@@ -19,10 +20,17 @@ import { EmailsRegion } from './EmailsRegion';
 import { TimelineRegion } from './TimelineRegion';
 
 type Tab =
-  'details' | 'docs-emails' | 'billables' | 'notes' | 'drafting' | 'all';
+  | 'details'
+  | 'history'
+  | 'docs-emails'
+  | 'billables'
+  | 'notes'
+  | 'drafting'
+  | 'all';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'details', label: 'Case details' },
+  { id: 'history', label: 'History' },
   { id: 'docs-emails', label: 'Documents / Emails' },
   { id: 'billables', label: 'Billables' },
   { id: 'notes', label: 'Case notes' },
@@ -309,6 +317,12 @@ export function CaseScreenPage() {
 
       <main className="min-h-0 flex-1">
         {tab === 'details' && detailSection}
+        {tab === 'history' && (
+          <section className="h-full overflow-auto p-5">
+            <RegionHeading>Case history</RegionHeading>
+            <HistoryRegion caseId={caseId} />
+          </section>
+        )}
         {tab === 'docs-emails' && docsEmailsSection}
         {tab === 'billables' && billablesSection}
         {tab === 'notes' && notesSection}

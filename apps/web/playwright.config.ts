@@ -16,6 +16,7 @@ export default defineConfig({
     'a11y.spec.ts',
     'migrate.spec.ts',
     'search.spec.ts',
+    'timeline-history.spec.ts',
   ],
   use: {
     baseURL: 'http://localhost:5173',

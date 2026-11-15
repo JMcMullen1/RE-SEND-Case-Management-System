@@ -6,7 +6,7 @@ import {
   formatCivilDate,
   formatMinutes,
   relativeSince,
-  NOTE_KIND_LABELS,
+  NOTE_KIND_SINGULAR,
   type NoteKind,
   type NoteTimelineItem,
   type TimelineItem,
@@ -351,7 +351,7 @@ function NoteRow({
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xs text-gray-500">
           <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
-            {NOTE_KIND_LABELS[item.kind]}
+            {NOTE_KIND_SINGULAR[item.kind]}
           </span>
           {billable && item.minutes !== null && (
             <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-resend-ink">

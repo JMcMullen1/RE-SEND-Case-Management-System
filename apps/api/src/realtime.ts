@@ -65,7 +65,13 @@ const REGISTRY: Record<string, EntityMapping> = {
   documents: {
     keys: (_id, scopeId) =>
       scopeId
-        ? [['cases'], ['case-detail', scopeId], ['documents', scopeId]]
+        ? [
+            ['cases'],
+            ['case-detail', scopeId],
+            ['documents', scopeId],
+            // An email lists its attachments, so a deleted one disappears.
+            ['emails', scopeId],
+          ]
         : [],
   },
   // A filed email also files its attachments, so the documents list refreshes

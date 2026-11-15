@@ -2641,6 +2641,25 @@ export const NOTE_KIND_LABELS: Record<NoteKind, string> = {
   note: 'Case notes',
   billable: 'Billables',
 };
+/** What the case history can be narrowed to (none chosen shows all). */
+export const HISTORY_FILTER_VALUES = [
+  'note',
+  'billable',
+  'email',
+  'document',
+] as const;
+export type HistoryFilter = (typeof HISTORY_FILTER_VALUES)[number];
+export const HISTORY_FILTER_LABELS: Record<HistoryFilter, string> = {
+  note: NOTE_KIND_LABELS.note,
+  billable: NOTE_KIND_LABELS.billable,
+  email: 'Emails',
+  document: 'Documents',
+};
+/** One entry's label, e.g. on a chip beside a single note. */
+export const NOTE_KIND_SINGULAR: Record<NoteKind, string> = {
+  note: 'Case note',
+  billable: 'Billable',
+};
 
 // --- External sync status ---------------------------------------------------
 /** Sync state of a time entry against the external accounting system. */

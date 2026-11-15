@@ -38,6 +38,7 @@ export function DocumentsRegion({ caseId }: { caseId: string }) {
     mutationFn: (ids: string[]) => deleteDocuments(caseId, ids),
     onSuccess: async (_res, ids) => {
       await qc.invalidateQueries({ queryKey: ['documents', caseId] });
+      await qc.invalidateQueries({ queryKey: ['emails', caseId] });
       setSelected((prev) => {
         const next = new Set(prev);
         for (const id of ids) next.delete(id);

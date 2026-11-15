@@ -35,6 +35,8 @@ between pieces of work.
   columns matched to the system's headings, every row checked (new or
   existing client, duplicate, needs fixing) in simple and advanced views before
   one audited import.
+- **One case history**: notes, billables, emails and documents in one
+  chronological list on each case, filterable and searchable.
 - **Search inside documents and emails**, across the caseload or one case,
   with highlighted snippets.
 - **Schools directory**: shared schools with contacts, Section 41 and type
@@ -74,7 +76,6 @@ Time recording decisions agreed:
 - File directly from Outlook (add-in or Microsoft Graph), on desktop and phone.
 - Automatic matching of correspondence to a case from the client and child
   details held, with a queue for anything that cannot be matched confidently.
-- Emails in a single merged case history alongside notes and documents.
 
 ### Schools directory, next steps
 
