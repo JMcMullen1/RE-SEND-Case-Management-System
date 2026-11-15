@@ -348,3 +348,108 @@ describe('SEND35A: who the appeal is about, and mediation', () => {
     );
   });
 });
+
+describe('every Tribunal form in the registry', () => {
+  const kinds = Object.keys(TRIBUNAL_FORMS) as TribunalFormKind[];
+  it.each(kinds)('%s is consistent and drafts end to end', (kind) => {
+    const form = TRIBUNAL_FORMS[kind];
+    const keys = form.sections.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const s of form.sections)
+      if (s.fill === 'record')
+        expect(['child', 'appellant', 'details', 'names']).toContain(
+          s.builder ?? s.key,
+        );
+    if (form.dates.length) expect(keys).toContain(form.datesSection);
+    const dateKeys = form.dates.map((d) => d.key);
+    if (form.timing?.rule === 'limit') {
+      const from =
+        typeof form.timing.from === 'string'
+          ? [form.timing.from]
+          : form.timing.from;
+      for (const f of from) expect([...dateKeys, 'hearing']).toContain(f);
+    }
+    if (form.timing?.rule === 'appeal')
+      expect(dateKeys).toEqual(
+        expect.arrayContaining(['decisionLetter', 'mediationCertificate']),
+      );
+    // The model's (empty) answer validates, and the draft has every section.
+    const empty = {
+      sections: [],
+      ...(form.dates.length
+        ? { dates: Object.fromEntries(dateKeys.map((k) => [k, null])) }
+        : {}),
+      missingInformation: [],
+    };
+    expect(tribunalFormOutputSchema(kind).safeParse(empty).success).toBe(true);
+    const d = build(kind, empty);
+    expect(d.sections.map((s) => s.key)).toEqual(keys);
+    expect(d.missingInformation).toEqual([...form.checklist]);
+  });
+});
+
+describe('time limits on the newer forms', () => {
+  const none: DraftModelOutput = { sections: [], missingInformation: [] };
+  it('SEND26A runs from the review panel decision if there is one, else the governors', () => {
+    const viaGovernors = build('send26a_claim', none, {
+      governorsUpheld: { date: '2026-06-01', sourceIds: ['email-1'] },
+    });
+    expect(
+      reviewFormTiming(
+        viaGovernors.formTiming!,
+        viaGovernors.sections,
+        '2026-11-14',
+      ).note,
+      // Six months starting with 1 June: the last day is 30 November.
+    ).toMatch(/30 Nov 2026/);
+    expect(
+      reviewFormTiming(
+        viaGovernors.formTiming!,
+        viaGovernors.sections,
+        '2026-11-14',
+      ).note,
+    ).toMatch(/If a review panel review is pending/);
+    const viaPanel = build('send26a_claim', none, {
+      governorsUpheld: { date: '2026-06-01', sourceIds: ['email-1'] },
+      irpDecision: { date: '2026-07-20', sourceIds: ['email-1'] },
+    });
+    expect(
+      reviewFormTiming(viaPanel.formTiming!, viaPanel.sections, '2026-11-14')
+        .note,
+    ).toMatch(/19 Jan 2027/);
+  });
+
+  it('SEND4A: a claim is late the day after six months starting with the act', () => {
+    const d = build('send4a_claim', none, {
+      discriminationDate: { date: '2026-05-15', sourceIds: ['email-1'] },
+    });
+    // 14 Nov 2026 is the last day (a Saturday: not moved for a statutory limit).
+    expect(
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-14').alerts[0],
+    ).toMatch(/by 14 Nov 2026 — today/);
+    expect(
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-15').alerts[0],
+    ).toMatch(/14 Nov 2026, which has passed\. Section 7/);
+    // An empty "late claims" answer is not a gap when the claim is on time.
+    expect(d.sections.find((s) => s.key === 'late')!.gap).toBeNull();
+  });
+
+  it('SEND20A is 28 days from the decision, and late after that', () => {
+    const d = build('send20a_permission', none, {
+      decisionSent: { date: '2026-10-01', sourceIds: ['email-1'] },
+    });
+    const r = reviewFormTiming(d.formTiming!, d.sections, '2026-11-14');
+    expect(r.note).toMatch(/29 Oct 2026/);
+    expect(r.alerts[0]).toMatch(/has passed\. Section B/);
+  });
+
+  it('SEND28 uses the appeal rule (letter or mediation certificate, whichever is later)', () => {
+    const d = build('send28_appeal', none, {
+      decisionLetter: { date: '2026-10-01', sourceIds: ['email-1'] },
+      mediationCertificate: { date: '2026-11-10', sourceIds: ['email-1'] },
+    });
+    expect(
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-14').note,
+    ).toMatch(/10 Dec 2026/);
+  });
+});

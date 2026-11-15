@@ -4,6 +4,7 @@ import {
   DRAFT_KIND_DESCRIPTIONS,
   DRAFT_KIND_LABELS,
   TRIBUNAL_FORMS,
+  TRIBUNAL_FORM_GROUPS,
   TRIBUNAL_FORM_KINDS,
   canDraft,
   formatCivilDate,
@@ -38,7 +39,7 @@ function when(iso: string): string {
 }
 
 /** An example focus for each kind, shown in the request box. */
-const INSTRUCTION_EXAMPLES: Record<DraftKind, string> = {
+const INSTRUCTION_EXAMPLES: Partial<Record<DraftKind, string>> = {
   position_statement:
     "e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety.",
   send35_appeal:
@@ -108,6 +109,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
   });
   // What is being asked for: a kind, or 'form' while no form is chosen yet.
   const [asking, setAsking] = useState<DraftKind | 'form' | null>(null);
+  const [formQuery, setFormQuery] = useState('');
+  const matchCount = TRIBUNAL_FORM_KINDS.filter((k) =>
+    formMatches(k, formQuery.trim().toLowerCase()),
+  ).length;
   const chosen: DraftKind | null =
     asking === null || asking === 'form' ? null : asking;
   const [instructions, setInstructions] = useState('');
@@ -165,10 +170,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
     <div className="max-w-3xl space-y-4">
       <p className="text-sm text-gray-600">
         The drafting assistant writes a first draft from this case’s documents,
-        emails and notes — a position statement, or the answers to a Tribunal
-        form (SEND35, SEND35A, SEND7 or SEND45). Every paragraph shows the items
-        it is drawn from, and where the file gives no basis the draft says so
-        instead of guessing. You read, edit and approve it — nothing is filed
+        emails and notes — a position statement, or the answers to any of the
+        Tribunal’s forms for parents and young people. Every paragraph shows the
+        items it is drawn from, and where the file gives no basis the draft says
+        so instead of guessing. You read, edit and approve it — nothing is filed
         until you do.
       </p>
 
@@ -189,45 +194,88 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 <legend className="text-sm font-semibold text-resend-ink">
                   Which form?
                 </legend>
-                <div className="mt-1 space-y-1">
-                  {TRIBUNAL_FORM_KINDS.map((kind) => (
-                    <label
-                      key={kind}
-                      className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm ${
-                        asking === kind
-                          ? 'border-resend-purple bg-gray-50'
-                          : 'border-gray-200'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="form-kind"
-                        value={kind}
-                        checked={asking === kind}
-                        onChange={() => {
-                          ask.reset();
-                          setAsking(kind);
-                        }}
-                        aria-labelledby={`kind-${kind}`}
-                        aria-describedby={`kind-${kind}-about`}
-                        className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
-                      />
-                      <span>
-                        <span
-                          id={`kind-${kind}`}
-                          className="font-medium text-resend-ink"
-                        >
-                          {DRAFT_KIND_LABELS[kind]}
-                        </span>
-                        <span
-                          id={`kind-${kind}-about`}
-                          className="block text-gray-600"
-                        >
-                          {DRAFT_KIND_DESCRIPTIONS[kind]}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
+                <label className="mt-1 block text-sm text-gray-600">
+                  Find a form
+                  <input
+                    type="search"
+                    value={formQuery}
+                    onChange={(e) => setFormQuery(e.target.value)}
+                    placeholder="e.g. SEND7, expenses, exclusion"
+                    className="mt-0.5 block w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                  />
+                </label>
+                <p role="status" className="mt-1 text-xs text-gray-600">
+                  {formQuery.trim()
+                    ? matchCount === 0
+                      ? `No forms match “${formQuery.trim()}”.`
+                      : `${matchCount} form${matchCount === 1 ? '' : 's'} match.`
+                    : ''}
+                </p>
+                <div className="mt-2 space-y-2">
+                  {TRIBUNAL_FORM_GROUPS.map((group) => {
+                    const q = formQuery.trim().toLowerCase();
+                    const kinds = TRIBUNAL_FORM_KINDS.filter(
+                      (k) =>
+                        TRIBUNAL_FORMS[k].group === group.id &&
+                        (k === chosen || formMatches(k, q)),
+                    );
+                    if (kinds.length === 0) return null;
+                    return (
+                      <details
+                        // Re-opened as the search changes: every match shown.
+                        key={`${group.id}:${q ? 'search' : 'browse'}`}
+                        open={
+                          Boolean(q) ||
+                          group.id === 'appeal' ||
+                          kinds.some((k) => k === chosen)
+                        }
+                      >
+                        <summary className="mb-1 cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          {group.label} ({kinds.length})
+                        </summary>
+                        <div className="space-y-1">
+                          {kinds.map((kind) => (
+                            <label
+                              key={kind}
+                              className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm ${
+                                asking === kind
+                                  ? 'border-resend-purple bg-gray-50'
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="form-kind"
+                                value={kind}
+                                checked={asking === kind}
+                                onChange={() => {
+                                  ask.reset();
+                                  setAsking(kind);
+                                }}
+                                aria-labelledby={`kind-${kind}`}
+                                aria-describedby={`kind-${kind}-about`}
+                                className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
+                              />
+                              <span>
+                                <span
+                                  id={`kind-${kind}`}
+                                  className="font-medium text-resend-ink"
+                                >
+                                  {DRAFT_KIND_LABELS[kind]}
+                                </span>
+                                <span
+                                  id={`kind-${kind}-about`}
+                                  className="block text-gray-600"
+                                >
+                                  {DRAFT_KIND_DESCRIPTIONS[kind]}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    );
+                  })}
                 </div>
               </fieldset>
             )}
@@ -239,7 +287,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 rows={3}
                 maxLength={2000}
                 placeholder={
-                  chosen ? INSTRUCTION_EXAMPLES[chosen] : 'Choose a form first.'
+                  chosen
+                    ? (INSTRUCTION_EXAMPLES[chosen] ??
+                      'e.g. Anything the file does not make clear, or what to emphasise.')
+                    : 'Choose a form first.'
                 }
                 className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               />
@@ -938,4 +989,21 @@ function FormLinks({
       ({form.version}).
     </p>
   );
+}
+
+/**
+ * Whether a form matches the search: by its number with or without a space
+ * ("SEND 8"), or by every word, allowing for word endings ("withdrawal").
+ */
+function formMatches(kind: DraftKind, query: string): boolean {
+  if (!query) return true;
+  const hay =
+    `${DRAFT_KIND_LABELS[kind]} ${DRAFT_KIND_DESCRIPTIONS[kind]}`.toLowerCase();
+  const flat = hay.replace(/\s+/g, '');
+  if (flat.includes(query.replace(/\s+/g, ''))) return true;
+  return query
+    .split(/\s+/)
+    .every(
+      (w) => hay.includes(w) || (w.length > 5 && hay.includes(w.slice(0, -3))),
+    );
 }
