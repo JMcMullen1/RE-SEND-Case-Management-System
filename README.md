@@ -253,6 +253,39 @@ decision about an EHC plan", version 02, 02.2026 — `SEND35_FORM` and
   answers into the online form or the PDF; links to both are on the draft.
 - **Switched off separately** with the `draft_send35_appeal` job flag.
 
+### SEND35A, SEND7 and SEND45
+
+The same drafting fills three more of the Tribunal's forms, chosen under
+**Fill in a Tribunal form** on the Drafting tab. Each form's sections, version,
+dates and checklist are in `TRIBUNAL_FORMS` in `config.ts`; one function
+(`completeTribunalForm`) writes the facts from the case record for all of them.
+
+- **SEND35A** (appeal a refusal to assess, version 04.23): who the appeal is
+  about (a child, or a young person over compulsory school age), the child and
+  the appellant are copied from the record; the two questions of the legal test
+  (s.36(8) Children and Families Act 2014) — whether the child has or may have
+  special educational needs, and whether they may need an EHC plan — are
+  drafted from the evidence. The local authority comes from the record, the
+  decision letter and mediation certificate dates from the file; the time limit
+  is worked out as for SEND35, and a missing mediation certificate is flagged
+  (the Tribunal returns papers without one or an explanation).
+- **SEND7** (request for change, version 08.23): the child's name, appeal
+  number, local authority and final hearing date are copied — the key date
+  titled "Final Hearing", never the Case Management Review. The request, the
+  reasons and the local authority's response are drafted; a missing response is
+  flagged, since the form is returned without it. If the file shows when the
+  local authority was told, the draft works out the earliest sending date — the
+  working day after their 5 working days to respond, skipping weekends and bank
+  holidays — and warns until it is reached.
+- **SEND45** (case review, version 11.23): the child's name, appeal number and
+  the date the form is due (the "Case Review Form" date from the directions,
+  else the final bundle deadline — never a supplementary bundle; a passed date
+  is said to have passed) are copied; the issues still in dispute, the working
+  document, placement, readiness, representative, supporter, witnesses and
+  special requirements are drafted.
+- **Switched off separately** with the `draft_send35a_appeal`,
+  `draft_send7_request` and `draft_send45_case_review` job flags.
+
 ## Schools directory
 
 One record per school, shared by every case (`/schools`,

@@ -364,31 +364,55 @@ export const EMAIL_DIRECTION_LABELS: Record<EmailDirection, string> = {
 /** The AI job that drafts a position statement from the case file. */
 export const DRAFT_POSITION_STATEMENT_JOB = 'draft_position_statement';
 
-/** The AI job that drafts answers to the SEND35 appeal form from the case file. */
+/** The AI jobs that draft answers to each Tribunal form from the case file. */
 export const DRAFT_SEND35_JOB = 'draft_send35_appeal';
+export const DRAFT_SEND35A_JOB = 'draft_send35a_appeal';
+export const DRAFT_SEND7_JOB = 'draft_send7_request';
+export const DRAFT_SEND45_JOB = 'draft_send45_case_review';
+
+/** The Tribunal forms the drafting tools fill in. */
+export const TRIBUNAL_FORM_KINDS = [
+  'send35_appeal',
+  'send35a_appeal',
+  'send7_request',
+  'send45_case_review',
+] as const;
+export type TribunalFormKind = (typeof TRIBUNAL_FORM_KINDS)[number];
 
 /** Kinds of document the drafting tools produce. */
 export const DRAFT_KIND_VALUES = [
   'position_statement',
-  'send35_appeal',
+  ...TRIBUNAL_FORM_KINDS,
 ] as const;
 export type DraftKind = (typeof DRAFT_KIND_VALUES)[number];
 export const DraftKindSchema = z.enum(DRAFT_KIND_VALUES);
 export const DRAFT_KIND_LABELS: Record<DraftKind, string> = {
   position_statement: 'Position statement',
   send35_appeal: 'SEND35 appeal form',
+  send35a_appeal: 'SEND35A appeal form (refusal to assess)',
+  send7_request: 'SEND7 request for change',
+  send45_case_review: 'SEND45 case review form',
 };
 /** One line on what each kind is for, shown where a caseworker chooses one. */
 export const DRAFT_KIND_DESCRIPTIONS: Record<DraftKind, string> = {
   position_statement:
     "The appellant's statement of their case for the Tribunal, section by section.",
   send35_appeal:
-    'Answers to the SEND35 form for appealing a decision about an EHC plan, ready to copy into the online or paper form.',
+    'Appeal a decision about an EHC plan: a refusal to issue or reassess, Sections B, F or I, or ceasing the plan.',
+  send35a_appeal:
+    'Appeal a local authority’s refusal to carry out an EHC needs assessment.',
+  send7_request:
+    'Once an appeal is registered: ask the Tribunal for a change, such as more time, a new hearing date, an extra witness or an observer.',
+  send45_case_review:
+    'Once an appeal is registered: tell the Tribunal what is still in dispute and whether the appeal is ready, by the bundle deadline.',
 };
 /** The AI job behind each kind (each can be switched off on its own). */
 export const DRAFT_KIND_JOBS: Record<DraftKind, string> = {
   position_statement: DRAFT_POSITION_STATEMENT_JOB,
   send35_appeal: DRAFT_SEND35_JOB,
+  send35a_appeal: DRAFT_SEND35A_JOB,
+  send7_request: DRAFT_SEND7_JOB,
+  send45_case_review: DRAFT_SEND45_JOB,
 };
 
 /**
@@ -604,6 +628,292 @@ export const SEND35_APPELLANT_CHECKLIST = [
   'If the decision was a refusal to carry out an EHC needs assessment, the SEND35A form is used instead.',
 ] as const;
 
+/** Working days the other party must be given to respond before a SEND7 is sent. */
+export const SEND7_NOTICE_WORKING_DAYS = 5;
+
+/** The SEND35A form (appeal a refusal to secure an EHC needs assessment). */
+export const SEND35A_SECTIONS = [
+  {
+    key: 'child',
+    heading: 'Section 1 – Who is the appeal about?',
+    guidance:
+      'Child or young person, name, gender and date of birth, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'reasons',
+    heading: 'Section 2 – Reasons for appeal',
+    guidance:
+      'The two questions the Tribunal decides under section 36(8) of the Children and Families Act 2014, each answered in turn. Question one: the special educational needs the child or young person has, and any they may have that are not yet fully identified. Question two: why they may require an EHC plan — for example the support already in place and why it has not been enough, their progress, and what the school or professionals say. Cite each report, its author and date.',
+    fill: 'model',
+  },
+  {
+    key: 'decision',
+    heading: 'Section 3 – Making the appeal',
+    guidance:
+      'Only if the appeal is late, or there is no mediation certificate: why, and why the appeal should go ahead. The local authority and the decision letter date are reported separately.',
+    fill: 'model',
+  },
+  {
+    key: 'other_cases',
+    heading: 'Section 4 – Deciding your appeal: existing appeals and claims',
+    guidance:
+      'Any other current appeal for this child or young person or a sibling, with its appeal number, and any disability discrimination claim, with its date and number — only as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'appellant',
+    heading: 'Section 5 – Who is making the appeal?',
+    guidance:
+      'Who is appealing and their contact details, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'people',
+    heading: 'Section 6 – Who else is involved in the appeal?',
+    guidance:
+      'Only what the file shows: anyone else with parental responsibility or a Court of Protection deputy, and whether they have been told of the appeal; any court or tribunal order about the child or young person, including the family court; the young person’s advocate; any representative, including RE-SEND; and who should receive the papers.',
+    fill: 'model',
+  },
+  {
+    key: 'support',
+    heading: 'Section 7 – The hearing: your needs and requirements',
+    guidance:
+      'Any special needs to take into account in arranging the hearing, and any interpreter or signer needed, with the language and dialect — as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'evidence',
+    heading: 'Section 11 – Evidence to be considered in the appeal',
+    guidance:
+      'One paragraph per document to send, as a row of the form’s table: its date; number of pages if known; who signed or wrote it and what kind of document it is; and, if not obvious, why it is relevant. Cite the document itself.',
+    fill: 'model',
+  },
+] as const satisfies readonly {
+  key: string;
+  heading: string;
+  guidance: string;
+  fill: DraftSectionFill;
+}[];
+
+/** The SEND7 form (request for change). */
+export const SEND7_SECTIONS = [
+  {
+    key: 'details',
+    heading: 'Case details',
+    guidance:
+      'Child or young person’s name, appeal number, local authority and final hearing date, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'request',
+    heading: 'I wish to apply to the tribunal for',
+    guidance:
+      'Which of the form’s requests this is, using its wording: an extension of time to comply with a direction; a change to the final hearing date; a witness summons; permission to amend grounds of appeal; strike out the appeal/LA barred; permission to bring an additional witness; an observer to attend the hearing; or other (say what). Also the type of appeal (for example Sections B, F and I) as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'reasons',
+    heading: 'The reasons I am applying are',
+    guidance:
+      'Why the request is made, from the file. For more time: the direction concerned, its current date, the date by which it can be met, and why. For a new hearing date: why, and three dates agreed with the local authority. For a witness summons: the efforts made to secure attendance and why no other way of giving the evidence will do, with the witness’s name, occupation and address. For an extra witness or an observer: why they are needed.',
+    fill: 'model',
+  },
+  {
+    key: 'other_party',
+    heading: 'The other party’s response',
+    guidance:
+      'The local authority’s response to the request, as the file shows it (an email or letter), or that they did not reply. The form is returned unconsidered without it.',
+    fill: 'model',
+  },
+] as const satisfies readonly {
+  key: string;
+  heading: string;
+  guidance: string;
+  fill: DraftSectionFill;
+}[];
+
+/** The SEND45 form (case review). */
+export const SEND45_SECTIONS = [
+  {
+    key: 'details',
+    heading: 'Case details',
+    guidance:
+      'Child or young person’s name and appeal number, and the bundle deadline, from the case record.',
+    fill: 'record',
+  },
+  {
+    key: 'issues',
+    heading: 'Progress of the appeal (questions 1 to 3)',
+    guidance:
+      'Which decisions are still for the Tribunal, leaving out anything agreed, using the form’s list (refusal to assess; refusal to reassess; refusal to issue a plan; Section B; Section F; Section I; Sections C and G (health); Sections D and H (social care); ceasing the plan) (1). Whether there is a working document, and the date of its latest version (2). The headline issues outstanding, one paragraph each, such as the description of speech and language needs or the hours of one-to-one support (3).',
+    fill: 'model',
+  },
+  {
+    key: 'placement',
+    heading: 'Educational placement (questions 4 to 6)',
+    guidance:
+      'Only if Section I is in dispute: whether the child or young person is attending school or college, and if not when they last did and what provision they have now (4); the school or college asked for by the parent or young person, with its address (5); the one proposed by the local authority, with its address (6). If an independent school not on the section 41 list is asked for, whether the file shows an offer of a place.',
+    fill: 'model',
+  },
+  {
+    key: 'readiness',
+    heading: 'Readiness for hearing (questions 7 and 8)',
+    guidance:
+      'Whether the appeal is ready for a final hearing, and if not why and when it will be (7); if a new timetable is agreed, its dates for final evidence, the updated case review form, the supplementary bundle, the final working document and the hearing (8) — only as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'people',
+    heading: 'Representative, supporter and witnesses (questions 9 to 12)',
+    guidance:
+      'Any representative at the hearing, with name and status (volunteer representative, paid representative, solicitor, counsel or other) (9); any parental supporter or advocate (10); each witness’s name and occupation (11); whether every witness has given a written statement or report, and if not why (12) — only as the file shows.',
+    fill: 'model',
+  },
+  {
+    key: 'support',
+    heading: 'Special requirements (question 13)',
+    guidance:
+      'Any special requirements of the appellant or their witnesses at the hearing, as the file shows.',
+    fill: 'model',
+  },
+] as const satisfies readonly {
+  key: string;
+  heading: string;
+  guidance: string;
+  fill: DraftSectionFill;
+}[];
+
+/** A date a form's answers depend on, found by the model with its sources. */
+export interface TribunalFormDateDef {
+  key: string;
+  /** How it is reported on the draft. */
+  label: string;
+  /** What the model is to look for. */
+  find: string;
+}
+
+/**
+ * Each Tribunal form the drafting tools fill in. When HMCTS issues a new
+ * version of a form, update its version and sections here to match.
+ */
+export interface TribunalFormDef {
+  code: string;
+  version: string;
+  guidanceUrl: string;
+  onlineUrl: string | null;
+  sections: readonly {
+    key: string;
+    heading: string;
+    guidance: string;
+    fill: DraftSectionFill;
+  }[];
+  /** Dates the model finds, reported in `datesSection`. */
+  dates: readonly TribunalFormDateDef[];
+  datesSection: string | null;
+  /**
+   * What the dates decide, worked out whenever the draft is read: the appeal
+   * time limit, or the earliest a request can be sent (SEND7).
+   */
+  timing: { rule: 'appeal'; lateQuestion: string } | { rule: 'notice' } | null;
+  /** What the appellant (or the caseworker) must still do, on every draft. */
+  checklist: readonly string[];
+}
+
+export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
+  send35_appeal: {
+    code: 'SEND35',
+    version: SEND35_FORM.version,
+    guidanceUrl: SEND35_FORM.guidanceUrl,
+    onlineUrl: SEND35_FORM.onlineUrl,
+    sections: SEND35_SECTIONS,
+    dates: [
+      {
+        key: 'decisionLetter',
+        label: '13.1 Date on the local authority decision letter',
+        find: 'the date on the local authority’s decision letter that is being appealed',
+      },
+      {
+        key: 'mediationCertificate',
+        label: '13.2 Date on the mediation certificate',
+        find: 'the date on the mediation certificate',
+      },
+    ],
+    datesSection: 'timing',
+    timing: { rule: 'appeal', lateQuestion: 'Question 13.3' },
+    checklist: SEND35_APPELLANT_CHECKLIST,
+  },
+  send35a_appeal: {
+    code: 'SEND35A',
+    version: 'Version 04.23',
+    guidanceUrl:
+      'https://www.gov.uk/government/publications/form-send35a-special-educational-needs-and-disability-tribunal-appeal-a-refusal-to-secure-an-ehc-needs-assessment',
+    onlineUrl: null,
+    sections: SEND35A_SECTIONS,
+    dates: [
+      {
+        key: 'decisionLetter',
+        label: 'Date on the decision letter from the local authority',
+        find: 'the date on the local authority’s letter refusing to secure an EHC needs assessment',
+      },
+      {
+        key: 'mediationCertificate',
+        label: 'Date on the mediation certificate',
+        find: 'the date on the mediation certificate',
+      },
+    ],
+    datesSection: 'decision',
+    timing: {
+      rule: 'appeal',
+      lateQuestion: 'Section 3 (“My appeal is being made late”)',
+    },
+    checklist: [
+      'Section 4: whether to consent to the appeal being decided on the papers without a hearing is for the appellant to choose (consent is presumed unless they say otherwise).',
+      'Section 8 checklist — send with the form: the local authority’s signed and dated decision letter, the signed mediation certificate, and the reasons for appealing.',
+      'Section 9: the form is signed and dated by the parent or young person (or their representative).',
+      'If the decision was about the contents of an EHC plan, or a refusal to issue one, the SEND35 form is used instead.',
+    ],
+  },
+  send7_request: {
+    code: 'SEND7',
+    version: 'Version 08.23',
+    guidanceUrl:
+      'https://www.gov.uk/government/publications/form-send7-request-for-change',
+    onlineUrl: null,
+    sections: SEND7_SECTIONS,
+    dates: [
+      {
+        key: 'otherPartyNotified',
+        label: 'Date request sent to other party',
+        find: 'the date the local authority (the other party) was told about this request',
+      },
+    ],
+    datesSection: 'details',
+    timing: { rule: 'notice' },
+    checklist: [
+      'Tick the box on the form if the hearing has been adjourned before.',
+      'The form is signed and dated, with “Request made by” ticked (parent, or parent’s representative).',
+      'Send the completed form, with the local authority’s response and any supporting documents, to the Tribunal and to the local authority at the same time — otherwise it is returned unconsidered.',
+    ],
+  },
+  send45_case_review: {
+    code: 'SEND45',
+    version: 'Version 11.23',
+    guidanceUrl:
+      'https://www.gov.uk/government/publications/report-issues-with-a-case-to-the-tribunal-form-send45',
+    onlineUrl: null,
+    sections: SEND45_SECTIONS,
+    dates: [],
+    datesSection: null,
+    timing: null,
+    checklist: [
+      'Question 14: whether to consent to the appeal being decided on the papers is for the appellant to choose.',
+      'Question 15: anything else to tell the Tribunal about the hearing.',
+      'Question 16: the form is signed, and sent to the Tribunal by the bundle deadline in the case directions — with the latest working document, if there is one.',
+    ],
+  },
+};
+
 /** The sections of each kind of draft, in order. */
 export const DRAFT_KIND_SECTIONS: Record<
   DraftKind,
@@ -611,6 +921,9 @@ export const DRAFT_KIND_SECTIONS: Record<
 > = {
   position_statement: POSITION_STATEMENT_SECTIONS,
   send35_appeal: SEND35_SECTIONS,
+  send35a_appeal: SEND35A_SECTIONS,
+  send7_request: SEND7_SECTIONS,
+  send45_case_review: SEND45_SECTIONS,
 };
 /** Longest section key any kind uses (for request validation). */
 export const DRAFT_SECTION_KEY_MAX = 40;

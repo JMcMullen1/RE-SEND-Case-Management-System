@@ -4,9 +4,8 @@ import {
   DRAFT_KIND_JOBS,
   DRAFT_KIND_LABELS,
   DRAFT_MAX_CORPUS_TOKENS,
-  SEND35_FORM,
-  SEND35_SECTIONS,
-  completeSend35,
+  TRIBUNAL_FORMS,
+  completeTribunalForm,
   groundDraft,
   londonToday,
   serialiseCorpus,
@@ -16,10 +15,17 @@ import {
   type GroundedDraft,
   type PositionStatementOutput,
   type Send35Output,
+  type TribunalFormOutput,
 } from '@re-send/shared';
 import Anthropic from '@anthropic-ai/sdk';
 import { caseCorpus } from '../corpus/case-corpus';
-import { draftPositionStatementJob, draftSend35Job } from '../ai/drafting-job';
+import {
+  draftPositionStatementJob,
+  draftSend35Job,
+  draftSend35aJob,
+  draftSend45Job,
+  draftSend7Job,
+} from '../ai/drafting-job';
 import { AiJobDisabledError, AiJobRefusalError } from '../ai/errors';
 import { resolveEnabled, runAiJob, type AiJobResult } from '../ai/run';
 import { env } from '../env';
@@ -42,17 +48,38 @@ export class DraftingUnavailable extends Error {}
 type Runner = (
   input: Anthropic.ContentBlockParam[],
   kind: DraftKind,
-) => Promise<AiJobResult<PositionStatementOutput | Send35Output>>;
+) => Promise<
+  AiJobResult<PositionStatementOutput | Send35Output | TribunalFormOutput>
+>;
 
 const JOBS = {
   position_statement: draftPositionStatementJob,
   send35_appeal: draftSend35Job,
+  send35a_appeal: draftSend35aJob,
+  send7_request: draftSend7Job,
+  send45_case_review: draftSend45Job,
 } as const;
 
-const defaultRunner: Runner = (input, kind) =>
-  kind === 'send35_appeal'
-    ? runAiJob(draftSend35Job, input)
-    : runAiJob(draftPositionStatementJob, input);
+const defaultRunner: Runner = (input, kind) => {
+  switch (kind) {
+    case 'position_statement':
+      return runAiJob(draftPositionStatementJob, input);
+    case 'send35_appeal':
+      return runAiJob(draftSend35Job, input);
+    case 'send35a_appeal':
+      return runAiJob(draftSend35aJob, input) as Promise<
+        AiJobResult<TribunalFormOutput>
+      >;
+    case 'send7_request':
+      return runAiJob(draftSend7Job, input) as Promise<
+        AiJobResult<TribunalFormOutput>
+      >;
+    case 'send45_case_review':
+      return runAiJob(draftSend45Job, input) as Promise<
+        AiJobResult<TribunalFormOutput>
+      >;
+  }
+};
 let runner: Runner = defaultRunner;
 
 /** Test seam: replace the model call (never used outside tests). */
@@ -66,11 +93,19 @@ export async function settleDrafting(): Promise<void> {
   await Promise.all([...inFlight]);
 }
 
+function formAsk(kind: keyof typeof TRIBUNAL_FORMS): string {
+  const form = TRIBUNAL_FORMS[kind];
+  return `Draft the answers to the ${form.code} form (${form.version}) from the case file above.`;
+}
+
 /** The model's input: the whole case file (cached), then the request. */
 const ASK: Record<DraftKind, string> = {
   position_statement:
     "Draft the appellant's position statement from the case file above.",
-  send35_appeal: `Draft the answers to the SEND35 appeal form (${SEND35_FORM.version}) from the case file above.`,
+  send35_appeal: formAsk('send35_appeal'),
+  send35a_appeal: formAsk('send35a_appeal'),
+  send7_request: formAsk('send7_request'),
+  send45_case_review: formAsk('send45_case_review'),
 };
 
 function buildInput(
@@ -164,12 +199,25 @@ async function ground(
     const result = await runner(input, kind);
     return groundDraft(result.output, corpus.items, randomUUID);
   }
-  const output = (await runner(input, kind)).output as Send35Output;
+  const output = (await runner(input, kind)).output;
   const detail = await getCaseDetail(caseId);
   if (!detail) throw new Error('case not found');
-  return completeSend35({
-    grounded: groundDraft(output, corpus.items, randomUUID, SEND35_SECTIONS),
-    output,
+  // SEND35 reports its dates at the top level; the other forms under `dates`.
+  const dates =
+    kind === 'send35_appeal'
+      ? {
+          decisionLetter: (output as Send35Output).decisionLetter,
+          mediationCertificate: (output as Send35Output).mediationCertificate,
+        }
+      : ((output as TribunalFormOutput).dates ?? {});
+  return completeTribunalForm(kind, {
+    grounded: groundDraft(
+      output,
+      corpus.items,
+      randomUUID,
+      TRIBUNAL_FORMS[kind].sections,
+    ),
+    dates,
     detail,
     corpus: corpus.items,
     today,
@@ -220,7 +268,7 @@ async function generate(
 
 /**
  * Approve a draft: lock it and file it as a Word document in the case's
- * documents, named for the case and the date. SEND35 answers carry a
+ * documents, named for the case and the date. Form answers carry a
  * "before you submit" list (the warnings, the gaps still to fill and the
  * appellant's own steps), since the form cannot go until those are done.
  */
@@ -239,14 +287,15 @@ export async function approveAndFile(
     ]
       .filter(Boolean)
       .join(' · ');
-    const form = draft.kind === 'send35_appeal';
+    const form =
+      draft.kind === 'position_statement' ? null : TRIBUNAL_FORMS[draft.kind];
     const bytes = await draftToDocx({
       title: form ? `${label} — answers` : label,
       subtitle:
         [
           subtitle,
           form
-            ? `For copying into the SEND35 form (${SEND35_FORM.version}) — online at ${SEND35_FORM.onlineUrl}`
+            ? `For copying into the ${form.code} form (${form.version}) — ${form.onlineUrl ? `online at ${form.onlineUrl}` : `from ${form.guidanceUrl}`}`
             : null,
         ]
           .filter(Boolean)

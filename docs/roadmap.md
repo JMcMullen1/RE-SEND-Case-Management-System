@@ -26,7 +26,9 @@ between pieces of work.
 - **SEND35 appeal form answers**: the same drafting, for the Tribunal's form to
   appeal a decision about an EHC plan — child and appellant copied from the
   case record, the rest drafted with sources, the time limit worked out and
-  flagged, filed with a "before you submit" list.
+  flagged, filed with a "before you submit" list. Also **SEND35A** (refusal to
+  assess), **SEND7** (request for change, with the earliest sending date) and
+  **SEND45** (case review).
 - **Case list import**: the existing Excel case list brought in by an admin,
   columns matched to the system's headings, every row checked (new or
   existing client, duplicate, needs fixing) in simple and advanced views before
@@ -77,8 +79,9 @@ Time recording decisions agreed:
 
 ### Also outstanding from the proposal
 
-- Assisted drafting, next: other Tribunal forms on the same pattern — SEND35A
-  (refusal to assess) and the forms used once an appeal is registered.
+- Assisted drafting, next: further Tribunal forms on the same pattern if
+  wanted (for example SEND8 withdrawal, SEND11 attendance, SEND20A permission to
+  appeal) — each is a `TRIBUNAL_FORMS` entry and a short prompt.
 - SharePoint library migration: documents filed against the imported cases
   (folder per family or child, matched to clients and children, an admin
   confirming each match).

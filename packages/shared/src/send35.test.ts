@@ -8,9 +8,9 @@ import {
   isCivilDate,
   pastCompulsorySchoolAge,
   recordFactsSourceId,
-  reviewSend35Timing,
+  reviewFormTiming,
   sendAppealDeadline,
-  withSend35Timing,
+  withFormTiming,
   type Send35Output,
 } from './drafting';
 
@@ -173,9 +173,9 @@ describe('completeSend35', () => {
       '13.1 Date on the local authority decision letter: 1 Oct 2026.',
     );
     const shown = (today: string) =>
-      withSend35Timing(
+      withFormTiming(
         { sections: d.sections, alerts: d.alerts },
-        d.send35Timing,
+        d.formTiming,
         today,
       );
     expect(shown('2026-11-01').alerts).toEqual([]);
@@ -202,7 +202,7 @@ describe('completeSend35', () => {
           }
         : s,
     );
-    const review = reviewSend35Timing(d.send35Timing, sections, '2026-11-25');
+    const review = reviewFormTiming(d.formTiming!, sections, '2026-11-25');
     expect(review.alerts).toEqual([]);
     expect(review.note).toMatch(/has been changed/);
   });
@@ -218,7 +218,7 @@ describe('completeSend35', () => {
     const timing = d.sections.find((s) => s.key === 'timing')!;
     expect(timing.paragraphs).toEqual([]);
     expect(
-      reviewSend35Timing(d.send35Timing, d.sections, '2026-11-14').note,
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-14').note,
     ).toMatch(/decision letter was not found/);
     expect(d.removedUnsupported).toBe(2);
     expect(d.alerts).toEqual([]);

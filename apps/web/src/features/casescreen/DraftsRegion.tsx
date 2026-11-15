@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DRAFT_KIND_DESCRIPTIONS,
   DRAFT_KIND_LABELS,
-  DRAFT_KIND_VALUES,
-  SEND35_FORM,
+  TRIBUNAL_FORMS,
+  TRIBUNAL_FORM_KINDS,
   canDraft,
   formatCivilDate,
   type Draft,
@@ -43,6 +43,12 @@ const INSTRUCTION_EXAMPLES: Record<DraftKind, string> = {
     "e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety.",
   send35_appeal:
     'e.g. The appeal is about Sections B, F and I of the final plan issued in March; mediation was declined.',
+  send35a_appeal:
+    'e.g. The LA refused to assess in its letter of 3 March; the school says she is not making progress despite SEN support.',
+  send7_request:
+    'e.g. Ask for 14 more days to file the EP report; the LA was emailed about it on 2 November.',
+  send45_case_review:
+    'e.g. Section B is now agreed; Section F hours and the placement are still in dispute.',
 };
 
 /** What the reviewer is told a draft is, and must confirm on approval. */
@@ -56,14 +62,22 @@ const REVIEW_COPY: Record<
       'I have read the whole statement and checked it against its sources.',
     gapLabel: 'Not in the file: ',
   },
-  send35_appeal: {
-    notFinished:
-      'Draft answers for you to check with the family, not a finished form.',
-    confirm:
-      'I have read every answer, checked it against its sources, and the family has agreed them.',
-    gapLabel: 'Check: ',
-  },
-};
+  ...Object.fromEntries(
+    TRIBUNAL_FORM_KINDS.map((kind) => [
+      kind,
+      {
+        notFinished:
+          'Draft answers for you to check with the family, not a finished form.',
+        confirm:
+          'I have read every answer, checked it against its sources, and the family has agreed them.',
+        gapLabel: 'Check: ',
+      },
+    ]),
+  ),
+} as Record<
+  DraftKind,
+  { notFinished: string; confirm: string; gapLabel: string }
+>;
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   case_record: 'Case record',
@@ -92,7 +106,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
         ? 15_000
         : false,
   });
-  const [asking, setAsking] = useState<DraftKind | null>(null);
+  // What is being asked for: a kind, or 'form' while no form is chosen yet.
+  const [asking, setAsking] = useState<DraftKind | 'form' | null>(null);
+  const chosen: DraftKind | null =
+    asking === null || asking === 'form' ? null : asking;
   const [instructions, setInstructions] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -148,21 +165,72 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
     <div className="max-w-3xl space-y-4">
       <p className="text-sm text-gray-600">
         The drafting assistant writes a first draft from this case’s documents,
-        emails and notes — a position statement, or the answers to the SEND35
-        appeal form. Every paragraph shows the items it is drawn from, and where
-        the file gives no basis the draft says so instead of guessing. You read,
-        edit and approve it — nothing is filed until you do.
+        emails and notes — a position statement, or the answers to a Tribunal
+        form (SEND35, SEND35A, SEND7 or SEND45). Every paragraph shows the items
+        it is drawn from, and where the file gives no basis the draft says so
+        instead of guessing. You read, edit and approve it — nothing is filed
+        until you do.
       </p>
 
       {mayDraft &&
         (asking ? (
           <div className="rounded-lg border border-resend-purple p-4">
-            <p className="text-sm font-semibold text-resend-ink">
-              {DRAFT_KIND_LABELS[asking]}
-            </p>
-            <p className="mb-3 text-sm text-gray-600">
-              {DRAFT_KIND_DESCRIPTIONS[asking]}
-            </p>
+            {asking === 'position_statement' ? (
+              <>
+                <p className="text-sm font-semibold text-resend-ink">
+                  {DRAFT_KIND_LABELS[asking]}
+                </p>
+                <p className="mb-3 text-sm text-gray-600">
+                  {DRAFT_KIND_DESCRIPTIONS[asking]}
+                </p>
+              </>
+            ) : (
+              <fieldset className="mb-3">
+                <legend className="text-sm font-semibold text-resend-ink">
+                  Which form?
+                </legend>
+                <div className="mt-1 space-y-1">
+                  {TRIBUNAL_FORM_KINDS.map((kind) => (
+                    <label
+                      key={kind}
+                      className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm ${
+                        asking === kind
+                          ? 'border-resend-purple bg-gray-50'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="form-kind"
+                        value={kind}
+                        checked={asking === kind}
+                        onChange={() => {
+                          ask.reset();
+                          setAsking(kind);
+                        }}
+                        aria-labelledby={`kind-${kind}`}
+                        aria-describedby={`kind-${kind}-about`}
+                        className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
+                      />
+                      <span>
+                        <span
+                          id={`kind-${kind}`}
+                          className="font-medium text-resend-ink"
+                        >
+                          {DRAFT_KIND_LABELS[kind]}
+                        </span>
+                        <span
+                          id={`kind-${kind}-about`}
+                          className="block text-gray-600"
+                        >
+                          {DRAFT_KIND_DESCRIPTIONS[kind]}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <label className="block text-sm font-medium text-resend-ink">
               Anything the draft should focus on? (optional)
               <textarea
@@ -170,7 +238,9 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
                 maxLength={2000}
-                placeholder={INSTRUCTION_EXAMPLES[asking]}
+                placeholder={
+                  chosen ? INSTRUCTION_EXAMPLES[chosen] : 'Choose a form first.'
+                }
                 className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               />
             </label>
@@ -192,8 +262,8 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
               </button>
               <button
                 type="button"
-                disabled={ask.isPending}
-                onClick={() => ask.mutate(asking)}
+                disabled={ask.isPending || !chosen}
+                onClick={() => chosen && ask.mutate(chosen)}
                 className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
                 {ask.isPending ? 'Starting…' : 'Start drafting'}
@@ -202,16 +272,19 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {DRAFT_KIND_VALUES.map((kind) => (
+            {(
+              [
+                ['position_statement', 'Draft a position statement'],
+                ['form', 'Fill in a Tribunal form'],
+              ] as const
+            ).map(([kind, text]) => (
               <button
                 key={kind}
                 type="button"
                 onClick={() => setAsking(kind)}
                 className="rounded-lg bg-resend-purple px-4 py-2 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
-                {kind === 'position_statement'
-                  ? 'Draft a position statement'
-                  : 'Fill in a SEND35 appeal form'}
+                {text}
               </button>
             ))}
           </div>
@@ -547,31 +620,8 @@ function DraftView({
           </div>
         )}
 
-        {draft.kind === 'send35_appeal' && (
-          <p className="text-sm text-gray-600">
-            Sections 1 and 2 are copied from the case record; the rest are
-            drafted from the file. Copy the approved answers into the{' '}
-            <a
-              href={SEND35_FORM.onlineUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-resend-purple hover:underline"
-            >
-              online SEND35 form
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>{' '}
-            or the{' '}
-            <a
-              href={SEND35_FORM.guidanceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-resend-purple hover:underline"
-            >
-              paper form on GOV.UK
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>{' '}
-            ({SEND35_FORM.version}).
-          </p>
+        {draft.kind !== 'position_statement' && (
+          <FormLinks form={TRIBUNAL_FORMS[draft.kind]} />
         )}
 
         {draft.instructions && (
@@ -717,7 +767,7 @@ function DraftView({
         {draft.missingInformation.length > 0 && (
           <section aria-labelledby="missing-h">
             <h3 id="missing-h" className="mb-1 text-base font-semibold">
-              {draft.kind === 'send35_appeal'
+              {draft.kind !== 'position_statement'
                 ? 'Before the form is sent'
                 : 'To obtain or check'}
             </h3>
@@ -852,5 +902,40 @@ function SourceCard({ source, n }: { source: DraftSource; n: number }) {
         </a>
       )}
     </li>
+  );
+}
+
+/** Where the approved answers go: the form online, or on GOV.UK. */
+function FormLinks({
+  form,
+}: {
+  form: (typeof TRIBUNAL_FORMS)[keyof typeof TRIBUNAL_FORMS];
+}) {
+  const link = (href: string, text: string) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="font-medium text-resend-purple hover:underline"
+    >
+      {text}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
+  return (
+    <p className="text-sm text-gray-600">
+      Answers that cite “Case record — copied by the system” are copied from the
+      case record; the rest are drafted from the file. Copy the approved answers
+      into the{' '}
+      {form.onlineUrl ? (
+        <>
+          {link(form.onlineUrl, `online ${form.code} form`)} or the{' '}
+          {link(form.guidanceUrl, 'paper form on GOV.UK')}
+        </>
+      ) : (
+        link(form.guidanceUrl, `${form.code} form on GOV.UK`)
+      )}{' '}
+      ({form.version}).
+    </p>
   );
 }
