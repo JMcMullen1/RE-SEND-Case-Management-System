@@ -561,6 +561,34 @@ Every case's key dates on one calendar (`/calendar`, `apps/web/src/features/cale
   so two-way Microsoft Graph sync can be added later as a separate id/etag
   mapping over the same projection — without unpicking the feed.
 
+## Encryption of sensitive data
+
+On top of the database's and the disk's own encryption at rest, the most
+sensitive data is encrypted by the application, so a copy of the database or
+the file store is unreadable without the key (`apps/api/src/crypto`).
+
+- **What:** the child's SEND needs, the parent's additional needs and the case
+  aims (special category information the database never searches, sorts or
+  matches), and every stored document file — EHC plans, reports, orders and
+  the original files of filed emails. Names, dates of birth and contact
+  details stay readable to the database, which matches families by them;
+  notes, emails and documents' extracted text, which search reads.
+- **How:** AES-256-GCM (authenticated, so a tampered value fails to decrypt),
+  a fresh random nonce per value, with separate keys for fields and files
+  derived from `ENCRYPTION_KEY` by HKDF. Encryption and decryption happen in one
+  place each — the repositories for fields, the storage layer for files — so
+  the screens, AI drafting, search and the export are unchanged. Edits to these
+  fields are audited encrypted too; the data export writes them decrypted (it
+  is the charity's readable copy).
+- **The key:** `ENCRYPTION_KEY` (at least 32 characters) is required — the
+  API will not start without one. Render generates it (`render.yaml`). **Keep
+  a copy**: without it the encrypted data cannot be read, even from a backup
+  (`docs/disaster-recovery.md`). `ENCRYPTION_KEY_PREVIOUS` supports rotation.
+- **Turning it on needs no downtime.** Data stored before encryption reads as
+  it is; at start-up a background pass encrypts it (and, after a rotation,
+  re-encrypts under the new key), once, one instance at a time, logging and
+  auditing counts only.
+
 ## Deployment and demo
 
 `render.yaml` is a Render blueprint defining **one web service** and **managed

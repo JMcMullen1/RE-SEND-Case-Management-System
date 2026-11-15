@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { TEAM_VALUES } from '@re-send/shared';
 import { env } from '../env';
+import { encryptField } from '../crypto/encryption';
 import * as schema from '../db/schema';
 import {
   assertSafeToMutate,
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
             city: 'Fictionton',
             county: 'Exampleshire',
             postcode: `EX${(i % 9) + 1} ${(i % 9) + 1}FX`,
-            additionalNeeds: SEND_NEEDS[i % SEND_NEEDS.length]!,
+            additionalNeeds: encryptField(SEND_NEEDS[i % SEND_NEEDS.length]!),
             consentDataProcessing: true,
             consentDataProcessingAt: BASE,
             consentPrivacyNotice: true,
@@ -138,7 +139,7 @@ async function main(): Promise<void> {
             currentSchoolName: SCHOOLS[i % SCHOOLS.length]!,
             currentSchoolAddress: `${10 + i} Invented Road, Fictionton, EX${(i % 9) + 1} ${(i % 9) + 1}FX`,
             desiredSchool: SCHOOLS[(i + 3) % SCHOOLS.length]!,
-            sendNeeds: SEND_NEEDS[(i + 2) % SEND_NEEDS.length]!,
+            sendNeeds: encryptField(SEND_NEEDS[(i + 2) % SEND_NEEDS.length]!),
           })
           .returning({ id: children.id });
 
@@ -175,7 +176,9 @@ async function main(): Promise<void> {
             methodOfEnquiry: spec.methodOfEnquiry,
             appealLodged: isAppeal,
             representationWanted: isAppeal,
-            aims: 'Secure appropriate provision and a lawful, specific plan.',
+            aims: encryptField(
+              'Secure appropriate provision and a lawful, specific plan.',
+            ),
             finalPlanIssuedDate: isClosed ? dateStr(-25) : null,
             closedDate: isClosed ? dateStr(-20) : null,
             paymentCode:
@@ -269,7 +272,7 @@ async function main(): Promise<void> {
           preferredName: 'Wren',
           schoolYear: 'Yr2',
           currentSchoolName: SCHOOLS[0]!,
-          sendNeeds: SEND_NEEDS[0]!,
+          sendNeeds: encryptField(SEND_NEEDS[0]!),
         })
         .returning({ id: children.id });
       await tx.insert(clientChildren).values({

@@ -2,11 +2,15 @@ import { buildServer } from './server';
 import { startEntityListener } from './entity-listener';
 import { provisionDemoAccounts } from './auth/demo-accounts';
 import { assertRuntimeSafety, env } from './env';
+import { assertEncryptionConfigured } from './crypto/encryption';
+import { runEncryptionBackfill } from './crypto/backfill';
 
 async function main(): Promise<void> {
   // Fatal safety checks before anything binds: demo login must never be live in
   // production, and production must have a session secret.
   assertRuntimeSafety();
+  // No key, no start: sensitive data must never be stored unprotected.
+  assertEncryptionConfigured();
 
   const app = await buildServer();
 
@@ -36,6 +40,24 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown);
   try {
     await app.listen({ port: env.PORT, host: env.HOST });
+    // Encrypt anything stored before encryption (or under a previous key), in
+    // the background: the service is already answering. Counts only are logged.
+    void runEncryptionBackfill()
+      .then((r) => {
+        if (r && (r.fields || r.files || r.unreadable))
+          app.log.info(r, 'encryption pass finished');
+        if (r?.unreadable)
+          app.log.error(
+            { unreadable: r.unreadable },
+            'some protected data could not be read with the configured keys',
+          );
+      })
+      .catch((error: unknown) =>
+        app.log.error(
+          { error: error instanceof Error ? error.name : 'unknown' },
+          'encryption pass failed',
+        ),
+      );
   } catch (error) {
     app.log.error(error);
     process.exit(1);

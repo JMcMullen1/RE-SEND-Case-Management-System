@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
+import { decryptField } from '../crypto/encryption';
+import { SENSITIVE_COLUMNS } from '../crypto/sensitive-fields';
 import { recordAudit } from './audit';
 
 /**
@@ -79,11 +81,35 @@ export async function exportTablePage(
   if (!EXPORT_TABLES.some((t) => t.table === table))
     throw new Error(`Table ${table} is not exportable`);
   const list = columns.map((c) => `"${c.replace(/"/g, '""')}"`).join(', ');
-  return (await getDb().execute(
+  const rows = (await getDb().execute(
     sql.raw(
       `SELECT ${list} FROM "${table}" ORDER BY 1 LIMIT ${Math.trunc(limit)} OFFSET ${Math.trunc(offset)}`,
     ),
   )) as unknown as Record<string, unknown>[];
+  // The export is the charity's own readable copy: encrypted fields (and
+  // encrypted values the audit trail recorded) are written decrypted.
+  const sensitive =
+    SENSITIVE_COLUMNS[table as keyof typeof SENSITIVE_COLUMNS] ?? [];
+  return rows.map((row) => {
+    const out = { ...row };
+    for (const column of sensitive)
+      out[column] = decryptField(out[column] as string | null);
+    if (table === 'audit_log')
+      for (const column of ['before', 'after'])
+        if (column in out) out[column] = decryptDeep(out[column]);
+    return out;
+  });
+}
+
+/** Any encrypted strings within a JSON value, decrypted. */
+function decryptDeep(value: unknown): unknown {
+  if (typeof value === 'string') return decryptField(value);
+  if (Array.isArray(value)) return value.map(decryptDeep);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, decryptDeep(v)]),
+    );
+  return value;
 }
 
 /** Audit an export: who started it, and how it ended (counts only). */

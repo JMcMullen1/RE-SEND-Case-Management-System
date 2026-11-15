@@ -23,6 +23,25 @@ pg_dump -Fc "$DATABASE_URL" -f resend-$(date +%Y%m%d).dump
 Store dumps encrypted and off-site. They contain **special category personal
 data about children** — treat them with the same care as the live database.
 
+## The encryption key
+
+Sensitive fields (SEND needs, additional needs, case aims) and every stored
+document file are encrypted with `ENCRYPTION_KEY`. **A backup restores the
+encrypted data only: without the key it cannot be read.** So:
+
+- **Keep a copy of the key** in the charity's password manager (or another
+  safe place), apart from the database and its backups. On Render it is the
+  `ENCRYPTION_KEY` environment variable of the `resend` service: copy its value
+  from the dashboard (Environment) once, now.
+- **A new service needs the same key.** If the service is ever recreated (a
+  new blueprint, another host), set `ENCRYPTION_KEY` to the saved value before
+  it starts; the API refuses to start without a key, and with a different key
+  it cannot read the data (it logs that some data is unreadable).
+- **Rotating the key:** set the new value as `ENCRYPTION_KEY` and the old one
+  as `ENCRYPTION_KEY_PREVIOUS`, and deploy. At start-up the API re-encrypts
+  everything under the new key (it logs the counts and audits the pass). Once
+  it has, remove `ENCRYPTION_KEY_PREVIOUS`.
+
 ## Restore
 
 The restore is deliberately a **restore into a fresh database**, never an
