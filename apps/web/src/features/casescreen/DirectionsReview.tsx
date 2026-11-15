@@ -108,7 +108,7 @@ export function DirectionsReview({
       aria-label="Review directions"
     >
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-lg bg-white shadow-xl">
-        <header className="border-b border-gray-200 px-6 py-4">
+        <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-resend-ink">
             Review directions
           </h2>
@@ -123,7 +123,7 @@ export function DirectionsReview({
               </span>
             )}
           </p>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
           {review.rows.length === 0 ? (

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  PRODUCT_NAME,
   SCHOOL_FUNDING_LABELS,
   SCHOOL_FUNDING_VALUES,
   SCHOOL_PROVISION_LABELS,
@@ -50,23 +49,15 @@ export function SchoolsPage() {
     'rounded-md border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple';
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
-              {PRODUCT_NAME} schools
-            </h1>
+            <h1 className="text-xl font-semibold text-resend-ink">Schools</h1>
             <p className="text-xs text-gray-500">
               One directory of schools and their contacts, shared by every case
             </p>
           </div>
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
           {canEditSchools(me?.role) && (
             <button
               type="button"
@@ -133,7 +124,7 @@ export function SchoolsPage() {
             Include archived
           </label>
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto max-w-5xl px-6 py-6">
         {results.isLoading && <p className="text-sm text-gray-500">Loading…</p>}

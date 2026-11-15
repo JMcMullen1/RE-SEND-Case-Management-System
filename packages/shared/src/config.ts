@@ -305,6 +305,20 @@ export const CONSULTATION_STATE_VALUES = [
 ] as const;
 export type ConsultationState = (typeof CONSULTATION_STATE_VALUES)[number];
 export const ConsultationStateSchema = z.enum(CONSULTATION_STATE_VALUES);
+/** How each consultation state reads on screen. */
+export const CONSULTATION_STATE_LABELS: Record<ConsultationState, string> = {
+  not_required: 'Not required',
+  referred: 'Referred',
+  booked: 'Booked',
+  held: 'Held',
+};
+/** A consultation state as it reads on screen (as stored if unrecognised). */
+export function consultationStateLabel(
+  value: string | null | undefined,
+): string {
+  if (!value) return '';
+  return CONSULTATION_STATE_LABELS[value as ConsultationState] ?? value;
+}
 
 // --- User roles -------------------------------------------------------------
 export const USER_ROLE_VALUES = [
@@ -2830,7 +2844,12 @@ export const OPTIONAL_COLUMNS: { id: OptionalColumnId; label: string }[] = [
  * facets that are wanted but not yet defined — the extension point below.
  */
 export type FacetSource =
-  | { kind: 'vocab'; values: readonly string[] }
+  | {
+      kind: 'vocab';
+      values: readonly string[];
+      /** How each value reads, where that differs from the value. */
+      labels?: Readonly<Record<string, string>>;
+    }
   | { kind: 'users' }
   | { kind: 'dynamic' }
   | { kind: 'days' }
@@ -2910,7 +2929,11 @@ export const FACETS: FacetDef[] = [
   {
     id: 'consultationState',
     label: 'Consultation state',
-    source: { kind: 'vocab', values: CONSULTATION_STATE_VALUES },
+    source: {
+      kind: 'vocab',
+      values: CONSULTATION_STATE_VALUES,
+      labels: CONSULTATION_STATE_LABELS,
+    },
     enabled: true,
   },
   {

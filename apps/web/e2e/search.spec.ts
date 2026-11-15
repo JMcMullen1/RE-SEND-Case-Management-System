@@ -18,7 +18,7 @@ test('find a word inside a document, across the caseload and on the case', async
 }) => {
   await signIn(page);
   await expect(
-    page.getByRole('link', { name: 'Search documents' }),
+    page.getByRole('link', { name: 'Search', exact: true }),
   ).toBeVisible();
 
   // A made-up case and report.
@@ -46,7 +46,11 @@ test('find a word inside a document, across the caseload and on the case', async
   );
   expect(upload.ok()).toBe(true);
 
-  await page.getByRole('link', { name: 'Search documents' }).click();
+  await page.getByRole('link', { name: 'Search', exact: true }).click();
+  // The case list has a search box too: wait for the search screen.
+  await expect(
+    page.getByRole('heading', { name: 'Search documents and emails' }),
+  ).toBeVisible();
   await page.getByRole('searchbox').fill('assessment therapy');
   await page.getByRole('button', { name: 'Search' }).click();
   await expect(page.getByRole('status')).toHaveText('1 match.');

@@ -9,7 +9,7 @@
  * structured case into readable text.
  */
 
-import type { CorpusItemType } from './config';
+import { consultationStateLabel, type CorpusItemType } from './config';
 
 export interface CorpusItem {
   /** Stable id: the source row id, so a model can cite a specific item. */
@@ -140,7 +140,7 @@ export function renderCaseRecordText(record: CaseRecordInput): string {
   add('Original query', record.originalQuery);
   add('Current work', record.currentWork);
   if (record.team.length > 0) add('Team', record.team.join(', '));
-  add('Consultation', record.consultStatus);
+  add('Consultation', consultationStateLabel(record.consultStatus));
   add('Support level', record.supportLevel);
   add('Aims', record.aims);
 

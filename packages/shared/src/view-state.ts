@@ -19,6 +19,7 @@ import {
   DISCOUNT_CODE_VALUES,
   SCHOOL_YEAR_VALUES,
   CONSULTATION_STATE_VALUES,
+  consultationStateLabel,
 } from './config';
 import type {
   ConsultationState,
@@ -261,7 +262,7 @@ export function activeFilterChips(filters: CaseFilters): FilterChip[] {
         value,
         label: isUser
           ? String(value)
-          : `${FACET_PREFIX[facet] ?? facet}: ${value}`,
+          : `${FACET_PREFIX[facet] ?? facet}: ${facet === 'consultationState' ? consultationStateLabel(String(value)) : value}`,
         needsUserLookup: isUser,
       });
     }

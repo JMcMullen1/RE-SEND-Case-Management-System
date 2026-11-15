@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  PRODUCT_NAME,
   TIME_PERIOD_VALUES,
   formatCivilDate,
   formatMinutes,
@@ -72,12 +71,12 @@ export function TimePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
-              {PRODUCT_NAME} {isMine ? 'my time' : 'time'}
+            <h1 className="text-xl font-semibold text-resend-ink">
+              {isMine ? 'My time' : 'Time'}
             </h1>
             <p className="text-xs text-gray-500">
               Time recorded on billables, and what it earned
@@ -91,12 +90,6 @@ export function TimePage() {
               Staff rates
             </a>
           )}
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -168,7 +161,7 @@ export function TimePage() {
             </select>
           )}
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto max-w-4xl space-y-6 px-6 py-6">
         {report.isLoading && <p className="text-sm text-gray-500">Loading…</p>}

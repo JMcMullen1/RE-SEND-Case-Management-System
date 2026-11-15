@@ -24,5 +24,10 @@ test('home page shows the product name', async ({ page }) => {
     }),
   );
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'reSEND' })).toBeVisible();
+  const nav = page.getByRole('banner');
+  await expect(nav.getByRole('link', { name: 'reSEND' })).toBeVisible();
+  await expect(
+    nav.getByRole('link', { name: 'Cases', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Cases' })).toBeVisible();
 });

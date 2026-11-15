@@ -159,7 +159,11 @@ function optionsFor(
   counts: Counts,
 ): { value: string | number; label: string }[] {
   if (facet.source.kind === 'vocab') {
-    return facet.source.values.map((v) => ({ value: v, label: v }));
+    const labels = facet.source.labels;
+    return facet.source.values.map((v) => ({
+      value: v,
+      label: labels?.[v] ?? v,
+    }));
   }
   if (facet.source.kind === 'users') {
     return users.map((u) => ({ value: u.id, label: u.displayName }));

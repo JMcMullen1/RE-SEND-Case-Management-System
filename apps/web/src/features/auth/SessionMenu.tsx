@@ -55,9 +55,12 @@ export function SessionMenu() {
           {reset.isPending ? 'Resetting…' : 'Reset demo'}
         </button>
       )}
-      <span className="text-gray-600">{session.data.displayName}</span>
+      <span className="hidden text-gray-600 sm:inline">
+        {session.data.displayName}
+      </span>
       <button
         type="button"
+        title={`Signed in as ${session.data.displayName}`}
         onClick={() => signOut.mutate()}
         className="rounded border border-gray-200 px-2 py-1 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
       >

@@ -36,25 +36,19 @@ export function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
+            <h1 className="text-xl font-semibold text-resend-ink">
               Search documents and emails
             </h1>
             <p className="text-xs text-gray-500">
               Across every case in {PRODUCT_NAME}
             </p>
           </div>
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
         </div>
-      </header>
+      </div>
       <main className="max-w-4xl space-y-4 px-6 py-5">
         <form
           role="search"

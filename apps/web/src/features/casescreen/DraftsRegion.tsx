@@ -1,3 +1,4 @@
+import { useBlocker } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -528,6 +529,17 @@ function DraftView({
     if (dirty) unsavedEdits.set(draft.id, { base, sections });
     else unsavedEdits.delete(draft.id);
   }, [dirty, base, sections, draft.id]);
+  // Moving to another screen within the app asks first too.
+  useBlocker({
+    // Only leaving this case's screen: not the source links (#…) in a draft.
+    shouldBlockFn: ({ current, next }) =>
+      current.pathname !== next.pathname &&
+      !window.confirm(
+        'This draft has changes that are not saved. Leave without saving them?',
+      ),
+    disabled: !dirty,
+    enableBeforeUnload: false,
+  });
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();

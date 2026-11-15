@@ -42,6 +42,10 @@ between pieces of work.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
+- **One navigation bar** across every screen (Cases, Calendar, Schools,
+  Search, My time, and Admin for admins), the current section marked; admin
+  screens share a sub-navigation. Moving between screens no longer reloads
+  the page, and each screen's code loads when first opened.
 
 ## Next
 

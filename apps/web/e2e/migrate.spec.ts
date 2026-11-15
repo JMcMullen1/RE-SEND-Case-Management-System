@@ -16,7 +16,9 @@ async function signIn(page: Page, email = 'jamie.mcmullen@resend.demo') {
 
 test('an admin imports the case list after checking it', async ({ page }) => {
   await signIn(page);
-  await expect(page.getByRole('link', { name: 'Staff' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Admin', exact: true }),
+  ).toBeVisible();
   await page.goto('/admin/import');
   await page
     .locator('input[type=file]')

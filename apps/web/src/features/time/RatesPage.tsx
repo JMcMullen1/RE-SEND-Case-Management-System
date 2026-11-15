@@ -1,7 +1,7 @@
+import { AdminTabs } from '../layout/AdminTabs';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  PRODUCT_NAME,
   RATE_KIND_LABELS,
   RATE_KIND_VALUES,
   formatCivilDate,
@@ -34,31 +34,20 @@ export function RatesPage() {
   } | null>(null);
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
-              {PRODUCT_NAME} staff rates
+            <h1 className="text-xl font-semibold text-resend-ink">
+              Staff rates
             </h1>
             <p className="text-xs text-gray-500">
               Hourly rates for recorded time
             </p>
           </div>
-          <a
-            href="/time"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Time
-          </a>
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
         </div>
-      </header>
+        <AdminTabs />
+      </div>
 
       <main className="mx-auto max-w-4xl px-6 py-6">
         {me.isLoading && <p className="text-sm text-gray-500">Loading…</p>}

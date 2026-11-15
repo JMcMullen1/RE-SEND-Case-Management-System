@@ -19,6 +19,17 @@ npm run db:migrate -w @re-send/api     # apply checked-in SQL migrations
 DATABASE_URL=... NODE_ENV=development npm run fixtures:load   # dev data only
 ```
 
+## Navigation and loading
+
+Every screen sits under one navigation bar (`apps/web/src/features/layout/AppNav.tsx`),
+rendered by the root route; review mode is deliberately full screen without it.
+Links to the app's own screens move within the app rather than reloading the
+page (`navigateInApp` in `apps/web/src/router.tsx`); downloads, new-tab links
+and `/api/` files are left to the browser. The case list loads with the app and
+every other screen loads its code when first opened; React, TanStack and Zod
+are separate long-cached files, so a deploy only re-downloads what changed. The
+browser tab names the screen (never a person).
+
 ## Live updates
 
 The app updates live for every signed-in user so nobody works from a stale

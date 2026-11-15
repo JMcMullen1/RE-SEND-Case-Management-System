@@ -138,7 +138,7 @@ export function WeekView({
           className="rounded-md border border-gray-100 p-2"
           aria-label={formatDayHeading(day)}
         >
-          <header className="mb-1 flex items-baseline justify-between">
+          <div className="mb-1 flex items-baseline justify-between">
             <h3 className="text-xs font-semibold text-gray-600">
               {WEEKDAYS[i]} {dayNumber(day)}
             </h3>
@@ -150,7 +150,7 @@ export function WeekView({
             >
               +
             </button>
-          </header>
+          </div>
           <ul className="space-y-1">
             {(byDay.get(day) ?? []).map((e) => (
               <li key={e.keyDateId}>

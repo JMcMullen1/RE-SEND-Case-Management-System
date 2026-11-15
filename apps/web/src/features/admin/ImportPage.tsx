@@ -1,3 +1,4 @@
+import { AdminTabs } from '../layout/AdminTabs';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -219,31 +220,20 @@ export function ImportPage() {
   const usedFields = new Set(mapping.filter(Boolean));
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
+            <h1 className="text-xl font-semibold text-resend-ink">
               Import the case list
             </h1>
             <p className="text-xs text-gray-500">
               Bring your existing case list into {PRODUCT_NAME}
             </p>
           </div>
-          <a
-            href="/admin/staff"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Staff
-          </a>
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
         </div>
-      </header>
+        <AdminTabs />
+      </div>
 
       <main className="space-y-5 px-6 py-5">
         {result ? (
