@@ -77,6 +77,28 @@ describe('reading CSV', () => {
     ]);
   });
 
+  it('reads Windows-1252 right where the runtime decodes it as Latin-1 (Node 20)', () => {
+    const Real = globalThis.TextDecoder;
+    class Latin1For1252 extends Real {
+      private readonly latin1: boolean;
+      constructor(label?: string, options?: TextDecoderOptions) {
+        super(label, options);
+        this.latin1 = label === 'windows-1252';
+      }
+      override decode(input?: AllowSharedBufferSource): string {
+        if (!this.latin1) return super.decode(input);
+        return String.fromCharCode(...new Uint8Array(input as ArrayBuffer));
+      }
+    }
+    globalThis.TextDecoder = Latin1For1252 as typeof TextDecoder;
+    try {
+      const bytes = new Uint8Array([0x93, 0x41, 0x94, 0x20, 0x96, 0x92, 0xe9]);
+      expect(decodeGiasBytes(bytes)).toBe('“A” –’é');
+    } finally {
+      globalThis.TextDecoder = Real;
+    }
+  });
+
   it('reads the DfE file’s Windows-1252 text, and UTF-8 too', () => {
     // "St Mary’s" with the curly apostrophe as Windows-1252 byte 0x92.
     const cp1252 = new Uint8Array([

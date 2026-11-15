@@ -93,9 +93,28 @@ export function decodeGiasBytes(bytes: Uint8Array): string {
   try {
     text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    text = new TextDecoder('windows-1252').decode(bytes);
+    text = fromWindows1252(new TextDecoder('windows-1252').decode(bytes));
   }
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/** Windows-1252's characters for bytes 0x80–0x9F (where it differs from Latin-1). */
+const CP1252_HIGH = [
+  0x20ac, 0x0081, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6,
+  0x2030, 0x0160, 0x2039, 0x0152, 0x008d, 0x017d, 0x008f, 0x0090, 0x2018,
+  0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161,
+  0x203a, 0x0153, 0x009d, 0x017e, 0x0178,
+];
+
+/**
+ * Some runtimes (Node before 22) decode "windows-1252" as Latin-1, leaving
+ * bytes 0x80–0x9F as control characters: map them to Windows-1252's own
+ * ("’" for 0x92). Where the decoder was right, there are none to map.
+ */
+function fromWindows1252(text: string): string {
+  return text.replace(/[\u0080-\u009f]/g, (c) =>
+    String.fromCharCode(CP1252_HIGH[c.charCodeAt(0) - 0x80]!),
+  );
 }
 
 /**
