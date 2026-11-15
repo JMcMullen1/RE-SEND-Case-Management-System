@@ -50,6 +50,7 @@ function DevUserSwitcher() {
   const accounts = useQuery({
     queryKey: ['auth-accounts'],
     queryFn: fetchAccounts,
+    enabled: import.meta.env.DEV,
   });
   if (!import.meta.env.DEV || accounts.data?.demoMode !== false) return null;
   if (users.length === 0) return null;

@@ -1,4 +1,4 @@
-import { useEffect, type MouseEvent } from 'react';
+import { useEffect, useRef, type MouseEvent } from 'react';
 import { PRODUCT_NAME } from '@re-send/shared';
 import {
   createRootRoute,
@@ -59,6 +59,12 @@ function screenTitle(path: string): string | null {
 
 function RootLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  // The screens scroll inside the region below the navigation, which stays in
+  // place between screens: start each new screen at its top.
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    content.current?.scrollTo(0, 0);
+  }, [path]);
   useEffect(() => {
     const title = screenTitle(path);
     // No names in the title: it shows in browser history and on shared screens.
@@ -76,7 +82,7 @@ function RootLayout() {
       className="flex h-dvh flex-col bg-white text-resend-ink"
     >
       <AppNav />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={content} className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />
       </div>
     </div>
