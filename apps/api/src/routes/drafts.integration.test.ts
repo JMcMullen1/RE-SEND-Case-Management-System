@@ -500,4 +500,90 @@ run('assisted drafting API', () => {
     expect(xml).toContain('Section 16 (hearing preferences)');
     await app.close();
   });
+
+  it('fills a SEND7 request: case details from the record, filed with the form’s checklist', async () => {
+    const app = await buildServer();
+    let kindSeen = '';
+    let promptSeen = '';
+    setDraftRunnerForTests(async (input, kind) => {
+      kindSeen = kind;
+      promptSeen = input
+        .map((b) => (b.type === 'text' ? b.text : ''))
+        .join('\n');
+      invalidateCorpus(caseId);
+      const note = (await caseCorpus(caseId)).items.find(
+        (i) => i.type === 'note',
+      )!;
+      return {
+        output: {
+          sections: [
+            {
+              key: 'request',
+              paragraphs: [
+                {
+                  text: 'An extension of time to comply with a direction.',
+                  sourceIds: [note.id],
+                },
+              ],
+              gap: null,
+            },
+          ],
+          dates: { otherPartyNotified: null },
+          missingInformation: [],
+        },
+        model: 'claude-opus-5-5',
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
+        latencyMs: 1,
+        costUsd: 0,
+      };
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseId}/drafts`,
+      headers: as(worker()),
+      payload: { kind: 'send7_request' },
+    });
+    expect(res.statusCode).toBe(202);
+    await settleDrafting();
+    expect(kindSeen).toBe('send7_request');
+    expect(promptSeen).toMatch(/SEND7 form/);
+    const draft = (
+      await app.inject({ method: 'GET', url: `/api/cases/${caseId}/drafts` })
+    )
+      .json()
+      .drafts.find((d: { id: string }) => d.id === res.json().id);
+    expect(draft.status).toBe('ready');
+    const details = draft.sections.find(
+      (s: { key: string }) => s.key === 'details',
+    );
+    expect(details.paragraphs[0].text).toBe(
+      'Child or young person’s name: Draft Child',
+    );
+    // No date the LA was told: the caseworker is told to tell them first.
+    expect(details.gap).toMatch(/does not show when the local authority/);
+
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/api/drafts/${draft.id}/approve`,
+      headers: as(worker()),
+    });
+    expect(approved.statusCode).toBe(200);
+    const doc = await app.inject({
+      method: 'GET',
+      url: `/api/documents/${approved.json().documentId}/content`,
+      headers: as(worker()),
+    });
+    const xml = strFromU8(
+      unzipSync(new Uint8Array(doc.rawPayload))['word/document.xml']!,
+    );
+    expect(xml).toContain('SEND7 request for change — answers');
+    expect(xml).toContain('For copying into the SEND7 form (Version 08.23)');
+    expect(xml).toContain('Before you submit');
+    await app.close();
+  });
 });

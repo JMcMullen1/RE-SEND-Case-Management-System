@@ -3,7 +3,8 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
   DRAFT_GENERATION_TIMEOUT_MINUTES,
   londonToday,
-  withSend35Timing,
+  storedFormTiming,
+  withFormTiming,
   type Draft,
   type DraftKind,
   type DraftParagraph,
@@ -59,7 +60,7 @@ function toDraft(r: Row, now: Date): Draft {
     r.status === 'generating' &&
     now.getTime() - r.createdAt.getTime() >
       DRAFT_GENERATION_TIMEOUT_MINUTES * 60_000;
-  return withSend35Timing<Draft>(
+  return withFormTiming<Draft>(
     {
       id: r.id,
       caseId: r.caseId,
@@ -82,7 +83,7 @@ function toDraft(r: Row, now: Date): Draft {
       documentId: r.documentId,
     },
     // The time limit as it stands today — or, once approved, as it stood then.
-    content?.send35Timing,
+    storedFormTiming(content),
     londonToday(r.approvedAt ?? now),
   );
 }
