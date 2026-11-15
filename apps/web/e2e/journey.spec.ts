@@ -278,6 +278,10 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await expect(page.getByText('Ms Patel')).toBeVisible();
   await expect(page.getByText('Current school')).toBeVisible();
   await page.goBack();
+  // Back is a move within the app: wait for the case screen before looking
+  // (the school page's "Edit Ms Patel" buttons would otherwise match too).
+  await expect(page).toHaveURL(/\/cases\//);
+  await expect(page.getByRole('tab', { name: 'Case details' })).toBeVisible();
   await expect(page.getByLabel('Ms Patel')).toBeVisible();
 
   // 5e. An admin adds a joiner, then marks them as having left; they move to
