@@ -64,6 +64,27 @@ outside that module knows where they live.
   direct-to-storage **pre-signed** uploads is marked `PRESIGNED-UPLOAD SWAP
 POINT` in `apps/web/src/api/documents.ts` and the S3 provider.
 
+## Case history
+
+The **History** tab on a case reads it start to finish: its case notes and
+billables, the emails filed to it and its documents, in date order and
+grouped by day (`packages/shared/src/case-history.ts`,
+`apps/web/src/features/casescreen/HistoryRegion.tsx`).
+
+- **Each entry as it is:** a note or billable with its author and time; an
+  email with its direction, time, sender and recipients, subject and body
+  (a long one opens in full on request) and its attachments; a document with
+  its folder, who uploaded it and which version.
+- **One place for each thing.** A document filed as an email's attachment is
+  shown with its email, not again on its own. Emails are dated when sent,
+  documents when their current version was uploaded, in UK time.
+- **Narrow it down:** by kind (case notes, billables, emails, documents),
+  by words (in notes, emails, attachment names and document names), and
+  newest or oldest first.
+- **Always current:** it is built from the lists the case screen already
+  holds, so it updates live like them. Notes are still written on their own
+  tabs.
+
 ## Search inside documents and emails
 
 **Search documents** on the case list searches every case; each case's
@@ -83,8 +104,9 @@ Documents / Emails tab has a search box for that case alone
 - **Left out:** deleted documents and cases; earlier versions (unless asked
   for); and the original file of a filed email (its text is the email's).
   Filter by folder, or by documents or emails only.
-- **Private and audited.** The words searched for travel in a POST body, so
-  they never appear in a logged URL. Each search is audited with its scope and
+- **Private and audited.** The words searched for travel in a POST body, and
+  the request log records paths only, never query strings (which can carry
+  what someone searched for), so they never reach the logs. Each search is audited with its scope and
   result count — never the words.
 - **Long documents.** Each document and email is indexed up to its first
   300,000 characters (about 100 pages), or 150,000 for text in scripts with

@@ -29,7 +29,26 @@ export function buildLogger(level = process.env.LOG_LEVEL ?? 'info') {
       level,
       base: { service: 'resend-api' },
       timestamp: pino.stdTimeFunctions.epochTime,
+      // A query string can carry what someone searched for (a child's name,
+      // say), which the redaction rules cannot recognise: log the path only.
+      serializers: { req: serializeRequest },
     },
     redactingStream(process.stdout),
   );
+}
+
+/** A request as logged: method and path, never the query string. */
+export function serializeRequest(req: {
+  method?: string;
+  url?: string;
+  hostname?: string;
+  ip?: string;
+  socket?: { remoteAddress?: string };
+}) {
+  return {
+    method: req.method,
+    url: req.url?.split('?')[0],
+    hostname: req.hostname,
+    remoteAddress: req.ip ?? req.socket?.remoteAddress,
+  };
 }

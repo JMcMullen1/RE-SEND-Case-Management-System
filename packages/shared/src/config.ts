@@ -2641,6 +2641,11 @@ export const NOTE_KIND_LABELS: Record<NoteKind, string> = {
   note: 'Case notes',
   billable: 'Billables',
 };
+/** One entry's label, e.g. on a chip beside a single note. */
+export const NOTE_KIND_SINGULAR: Record<NoteKind, string> = {
+  note: 'Case note',
+  billable: 'Billable',
+};
 
 // --- External sync status ---------------------------------------------------
 /** Sync state of a time entry against the external accounting system. */
