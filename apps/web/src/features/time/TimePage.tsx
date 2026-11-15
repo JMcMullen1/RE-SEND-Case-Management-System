@@ -1,3 +1,4 @@
+import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -50,7 +51,17 @@ export function TimePage() {
 
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [anchor, setAnchor] = useState(today);
-  const [userId, setUserId] = useState<string>('');
+  // Whose time is shown lives in the address (?person=), so "My time" in the
+  // navigation always comes back to your own, and Back returns to a colleague.
+  const router = useRouter();
+  const search = useRouterState({ select: (st) => st.location.searchStr });
+  const person = new URLSearchParams(search).get('person') ?? '';
+  // Only an admin looks at someone else's (the API enforces this too).
+  const userId = isAdmin && person !== me?.id ? person : '';
+  const setUserId = (id: string) =>
+    router.history.push(
+      id ? `/time?${new URLSearchParams({ person: id })}` : '/time',
+    );
   const { from, to } = periodRange(period, anchor);
   const subject = userId || me?.id;
 
