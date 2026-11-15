@@ -17,5 +17,6 @@ export * from './drafting';
 export * from './staff';
 export * from './case-import';
 export * from './school-import';
+export * from './email-matching';
 export * from './search';
 export * from './case-history';

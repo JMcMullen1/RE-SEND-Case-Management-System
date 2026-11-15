@@ -42,6 +42,9 @@ between pieces of work.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
+- **Emails to file**: emails dropped in without a case are matched to their
+  case from the reference, appeal number, client's email, names and contacts;
+  confident matches are filed, the rest wait in a shared list with suggestions.
 - **Bulk school import** from the DfE's Get Information About Schools file, by
   local authority, with every Section 41 school; re-run it to bring the
   directory up to date.
@@ -81,8 +84,7 @@ Time recording decisions agreed:
 ### Email filing, next steps
 
 - File directly from Outlook (add-in or Microsoft Graph), on desktop and phone.
-- Automatic matching of correspondence to a case from the client and child
-  details held, with a queue for anything that cannot be matched confidently.
+- Emails filed from Outlook feeding the same matching as _Emails to file_.
 
 ### Also outstanding from the proposal
 

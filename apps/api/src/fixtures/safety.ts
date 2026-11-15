@@ -29,6 +29,7 @@ export const FIXTURE_TABLES = [
   'key_dates',
   'case_reviews',
   'documents',
+  'email_inbox',
   'emails',
   'time_entries',
   'user_rates',

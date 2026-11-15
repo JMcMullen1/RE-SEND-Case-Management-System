@@ -89,13 +89,17 @@ export async function replaceAuditValues(
 }
 
 /**
- * Storage keys of documents (deleted ones included) not yet known to be
- * encrypted under the current file key.
+ * Storage keys of documents (deleted ones included), and of emails waiting to
+ * be filed, not yet known to be encrypted under the current file key.
  */
 export async function filesNotYetUnder(keyId: string): Promise<string[]> {
   const rows = (await getDb().execute(
     sql`SELECT DISTINCT storage_key FROM documents
-        WHERE encryption_key_id IS DISTINCT FROM ${keyId}`,
+        WHERE encryption_key_id IS DISTINCT FROM ${keyId}
+        UNION
+        SELECT storage_key FROM email_inbox
+        WHERE status = 'waiting'
+          AND encryption_key_id IS DISTINCT FROM ${keyId}`,
   )) as unknown as { storage_key: string }[];
   return rows.map((r) => r.storage_key);
 }
@@ -105,12 +109,16 @@ export async function markFileKey(
   storageKey: string,
   keyId: string,
 ): Promise<void> {
-  await restore((tx) =>
-    tx.execute(
+  await restore(async (tx) => {
+    await tx.execute(
       sql`UPDATE documents SET encryption_key_id = ${keyId}
           WHERE storage_key = ${storageKey}`,
-    ),
-  );
+    );
+    await tx.execute(
+      sql`UPDATE email_inbox SET encryption_key_id = ${keyId}
+          WHERE storage_key = ${storageKey}`,
+    );
+  });
 }
 
 /**

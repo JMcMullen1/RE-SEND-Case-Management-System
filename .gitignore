@@ -13,3 +13,4 @@ test-results/
 .uploads/
 .uploads-e2e/
 **/.uploads-e2e/
+**/.uploads*/

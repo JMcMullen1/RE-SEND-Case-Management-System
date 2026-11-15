@@ -55,6 +55,7 @@ function screenTitle(path: string): string | null {
   if (path === '/admin/import-schools') return 'Import schools';
   if (path.startsWith('/schools')) return 'Schools';
   if (path === '/search') return 'Search';
+  if (path === '/emails') return 'Emails to file';
   return null;
 }
 
@@ -197,6 +198,15 @@ const schoolImportRoute = createRoute({
   ),
 });
 
+const emailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/emails',
+  component: lazyRouteComponent(
+    () => import('./features/emails/EmailsToFilePage'),
+    'EmailsToFilePage',
+  ),
+});
+
 const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/search',
@@ -220,6 +230,7 @@ const routeTree = rootRoute.addChildren([
   importRoute,
   schoolImportRoute,
   searchRoute,
+  emailsRoute,
 ]);
 
 export const router = createRouter({ routeTree });

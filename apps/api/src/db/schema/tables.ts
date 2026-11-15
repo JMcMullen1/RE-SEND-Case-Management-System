@@ -34,6 +34,7 @@ import {
   draftKindEnum,
   draftStatusEnum,
   caseSchoolRoleEnum,
+  emailInboxStatusEnum,
   schoolFundingEnum,
   schoolProvisionEnum,
   schoolYearEnum,
@@ -460,6 +461,61 @@ export const emails = pgTable(
     caseDedupIdx: uniqueIndex('uq_emails_case_dedup_key')
       .on(t.caseId, t.dedupKey)
       .where(sql`${t.deletedAt} IS NULL`),
+  }),
+);
+
+// --- email_inbox --------------------------------------------------------------
+// Emails dropped in to be filed that could not be matched to one case with
+// confidence. The original file is kept in storage (encrypted) until someone
+// chooses the case — it is then filed by the normal email path — or decides it
+// belongs to no case, when the file is deleted. `suggestions` holds the likely
+// cases with their scores and reasons (identifiers only).
+export const emailInbox = pgTable(
+  'email_inbox',
+  {
+    id: primaryId(),
+    storageKey: text('storage_key').notNull(),
+    originalFilename: text('original_filename').notNull(),
+    mimeType: text('mime_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    dedupKey: text('dedup_key').notNull(),
+    subject: text('subject'),
+    fromName: text('from_name'),
+    fromAddress: text('from_address'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    suggestions: jsonb('suggestions')
+      .$type<{ caseId: string; score: number; reasons: string[] }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: emailInboxStatusEnum('status').notNull().default('waiting'),
+    // Someone is filing it now: set while filing runs, so two people cannot
+    // file it at once. It stays waiting meanwhile, so the same email cannot be
+    // added again; a claim left by a crash expires (EMAIL_INBOX_CLAIM_MINUTES).
+    filingStartedAt: timestamp('filing_started_at', { withTimezone: true }),
+    // The file key its stored file is known to be encrypted under (as for
+    // documents), so a key rotation re-encrypts it.
+    encryptionKeyId: text('encryption_key_id'),
+    addedByUserId: uuid('added_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    resolvedByUserId: uuid('resolved_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    filedCaseId: uuid('filed_case_id').references(() => cases.id, {
+      onDelete: 'set null',
+    }),
+    filedEmailId: uuid('filed_email_id').references(() => emails.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (t) => ({
+    statusIdx: index('idx_email_inbox_status').on(t.status),
+    // The same email cannot wait twice.
+    waitingDedupIdx: uniqueIndex('uq_email_inbox_waiting_dedup_key')
+      .on(t.dedupKey)
+      .where(sql`${t.status} = 'waiting'`),
   }),
 );
 

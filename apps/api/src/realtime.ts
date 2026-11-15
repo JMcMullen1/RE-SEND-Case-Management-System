@@ -74,6 +74,9 @@ const REGISTRY: Record<string, EntityMapping> = {
           ]
         : [],
   },
+  email_inbox: {
+    keys: () => [['email-inbox']],
+  },
   // A filed email also files its attachments, so the documents list refreshes
   // with it.
   emails: {

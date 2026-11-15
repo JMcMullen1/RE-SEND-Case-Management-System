@@ -26,6 +26,7 @@ export const EXPORT_TABLES: { table: string; omit?: string[] }[] = [
   { table: 'case_reviews' },
   { table: 'documents' },
   { table: 'emails' },
+  { table: 'email_inbox' },
   { table: 'time_entries' },
   { table: 'schools' },
   { table: 'school_contacts' },
@@ -143,10 +144,18 @@ export async function exportDocumentFiles(): Promise<
   }[]
 > {
   const rows = (await getDb().execute(
-    sql`SELECT d.id, c.case_reference, d.original_filename, d.version,
-               d.storage_key, d.deleted_at IS NOT NULL AS deleted
-        FROM documents d JOIN cases c ON c.id = d.case_id
-        ORDER BY c.case_reference, d.original_filename, d.version`,
+    // Emails waiting to be filed have no case yet: their files go in a
+    // folder of their own.
+    sql`SELECT * FROM (
+          SELECT d.id, c.case_reference, d.original_filename, d.version,
+                 d.storage_key, d.deleted_at IS NOT NULL AS deleted
+          FROM documents d JOIN cases c ON c.id = d.case_id
+          UNION ALL
+          SELECT i.id, 'Emails to file' AS case_reference, i.original_filename,
+                 1 AS version, i.storage_key, false AS deleted
+          FROM email_inbox i WHERE i.status = 'waiting'
+        ) f
+        ORDER BY case_reference, original_filename, version`,
   )) as unknown as {
     id: string;
     case_reference: string;

@@ -2749,6 +2749,66 @@ export const EMAIL_PUBLIC_DOMAINS = [
   'proton.me',
 ] as const;
 
+// --- Matching emails to cases -------------------------------------------------
+/**
+ * What ties an email to a case, and how strongly. An email's score for a case
+ * is the sum of the reasons found (each counted once).
+ */
+export const EMAIL_MATCH_REASON_VALUES = [
+  'case_reference',
+  'appeal_number',
+  'client_email',
+  'child_name',
+  'client_name',
+  'school_contact',
+  'la_contact',
+] as const;
+export type EmailMatchReason = (typeof EMAIL_MATCH_REASON_VALUES)[number];
+export const EmailMatchReasonSchema = z.enum(EMAIL_MATCH_REASON_VALUES);
+export const EMAIL_MATCH_WEIGHTS: Record<EmailMatchReason, number> = {
+  case_reference: 100,
+  appeal_number: 90,
+  client_email: 80,
+  child_name: 50,
+  client_name: 40,
+  school_contact: 30,
+  la_contact: 30,
+};
+export const EMAIL_MATCH_REASON_LABELS: Record<EmailMatchReason, string> = {
+  case_reference: 'the case reference',
+  appeal_number: 'the Tribunal appeal number',
+  client_email: 'the client’s email address',
+  child_name: 'the child’s name',
+  client_name: 'the client’s name',
+  school_contact: 'a school contact on the case',
+  la_contact: 'an LA contact on the case',
+};
+/**
+ * An email is filed by itself only when one open case scores at least this,
+ * and beats the next case by at least the margin (so a parent with two
+ * children's cases, writing without naming either child, goes to the list).
+ * Anything else waits in "Emails to file" with its suggestions.
+ */
+export const EMAIL_AUTO_FILE_MIN_SCORE = 80;
+export const EMAIL_AUTO_FILE_MARGIN = 40;
+/** A case scoring below this is not suggested at all. */
+export const EMAIL_SUGGEST_MIN_SCORE = 30;
+/** How many cases are suggested for an email waiting to be filed. */
+export const EMAIL_SUGGESTIONS_MAX = 5;
+/** Cases with this status are suggested but never filed to automatically. */
+export const EMAIL_NO_AUTO_FILE_STATUSES: readonly Status[] = ['Closed'];
+/** Where an email waiting to be filed has got to. */
+export const EMAIL_INBOX_STATUS_VALUES = [
+  'waiting',
+  'filed',
+  'dismissed',
+] as const;
+export type EmailInboxStatus = (typeof EMAIL_INBOX_STATUS_VALUES)[number];
+/** How long a claim to be filing an email from the list holds (a crash's expires). */
+export const EMAIL_INBOX_CLAIM_MINUTES = 5;
+/** Roles that may file emails from the list (read-only may not). */
+export const EMAIL_FILING_ROLES = ['admin', 'caseworker', 'finance'] as const;
+
 // --- Note kind --------------------------------------------------------------
 // A note is either a normal case note or a billable. A billable is just a
 // labelled note (same shape); this is NOT time tracking.
