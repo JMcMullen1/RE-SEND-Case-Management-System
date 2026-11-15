@@ -47,7 +47,7 @@ test('a case reads start to finish: notes, emails and documents together', async
 }) => {
   await signIn(page);
   await expect(
-    page.getByRole('link', { name: 'Search documents' }),
+    page.getByRole('link', { name: 'Search', exact: true }),
   ).toBeVisible();
   const { caseId } = await (
     await page.request.post('/api/cases', {

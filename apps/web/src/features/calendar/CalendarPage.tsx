@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   CALENDAR_VIEW_VALUES,
   KEY_DATE_TYPE_LABELS,
-  PRODUCT_NAME,
   viewRange,
   type CalendarEvent,
   type CalendarFilters as Filters,
@@ -120,21 +119,13 @@ export function CalendarPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="flex h-full flex-col bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
-            <h1 className="text-lg font-semibold text-resend-purple">
-              {PRODUCT_NAME} calendar
-            </h1>
+            <h1 className="text-xl font-semibold text-resend-ink">Calendar</h1>
             <p className="text-xs text-gray-500">Key dates across every case</p>
           </div>
-          <a
-            href="/"
-            className="text-sm text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Cases
-          </a>
           <SubscribeButton />
         </div>
 
@@ -210,7 +201,7 @@ export function CalendarPage() {
             onChange={setFilters}
           />
         </div>
-      </header>
+      </div>
 
       <main className="min-h-0 flex-1 overflow-auto px-6 py-4">
         {query.isLoading ? (

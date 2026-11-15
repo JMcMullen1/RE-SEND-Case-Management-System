@@ -51,8 +51,8 @@ export function SchoolPage() {
   const s: SchoolDetail = school.data;
 
   return (
-    <div className="min-h-screen bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
+    <div className="bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto min-w-0">
             <a
@@ -104,7 +104,7 @@ export function SchoolPage() {
             {archiveError}
           </p>
         )}
-      </header>
+      </div>
 
       <main className="mx-auto grid max-w-5xl gap-8 px-6 py-6 md:grid-cols-2">
         <section aria-labelledby="facts-h">

@@ -1,16 +1,12 @@
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   encodeViewStateToString,
   hasActiveFilters,
-  LOGO_PATH,
-  PRODUCT_NAME,
-  STRAPLINE,
   type CaseFilters,
   type OwnerQueue,
   type ViewState,
 } from '@re-send/shared';
-import { getActingUserId, setActingUserId } from '../../api/client';
 import { useToday } from '../../hooks/useToday';
 import { useViewState } from '../../hooks/useViewState';
 import {
@@ -21,7 +17,6 @@ import {
   useSavedViews,
   useSaveView,
   useUsers,
-  useMe,
 } from '../../hooks/useCaseData';
 import { gridTemplate, visibleColumns } from './columns';
 import {
@@ -38,16 +33,13 @@ import { SavedViewsMenu } from './SavedViewsMenu';
 import { BulkBar } from './BulkBar';
 import { CaseTable } from './CaseTable';
 import { EmptyFirstRun, EmptyNoMatch } from './EmptyStates';
-import { SessionMenu } from '../auth/SessionMenu';
 
 type Target = { ownerUserId: string } | { ownerQueue: OwnerQueue };
 
 export function CaseListPage() {
   const [state, update] = useViewState();
   const today = useToday();
-  const isAdmin = useMe().data?.role === 'admin';
 
-  const qc = useQueryClient();
   const usersQuery = useUsers();
   const users = usersQuery.data?.users ?? [];
   const savedViews = useSavedViews();
@@ -104,26 +96,12 @@ export function CaseListPage() {
     filtersActive && cases.rows.length === 0 && !cases.isLoading;
 
   return (
-    <div className="flex h-screen flex-col bg-white text-resend-ink">
-      <header className="border-b border-gray-200 px-6 py-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="mr-auto flex items-center gap-4">
-            <img
-              src={LOGO_PATH}
-              alt=""
-              aria-hidden="true"
-              className="h-16 w-16 shrink-0 object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-            <div>
-              <h1 className="text-lg font-semibold text-resend-purple">
-                {PRODUCT_NAME} cases
-              </h1>
-              <p className="text-xs text-gray-500">{STRAPLINE}</p>
-            </div>
-          </div>
+    <div className="flex h-full flex-col bg-white text-resend-ink">
+      <div className="border-b border-gray-200 px-6 py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="mr-auto text-xl font-semibold text-resend-ink">
+            Cases
+          </h1>
           <SegmentedControl
             mode={state.mode}
             onChange={(mode) => update({ mode })}
@@ -136,57 +114,18 @@ export function CaseListPage() {
             onDelete={(id) => deleteView.mutate(id)}
           />
           <a
-            href="/calendar"
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Calendar
-          </a>
-          {isAdmin && (
-            <a
-              href="/admin/staff"
-              className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-            >
-              Staff
-            </a>
-          )}
-          <a
-            href="/search"
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Search documents
-          </a>
-          <a
-            href="/schools"
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Schools
-          </a>
-          <a
-            href="/time"
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            My time
-          </a>
-          <a
             href={`/review${encodeViewStateToString(state)}`}
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            title="Work through the cases in this list one at a time"
+            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-purple hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >
-            Review
+            Review these cases
           </a>
-          <a
-            href="/cases/new"
+          <Link
+            to="/cases/new"
             className="rounded-lg bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >
             Add a case
-          </a>
-          <UserSwitcher
-            users={users}
-            onSwitch={(id) => {
-              setActingUserId(id);
-              qc.invalidateQueries();
-            }}
-          />
-          <SessionMenu />
+          </Link>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -239,7 +178,7 @@ export function CaseListPage() {
             />
           </div>
         )}
-      </header>
+      </div>
 
       <main className="min-h-0 flex-1 px-6 py-2">
         {cases.isLoading && (
@@ -277,33 +216,5 @@ export function CaseListPage() {
         )}
       </main>
     </div>
-  );
-}
-
-function UserSwitcher({
-  users,
-  onSwitch,
-}: {
-  users: { id: string; displayName: string }[];
-  onSwitch: (id: string) => void;
-}) {
-  if (users.length === 0) return null;
-  return (
-    <label className="flex items-center gap-1 text-xs text-gray-500">
-      <span className="sr-only">Acting as</span>
-      <select
-        defaultValue={getActingUserId() ?? ''}
-        onChange={(e) => onSwitch(e.target.value)}
-        className="rounded border border-gray-200 bg-white px-1 py-0.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-        aria-label="Acting as user"
-      >
-        <option value="">Acting as…</option>
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.displayName}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }

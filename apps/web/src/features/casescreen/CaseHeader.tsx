@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   OWNER_QUEUE_VALUES,
@@ -18,10 +18,13 @@ export function CaseHeader({
   detail,
   users,
   mutations,
+  actions,
 }: {
   detail: CaseDetail;
   users: UserSummary[];
   mutations: Mutations;
+  /** Further controls at the end of the row (e.g. an admin's delete). */
+  actions?: ReactNode;
 }) {
   const navigate = useNavigate();
   const childName = detail.child?.preferredName ?? detail.child?.fullName ?? '';
@@ -30,10 +33,13 @@ export function CaseHeader({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <a href="/" className="text-sm text-resend-purple hover:underline">
-        ← Cases
-      </a>
-      <div className="mr-auto">
+      <div className="mr-auto min-w-0">
+        <a
+          href="/"
+          className="text-xs font-medium text-resend-purple hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        >
+          ← All cases
+        </a>
         <h1 className="text-xl font-semibold text-resend-ink">
           {detail.client?.displayName ?? 'Unnamed client'}
           {hasSiblings ? (
@@ -103,6 +109,7 @@ export function CaseHeader({
           ))}
         </select>
       </label>
+      {actions}
     </div>
   );
 }

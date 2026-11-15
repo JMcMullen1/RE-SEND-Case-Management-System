@@ -237,7 +237,7 @@ export function CaseScreenPage() {
   );
 
   return (
-    <div className="flex h-screen flex-col bg-white text-resend-ink">
+    <div className="flex h-full flex-col bg-white text-resend-ink">
       {justCreated && (
         <div className="flex items-center justify-between gap-3 border-l-4 border-resend-green bg-gray-50 px-6 py-2 text-sm">
           <span className="text-resend-ink">
@@ -263,8 +263,20 @@ export function CaseScreenPage() {
           </span>
         </div>
       )}
-      <header className="border-b border-gray-200 px-6 py-3">
-        <CaseHeader detail={detail} users={users} mutations={mutations} />
+      <div className="border-b border-gray-200 px-6 py-3">
+        <CaseHeader
+          detail={detail}
+          users={users}
+          mutations={mutations}
+          actions={
+            isAdmin && (
+              <DeleteCaseButton
+                caseId={caseId}
+                confirmName={detail.client?.fullName ?? detail.caseReference}
+              />
+            )
+          }
+        />
         {directionsNote && (
           <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
             <span>{directionsNote}</span>
@@ -283,15 +295,7 @@ export function CaseScreenPage() {
             <PresenceIndicator users={others} />
           </div>
         )}
-        {isAdmin && (
-          <div className="mt-2 flex justify-end">
-            <DeleteCaseButton
-              caseId={caseId}
-              confirmName={detail.client?.fullName ?? detail.caseReference}
-            />
-          </div>
-        )}
-      </header>
+      </div>
 
       <div
         role="tablist"

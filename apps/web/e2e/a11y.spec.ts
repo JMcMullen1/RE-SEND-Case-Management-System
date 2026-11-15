@@ -79,6 +79,8 @@ test('the app screens have no serious accessibility violations', async ({
   await scan(page, 'add a school');
 
   await page.goto('/admin/staff');
-  await expect(page.getByRole('heading', { name: /^Staff/ })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Staff', exact: true }),
+  ).toBeVisible();
   await scan(page, 'staff admin');
 });
