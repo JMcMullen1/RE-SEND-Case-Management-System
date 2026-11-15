@@ -418,18 +418,32 @@ export interface TribunalFormOutput extends DraftModelOutput {
   dates?: Record<string, DatedFact | null>;
 }
 
-/** The next key date on or after `today` that matches, else null. */
-function nextKeyDate(
-  keyDates: CaseDetail['keyDates'],
+type KeyDate = CaseDetail['keyDates'][number];
+
+/**
+ * The key date a form needs, by the rules in order of preference: the next
+ * one on or after `today` under the first rule that has one, else the latest
+ * past one (so a passed deadline is reported as passed, not as missing).
+ */
+function pickKeyDate(
+  keyDates: readonly KeyDate[],
   today: string,
-  match: (k: CaseDetail['keyDates'][number]) => boolean,
-) {
-  return (
-    keyDates
-      .filter((k) => match(k) && k.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date))[0] ?? null
-  );
+  rules: readonly ((k: KeyDate) => boolean)[],
+): { keyDate: KeyDate; passed: boolean } | null {
+  for (const rule of rules) {
+    const matching = keyDates
+      .filter(rule)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const next = matching.find((k) => k.date >= today);
+    if (next) return { keyDate: next, passed: false };
+    const last = matching.at(-1);
+    if (last) return { keyDate: last, passed: true };
+  }
+  return null;
 }
+
+/** A Case Management Review is a hearing, but never the final hearing. */
+const isCmr = (k: KeyDate) => /case management review|\bcmr\b/i.test(k.title);
 
 /**
  * Turn the model's grounded answers to a Tribunal form into the full draft.
@@ -503,9 +517,14 @@ export function completeTribunalForm(
   // The child or young person.
   {
     const paragraphs = present([
-      kind === 'send35a_appeal' && age !== null && age < SEND_TRIBUNAL_AGE_LIMIT
+      kind === 'send35a_appeal' &&
+      dob &&
+      age !== null &&
+      age < SEND_TRIBUNAL_AGE_LIMIT
         ? suggestion(
-            `The appeal is about: ${age < 16 ? 'A child under 16 years old' : 'A young person aged 16 or over and under 25 years old'}. (Worked out from the date of birth.)`,
+            pastCompulsorySchoolAge(dob, today)
+              ? 'The appeal is about: A young person aged 16 or over and under 25 years old. (Worked out from the date of birth: they are over compulsory school age.)'
+              : `The appeal is about: A child under 16 years old.${age >= 16 ? ' (They are 16 but still of compulsory school age, so in law still a child.)' : ''} (Worked out from the date of birth.)`,
           )
         : null,
       fact('Name', child?.fullName, ' (enter as first and last name)'),
@@ -530,15 +549,15 @@ export function completeTribunalForm(
     let whoGap: string | null = null;
     if (dob && age !== null) {
       if (kind === 'send35a_appeal') {
-        if (age < 16)
+        if (!pastCompulsorySchoolAge(dob, today))
           paragraphs.push(
             suggestion(
-              'Who is making the appeal: Parent or other – on behalf of a child under 16 years old. (Suggested from the child’s age — confirm with the family.)',
+              'Who is making the appeal: Parent or other – on behalf of a child under 16 years old. (Suggested because the child is of compulsory school age — confirm with the family.)',
             ),
           );
         else
           whoGap =
-            'The young person is 16 or over, so they appeal themselves; an Alternative Person appeals in their best interests only if they lack the capacity to. Decide who is making the appeal with the family.';
+            'The young person is over compulsory school age, so they appeal themselves; an Alternative Person appeals in their best interests only if they lack the capacity to. Decide who is making the appeal with the family.';
       } else if (pastCompulsorySchoolAge(dob, today))
         whoGap =
           'The young person is over compulsory school age, so they may appeal themselves; a parent appeals for them as the “alternative person” only if they cannot. Decide question 2.1 with the family.';
@@ -590,27 +609,40 @@ export function completeTribunalForm(
   // Case details for forms used once an appeal is registered.
   {
     const keyDates = detail.keyDates ?? [];
+    // Directions title their key dates by category ("Final Hearing", "Case
+    // Management Review", "Case Review Form", "Final Tribunal Bundle").
     const hearing =
       kind === 'send7_request'
-        ? nextKeyDate(keyDates, today, (k) => k.type === 'hearing')
+        ? pickKeyDate(keyDates, today, [
+            (k) => /final hearing/i.test(k.title),
+            (k) => k.type === 'hearing' && !isCmr(k),
+          ])
         : null;
-    const bundle =
+    // SEND45 is due by the case review form date in the directions, else the
+    // final bundle — never a supplementary bundle.
+    const due =
       kind === 'send45_case_review'
-        ? nextKeyDate(keyDates, today, (k) => /bundle/i.test(k.title))
+        ? pickKeyDate(keyDates, today, [
+            (k) => /case review form/i.test(k.title),
+            (k) => /bundle/i.test(k.title) && !/supplementary/i.test(k.title),
+          ])
+        : null;
+    const keyDateFact = (
+      label: string,
+      found: { keyDate: KeyDate; passed: boolean } | null,
+    ) =>
+      found
+        ? fact(
+            label,
+            `${formatCivilDate(found.keyDate.date)} (key date “${found.keyDate.title}”)${found.passed ? ' — this date has passed' : ''}`,
+          )
         : null;
     const paragraphs = present([
       fact('Child or young person’s name', child?.fullName),
       fact('Appeal number', detail.appealNumber),
       kind === 'send7_request' ? fact('Local authority', child?.la) : null,
-      hearing
-        ? fact('Final hearing date', formatCivilDate(hearing.date))
-        : null,
-      bundle
-        ? fact(
-            'Send this form by the bundle deadline',
-            `${formatCivilDate(bundle.date)} (key date “${bundle.title}”)`,
-          )
-        : null,
+      keyDateFact('Final hearing date', hearing),
+      keyDateFact('Send this form by', due),
     ]);
     record.details = {
       paragraphs,
@@ -622,11 +654,11 @@ export function completeTribunalForm(
             ? ['the local authority']
             : []),
           ...(kind === 'send7_request' && !hearing
-            ? ['an upcoming final hearing date (add it as a key date)']
+            ? ['the final hearing date (add it as a key date)']
             : []),
-          ...(kind === 'send45_case_review' && !bundle
+          ...(kind === 'send45_case_review' && !due
             ? [
-                'the bundle deadline (in the case directions; add it as a key date)',
+                'the date this form is due (the case review form or bundle deadline in the case directions; add it as a key date)',
               ]
             : []),
         ],
@@ -686,6 +718,9 @@ export function completeTribunalForm(
           [
             kind === 'send35a_appeal' && !laFact
               ? notRecorded(['the local authority'], 'Add it to the case.')
+              : null,
+            kind === 'send35a_appeal' && !timingDates.mediationCertificate
+              ? 'No mediation certificate was found in the file. The appeal needs one, or this section must explain why there is none — otherwise the Tribunal returns the papers unregistered.'
               : null,
             modelGap,
           ]
@@ -846,16 +881,18 @@ function reviewNotice(
       alerts: [],
       note: `The file does not show when the local authority was told about this request. Tell them first: the form must include their response, or say they did not reply within ${days} working days.`,
     };
-  const earliest = addWorkingDays(told!.date, days, holidays).date;
+  // They must have a full five working days: it can go the working day after.
+  const lastDay = addWorkingDays(told!.date, days, holidays).date;
+  const earliest = addWorkingDays(lastDay, 1, holidays).date;
   const when = formatCivilDate(earliest);
   return {
     alerts:
       today < earliest
         ? [
-            `The local authority was told on ${formatCivilDate(told!.date)}. Unless they reply sooner, this request cannot be sent before ${when} (${days} working days later).`,
+            `The local authority was told on ${formatCivilDate(told!.date)} and has until ${formatCivilDate(lastDay)} to respond (${days} working days). Unless they reply sooner, send this request on or after ${when}.`,
           ]
         : [],
-    note: `Earliest sending date worked out from this: ${when} (${days} working days after the local authority was told, skipping weekends and bank holidays), or sooner once they have replied.`,
+    note: `Earliest sending date worked out from this: ${when} — the working day after the local authority’s ${days} working days to respond (to ${formatCivilDate(lastDay)}, skipping weekends and bank holidays) — or sooner once they have replied.`,
   };
 }
 

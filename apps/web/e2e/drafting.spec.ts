@@ -307,12 +307,16 @@ test('a SEND35 draft shows record facts, the deadline warning and the form links
   await page.goto(`/cases/${CASE_ID}`);
   await page.getByRole('tab', { name: 'Drafting' }).click();
   await page.getByRole('button', { name: 'Fill in a Tribunal form' }).click();
-  // The four forms, each explained; SEND35 is chosen to start with.
+  // The four forms, each explained; none chosen until the caseworker picks.
   for (const name of [/SEND35 appeal form/, /SEND35A/, /SEND7/, /SEND45/])
     await expect(page.getByRole('radio', { name })).toBeVisible();
+  await expect(page.getByRole('radio', { checked: true })).toHaveCount(0);
   await expect(
-    page.getByRole('radio', { name: /SEND35 appeal form/ }),
-  ).toBeChecked();
+    page.getByRole('button', { name: 'Start drafting' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('radio', { name: /SEND7/ }),
+  ).toHaveAccessibleDescription(/ask the Tribunal for a change/);
   await page.getByRole('radio', { name: /SEND7/ }).check();
   await page.screenshot({ path: 'test-results/form-chooser.png' });
   await page.getByRole('radio', { name: /SEND35 appeal form/ }).check();

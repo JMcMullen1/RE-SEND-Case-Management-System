@@ -39,7 +39,7 @@ const detail = {
       id: 'k1',
       date: '2026-12-10',
       time: null,
-      title: 'Final hearing',
+      title: 'Final Hearing',
       description: null,
       type: 'hearing' as const,
       source: 'manual' as const,
@@ -50,7 +50,7 @@ const detail = {
       id: 'k2',
       date: '2026-11-27',
       time: null,
-      title: 'Bundle deadline',
+      title: 'Case Review Form',
       description: null,
       type: 'evidence_deadline' as const,
       source: 'manual' as const,
@@ -64,6 +64,28 @@ const detail = {
       title: 'Old hearing',
       description: null,
       type: 'hearing' as const,
+      source: 'manual' as const,
+      confidence: null,
+      sourceReference: null,
+    },
+    {
+      id: 'k4',
+      date: '2026-11-30',
+      time: null,
+      title: 'Case Management Review',
+      description: null,
+      type: 'hearing' as const,
+      source: 'directions_order' as const,
+      confidence: null,
+      sourceReference: null,
+    },
+    {
+      id: 'k5',
+      date: '2026-11-20',
+      time: null,
+      title: 'Supplementary bundle deadline',
+      description: null,
+      type: 'evidence_deadline' as const,
       source: 'manual' as const,
       confidence: null,
       sourceReference: null,
@@ -209,7 +231,8 @@ describe('SEND7', () => {
       'Child or young person’s name: Sam Child',
       'Appeal number: EH999/26/00001',
       'Local authority: Exampleshire',
-      'Final hearing date: 10 Dec 2026',
+      // The CMR on 30 Nov is a hearing, but not the final one.
+      'Final hearing date: 10 Dec 2026 (key date “Final Hearing”)',
     ]);
     expect(details.paragraphs.every((p) => p.sourceIds[0] === facts)).toBe(
       true,
@@ -230,14 +253,14 @@ describe('SEND7', () => {
         d.formTiming!,
         today,
       );
-    // 5 working days after Monday 2 November is Monday 9 November.
-    expect(shown('2026-11-05').alerts[0]).toMatch(
-      /cannot be sent before 9 Nov 2026/,
+    // Told Monday 2 November: the LA has to Monday 9th, so it goes from the 10th.
+    expect(shown('2026-11-09').alerts[0]).toMatch(
+      /has until 9 Nov 2026 to respond .*on or after 10 Nov 2026/,
     );
-    expect(shown('2026-11-09').alerts).toEqual([]);
+    expect(shown('2026-11-10').alerts).toEqual([]);
     expect(
-      shown('2026-11-09').sections.find((s) => s.key === 'details')!.gap,
-    ).toMatch(/Earliest sending date worked out from this: 9 Nov 2026/);
+      shown('2026-11-10').sections.find((s) => s.key === 'details')!.gap,
+    ).toMatch(/Earliest sending date worked out from this: 10 Nov 2026/);
     // Without the date, the caseworker is told to tell the LA first.
     const none = build('send7_request', output);
     expect(
@@ -268,9 +291,60 @@ describe('SEND45', () => {
     );
     const details = d.sections.find((s) => s.key === 'details')!;
     expect(details.paragraphs.map((p) => p.text)).toContain(
-      'Send this form by the bundle deadline: 27 Nov 2026 (key date “Bundle deadline”)',
+      // The case review form date, not the supplementary bundle.
+      'Send this form by: 27 Nov 2026 (key date “Case Review Form”)',
     );
     expect(d.formTiming).toBeNull();
     expect(d.missingInformation.join(' ')).toMatch(/Question 16/);
+  });
+});
+
+describe('SEND35A: who the appeal is about, and mediation', () => {
+  const output: DraftModelOutput = { sections: [], missingInformation: [] };
+  it('treats a 16-year-old still of compulsory school age as a child', () => {
+    const d = completeTribunalForm('send35a_appeal', {
+      grounded: groundDraft(
+        output,
+        corpus,
+        newId,
+        TRIBUNAL_FORMS.send35a_appeal.sections,
+      ),
+      dates: {},
+      detail: {
+        ...detail,
+        child: { ...detail.child, dateOfBirth: '2010-03-01' },
+      },
+      corpus,
+      today: '2026-05-01',
+      newId,
+    });
+    const section = (k: string) => d.sections.find((s) => s.key === k)!;
+    expect(section('child').paragraphs[0]!.text).toMatch(
+      /still of compulsory school age/,
+    );
+    expect(section('appellant').paragraphs[0]!.text).toMatch(/Parent or other/);
+    // No certificate in the file: said plainly.
+    expect(section('decision').gap).toMatch(
+      /No mediation certificate was found/,
+    );
+  });
+
+  it('reports a passed due date as passed, not missing', () => {
+    const d = completeTribunalForm('send45_case_review', {
+      grounded: groundDraft(
+        output,
+        corpus,
+        newId,
+        TRIBUNAL_FORMS.send45_case_review.sections,
+      ),
+      dates: {},
+      detail,
+      corpus,
+      today: '2026-12-01',
+      newId,
+    });
+    expect(d.sections[0]!.paragraphs.map((p) => p.text)).toContain(
+      'Send this form by: 27 Nov 2026 (key date “Case Review Form”) — this date has passed',
+    );
   });
 });

@@ -106,7 +106,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
         ? 15_000
         : false,
   });
-  const [asking, setAsking] = useState<DraftKind | null>(null);
+  // What is being asked for: a kind, or 'form' while no form is chosen yet.
+  const [asking, setAsking] = useState<DraftKind | 'form' | null>(null);
+  const chosen: DraftKind | null =
+    asking === null || asking === 'form' ? null : asking;
   const [instructions, setInstructions] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -201,14 +204,25 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                         name="form-kind"
                         value={kind}
                         checked={asking === kind}
-                        onChange={() => setAsking(kind)}
+                        onChange={() => {
+                          ask.reset();
+                          setAsking(kind);
+                        }}
+                        aria-labelledby={`kind-${kind}`}
+                        aria-describedby={`kind-${kind}-about`}
                         className="mt-0.5 h-4 w-4 accent-resend-purple focus:ring-resend-purple"
                       />
                       <span>
-                        <span className="font-medium text-resend-ink">
+                        <span
+                          id={`kind-${kind}`}
+                          className="font-medium text-resend-ink"
+                        >
                           {DRAFT_KIND_LABELS[kind]}
                         </span>
-                        <span className="block text-gray-600">
+                        <span
+                          id={`kind-${kind}-about`}
+                          className="block text-gray-600"
+                        >
                           {DRAFT_KIND_DESCRIPTIONS[kind]}
                         </span>
                       </span>
@@ -224,7 +238,9 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
                 maxLength={2000}
-                placeholder={INSTRUCTION_EXAMPLES[asking]}
+                placeholder={
+                  chosen ? INSTRUCTION_EXAMPLES[chosen] : 'Choose a form first.'
+                }
                 className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               />
             </label>
@@ -246,8 +262,8 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
               </button>
               <button
                 type="button"
-                disabled={ask.isPending}
-                onClick={() => ask.mutate(asking)}
+                disabled={ask.isPending || !chosen}
+                onClick={() => chosen && ask.mutate(chosen)}
                 className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               >
                 {ask.isPending ? 'Starting…' : 'Start drafting'}
@@ -259,7 +275,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
             {(
               [
                 ['position_statement', 'Draft a position statement'],
-                ['send35_appeal', 'Fill in a Tribunal form'],
+                ['form', 'Fill in a Tribunal form'],
               ] as const
             ).map(([kind, text]) => (
               <button
