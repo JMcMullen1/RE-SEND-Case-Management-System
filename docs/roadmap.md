@@ -42,6 +42,9 @@ between pieces of work.
 - **Schools directory**: shared schools with contacts, Section 41 and type
   facts, duplicate detection, and links to cases (current, proposed, named in
   the plan, previous).
+- **Bulk school import** from the DfE's Get Information About Schools file, by
+  local authority, with every Section 41 school; re-run it to bring the
+  directory up to date.
 - **One navigation bar** across every screen (Cases, Calendar, Schools,
   Search, My time, and Admin for admins), the current section marked; admin
   screens share a sub-navigation. Moving between screens no longer reloads
@@ -80,11 +83,6 @@ Time recording decisions agreed:
 - File directly from Outlook (add-in or Microsoft Graph), on desktop and phone.
 - Automatic matching of correspondence to a case from the client and child
   details held, with a queue for anything that cannot be matched confidently.
-
-### Schools directory, next steps
-
-- Import schools in bulk from the DfE's Get Information About Schools list
-  (URN, type, age range and address), and the published Section 41 list.
 
 ### Also outstanding from the proposal
 

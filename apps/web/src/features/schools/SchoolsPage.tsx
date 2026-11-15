@@ -58,6 +58,14 @@ export function SchoolsPage() {
               One directory of schools and their contacts, shared by every case
             </p>
           </div>
+          {me?.role === 'admin' && (
+            <a
+              href="/admin/import-schools"
+              className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            >
+              Import from the DfE list
+            </a>
+          )}
           {canEditSchools(me?.role) && (
             <button
               type="button"

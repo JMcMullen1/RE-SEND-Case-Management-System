@@ -43,7 +43,7 @@ function isUniqueViolation(err: unknown): boolean {
 export class SchoolNotFound extends Error {}
 
 type Db = ReturnType<typeof getDb>;
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 // Drizzle leaves column references unqualified in a single-table select, which
 // is ambiguous inside these subqueries; name the outer row explicitly.
@@ -346,24 +346,34 @@ export async function updateSchool(
       before: was,
       after: changed,
     });
-    // Children whose Current / Desired school comes from this school follow
-    // a change to its name or address.
-    if ('name' in changed || 'address' in changed || 'postcode' in changed) {
-      const links = await tx
-        .select({ caseId: caseSchools.caseId, role: caseSchools.role })
-        .from(caseSchools)
-        .where(
-          and(eq(caseSchools.schoolId, id), isNull(caseSchools.deletedAt)),
-        );
-      for (const l of links) {
-        await resyncRole(tx, l.caseId, l.role, actor, {
-          name: before.name,
-          address: formatAddress(before),
-        });
-      }
-    }
+    if ('name' in changed || 'address' in changed || 'postcode' in changed)
+      await followSchoolChange(tx, id, before, actor);
   });
   return (await getSchool(id))!;
+}
+
+/**
+ * Children whose Current / Desired school comes from this school follow a
+ * change to its name or address (`before` is how the school read until now).
+ */
+export async function followSchoolChange(
+  tx: Tx,
+  schoolId: string,
+  before: { name: string; address: string | null; postcode: string | null },
+  actor: string,
+): Promise<void> {
+  const links = await tx
+    .select({ caseId: caseSchools.caseId, role: caseSchools.role })
+    .from(caseSchools)
+    .where(
+      and(eq(caseSchools.schoolId, schoolId), isNull(caseSchools.deletedAt)),
+    );
+  for (const l of links) {
+    await resyncRole(tx, l.caseId, l.role, actor, {
+      name: before.name,
+      address: formatAddress(before),
+    });
+  }
 }
 
 /** Archive (soft-delete) or restore a school. Linked cases keep the link. */

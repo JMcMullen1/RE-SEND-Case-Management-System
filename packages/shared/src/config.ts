@@ -2573,6 +2573,105 @@ export const SCHOOL_CONTACT_ROLE_SUGGESTIONS = [
   'Designated safeguarding lead',
 ] as const;
 
+// --- Importing schools from the DfE's list --------------------------------------
+/**
+ * The DfE's register of schools, Get Information About Schools (GIAS). Its
+ * "all establishment data" file is a CSV of every school in England and Wales,
+ * open and closed; admins download it and import the areas the charity covers.
+ */
+export const GIAS_DOWNLOAD_PAGE =
+  'https://get-information-schools.service.gov.uk/Downloads';
+/** The file's own daily name, for a direct link (yyyymmdd appended). */
+export const GIAS_ALL_DATA_URL_PREFIX =
+  'https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata';
+/** Statuses imported; closed establishments are left out. */
+export const GIAS_IMPORTED_STATUSES = [
+  'Open',
+  'Open, but proposed to close',
+  'Proposed to open',
+] as const;
+/**
+ * Establishment types never imported: abroad, universities, online-only and
+ * Welsh (Wales has its own system) — except any on the Section 41 list.
+ */
+export const GIAS_EXCLUDED_TYPES = [
+  'British schools overseas',
+  'Offshore schools',
+  'Higher education institutions',
+  'Online provider',
+  'Miscellaneous',
+  "Service children's education",
+  'Welsh establishment',
+] as const;
+/** How a school is funded, by GIAS type (checked first) and then type group. */
+export const GIAS_FUNDING_BY_TYPE: Readonly<Record<string, SchoolFunding>> = {
+  'Community special school': 'maintained',
+  'Foundation special school': 'maintained',
+  'Non-maintained special school': 'non_maintained_special',
+  'Other independent special school': 'independent',
+};
+export const GIAS_FUNDING_BY_GROUP: Readonly<Record<string, SchoolFunding>> = {
+  'Local authority maintained schools': 'maintained',
+  Academies: 'academy',
+  'Free Schools': 'free_school',
+  'Independent schools': 'independent',
+};
+/** GIAS types that are specialist (special) provision. */
+export const GIAS_SPECIALIST_TYPES = [
+  'Academy special converter',
+  'Academy special sponsor led',
+  'Free schools special',
+  'Community special school',
+  'Foundation special school',
+  'Non-maintained special school',
+  'Other independent special school',
+  'Special post 16 institution',
+] as const;
+/** GIAS types that are alternative provision. */
+export const GIAS_ALTERNATIVE_PROVISION_TYPES = [
+  'Academy alternative provision converter',
+  'Academy alternative provision sponsor led',
+  'Free schools alternative provision',
+  'Pupil referral unit',
+] as const;
+/** "Type of resourced provision" values meaning a resource base or SEN unit. */
+export const GIAS_RESOURCE_BASE_VALUES = [
+  'Resourced provision',
+  'SEN unit',
+  'Resourced provision and SEN unit',
+] as const;
+/** Type groups whose other schools are mainstream. */
+export const GIAS_MAINSTREAM_GROUPS = [
+  'Local authority maintained schools',
+  'Academies',
+  'Free Schools',
+  'Independent schools',
+  'Colleges',
+] as const;
+/** The Section 41 column's value for an approved school. */
+export const GIAS_SECTION_41_APPROVED = 'Approved';
+/**
+ * The facts an import keeps up to date on a school already in the directory,
+ * when the DfE file has a value. Provision is only filled in when empty (staff
+ * may have set it more precisely); email, notes and contacts are never touched.
+ */
+export const SCHOOL_IMPORT_REFRESHED_FIELDS = [
+  'name',
+  'address',
+  'postcode',
+  'localAuthority',
+  'phone',
+  'website',
+  'funding',
+  'section41',
+  'ageFrom',
+  'ageTo',
+] as const;
+/** The most schools one import may carry (England has about 25,000 open). */
+export const SCHOOL_IMPORT_MAX = 40_000;
+/** The highest age a school's range is shown with; above it reads "16+". */
+export const SCHOOL_AGE_MAX = 25;
+
 /** Roles that may add and edit schools and their contacts. Read-only may not. */
 export const SCHOOL_DIRECTORY_EDIT_ROLES = [
   'admin',

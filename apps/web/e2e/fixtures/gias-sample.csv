@@ -1,0 +1,6 @@
+"URN","LA (name)","EstablishmentName","TypeOfEstablishment (name)","EstablishmentTypeGroup (name)","EstablishmentStatus (name)","StatutoryLowAge","StatutoryHighAge","Street","Locality","Address3","Town","County (name)","Postcode","SchoolWebsite","TelephoneNum","Section41Approved (name)","TypeOfResourcedProvision (name)"
+"900001","Sampleshire","Brookfield Primary School","Community school","Local authority maintained schools","Open","4","11","1 Brook Road","","","Sampletown","","SA1 1AA","www.brookfield.example","01000 000001","Not applicable","SEN unit"
+"900002","Sampleshire","Hillview Academy","Academy special converter","Academies","Open","11","19","2 Hill Road","","","Sampletown","","SA1 2BB","","01000 000002","Not applicable",""
+"900003","Sampleshire","Old Mill School","Community school","Local authority maintained schools","Closed","4","11","3 Mill Lane","","","Sampletown","","SA1 3CC","","","Not applicable",""
+"900004","Farshire","Riverside Specialist College","Special post 16 institution","Other types","Open","16","25","4 River Way","","","Fartown","","FA4 4DD","","01000 000004","Approved",""
+"900005","Farshire","Elsewhere Primary School","Community school","Local authority maintained schools","Open","4","11","5 Far Road","","","Fartown","","FA5 5EE","","","Not applicable",""
