@@ -384,6 +384,8 @@ export type FormTiming =
       add: { months?: number; days?: number; workingDays?: number };
       lateQuestion: string | null;
       describe: string;
+      startingWith?: boolean;
+      fallbackNote?: string;
       dates: Record<string, FormDate | null>;
     };
 
@@ -508,6 +510,14 @@ export function completeTribunalForm(
   const client = detail.client;
   const dob = child?.dateOfBirth ?? null;
   const age = dob ? calculateAge(dob, today) : null;
+  if (kind === 'send28_appeal' && dob && pastCompulsorySchoolAge(dob, today))
+    alerts.push(
+      `${child?.fullName ?? 'The young person'} is over compulsory school age: SEND28A (a young person appealing themselves) is likely the right form.`,
+    );
+  if (kind === 'send28a_appeal' && age !== null && age >= 18)
+    alerts.push(
+      `${child?.fullName ?? 'The young person'} is ${age}: SEND28A is for young people under 18 in youth accommodation.`,
+    );
   if (form.ageLimit && age !== null && age >= SEND_TRIBUNAL_AGE_LIMIT)
     alerts.push(
       `${child?.fullName ?? 'The young person'} is ${age}. The Tribunal hears appeals only for young people under ${SEND_TRIBUNAL_AGE_LIMIT}.`,
@@ -613,6 +623,20 @@ export function completeTribunalForm(
     };
   }
 
+  // Names only, for forms that ask who signs or attends (SEND8, SEND11).
+  record.names = {
+    paragraphs: present([
+      fact(
+        'Name of parent or young person',
+        client?.fullName,
+        ' (the person who made the appeal or claim — if it is the young person’s own, use their name instead)',
+      ),
+    ]),
+    gap: client?.fullName
+      ? null
+      : notRecorded(['the name of the parent or young person']),
+  };
+
   // Case details, for the forms that ask for them (config `details`).
   const want = form.details ?? {};
   let hearingDate: FormDate | null = null;
@@ -637,11 +661,12 @@ export function completeTribunalForm(
     const keyDateFact = (
       label: string,
       found: { keyDate: KeyDate; passed: boolean } | null,
+      flagPassed = false,
     ) =>
       found
         ? fact(
             label,
-            `${formatCivilDate(found.keyDate.date)} (key date “${found.keyDate.title}”)${found.passed ? ' — this date has passed' : ''}`,
+            `${formatCivilDate(found.keyDate.date)} (key date “${found.keyDate.title}”)${flagPassed && found.passed ? ' — this date has passed' : ''}`,
           )
         : null;
     const hearingPara = keyDateFact('Final hearing date', hearing);
@@ -655,10 +680,18 @@ export function completeTribunalForm(
     const paragraphs = present([
       fact('Child or young person’s name', child?.fullName),
       fact('Appeal number', detail.appealNumber),
-      want.localAuthority ? fact('Local authority', child?.la) : null,
+      want.localAuthority
+        ? want.responsibleBody
+          ? fact(
+              'Local authority or responsible body',
+              child?.la,
+              ' (for a disability discrimination claim, name the school’s governing body or proprietor instead)',
+            )
+          : fact('Local authority', child?.la)
+        : null,
       want.school ? fact('School', school) : null,
       hearingPara,
-      keyDateFact('Send this form by', due),
+      keyDateFact('Send this form by', due, true),
     ]);
     record.details = {
       paragraphs,
@@ -722,12 +755,12 @@ export function completeTribunalForm(
       };
     }
     const model = fromModel?.paragraphs ?? [];
+    // An optional answer (e.g. why late) left empty is not a gap.
+    const modelGap =
+      def.optional && model.length === 0 && fromModel?.gap === NO_BASIS_GAP
+        ? null
+        : (fromModel?.gap ?? null);
     if (def.key === form.datesSection) {
-      // An optional "why late" answer left empty is not a gap.
-      const modelGap =
-        model.length === 0 && fromModel?.gap === NO_BASIS_GAP
-          ? null
-          : (fromModel?.gap ?? null);
       return {
         key: def.key,
         heading: def.heading,
@@ -737,7 +770,10 @@ export function completeTribunalForm(
             kind === 'send35a_appeal' && !laFact
               ? notRecorded(['the local authority'], 'Add it to the case.')
               : null,
-            kind === 'send35a_appeal' && !timingDates.mediationCertificate
+            (kind === 'send35a_appeal' ||
+              kind === 'send28_appeal' ||
+              kind === 'send28a_appeal') &&
+            !timingDates.mediationCertificate
               ? 'No mediation certificate was found in the file. The appeal needs one, or this section must explain why there is none — otherwise the Tribunal returns the papers unregistered.'
               : null,
             modelGap,
@@ -746,14 +782,14 @@ export function completeTribunalForm(
             .join(' ') || null,
       };
     }
-    return (
-      fromModel ?? {
-        key: def.key,
-        heading: def.heading,
-        paragraphs: [],
-        gap: NO_BASIS_GAP,
-      }
-    );
+    return fromModel
+      ? { ...fromModel, gap: modelGap }
+      : {
+          key: def.key,
+          heading: def.heading,
+          paragraphs: [],
+          gap: def.optional ? null : NO_BASIS_GAP,
+        };
   });
 
   const sources: DraftSource[] = [];
@@ -795,10 +831,9 @@ export function completeTribunalForm(
             add: t.add,
             lateQuestion: t.lateQuestion,
             describe: t.describe,
-            dates:
-              t.from === 'hearing'
-                ? { ...timingDates, hearing: hearingDate }
-                : timingDates,
+            ...(t.startingWith ? { startingWith: true } : {}),
+            ...(t.fallbackNote ? { fallbackNote: t.fallbackNote } : {}),
+            dates: { ...timingDates, hearing: hearingDate },
           };
 
   return {
@@ -967,10 +1002,18 @@ function reviewLimit(
   if (months) limit = addCalendarMonths(limit, months);
   if (days) limit = addCalendarDays(limit, days).date;
   if (workingDays) limit = addWorkingDays(limit, workingDays, holidays).date;
-  // A limit running forward that ends on a non-working day runs to the next.
-  if (months > 0 || days > 0)
+  if (timing.startingWith) {
+    // "N months starting with" the date: the day before the same date N on.
+    limit = addCalendarDays(limit, -1).date;
+  } else if (months > 0 || days > 0) {
+    // The Tribunal's rule: a last day on a non-working day runs to the next.
     while (!isWorkingDay(limit, holidays))
       limit = addCalendarDays(limit, 1).date;
+  } else if (months < 0 || days < 0) {
+    // Counting back from a date: be early, never late.
+    while (!isWorkingDay(limit, holidays))
+      limit = addCalendarDays(limit, -1).date;
+  }
   const when = formatCivilDate(limit);
   const daysLeft = calendarDaysBetween(today, limit);
   const alerts: string[] = [];
@@ -982,9 +1025,11 @@ function reviewLimit(
     alerts.push(
       `This must reach the Tribunal by ${when} — ${daysLeft === 0 ? 'today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} from now`}.`,
     );
+  const fallback =
+    key !== keys[0] && timing.fallbackNote ? ` ${timing.fallbackNote}` : '';
   return {
     alerts,
-    note: `Time limit worked out: ${when} (${timing.describe}). Check the date it runs from.`,
+    note: `Time limit worked out: ${when} (${timing.describe}). Check the date it runs from.${fallback}`,
   };
 }
 

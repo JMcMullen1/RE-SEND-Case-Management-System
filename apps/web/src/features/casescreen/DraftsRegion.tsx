@@ -110,6 +110,9 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
   // What is being asked for: a kind, or 'form' while no form is chosen yet.
   const [asking, setAsking] = useState<DraftKind | 'form' | null>(null);
   const [formQuery, setFormQuery] = useState('');
+  const matchCount = TRIBUNAL_FORM_KINDS.filter((k) =>
+    formMatches(k, formQuery.trim().toLowerCase()),
+  ).length;
   const chosen: DraftKind | null =
     asking === null || asking === 'form' ? null : asking;
   const [instructions, setInstructions] = useState('');
@@ -201,16 +204,20 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                     className="mt-0.5 block w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
                   />
                 </label>
+                <p role="status" className="mt-1 text-xs text-gray-600">
+                  {formQuery.trim()
+                    ? matchCount === 0
+                      ? `No forms match “${formQuery.trim()}”.`
+                      : `${matchCount} form${matchCount === 1 ? '' : 's'} match.`
+                    : ''}
+                </p>
                 <div className="mt-2 space-y-2">
                   {TRIBUNAL_FORM_GROUPS.map((group) => {
                     const q = formQuery.trim().toLowerCase();
                     const kinds = TRIBUNAL_FORM_KINDS.filter(
                       (k) =>
                         TRIBUNAL_FORMS[k].group === group.id &&
-                        (!q ||
-                          `${DRAFT_KIND_LABELS[k]} ${DRAFT_KIND_DESCRIPTIONS[k]}`
-                            .toLowerCase()
-                            .includes(q)),
+                        (k === chosen || formMatches(k, q)),
                     );
                     if (kinds.length === 0) return null;
                     return (
@@ -982,4 +989,21 @@ function FormLinks({
       ({form.version}).
     </p>
   );
+}
+
+/**
+ * Whether a form matches the search: by its number with or without a space
+ * ("SEND 8"), or by every word, allowing for word endings ("withdrawal").
+ */
+function formMatches(kind: DraftKind, query: string): boolean {
+  if (!query) return true;
+  const hay =
+    `${DRAFT_KIND_LABELS[kind]} ${DRAFT_KIND_DESCRIPTIONS[kind]}`.toLowerCase();
+  const flat = hay.replace(/\s+/g, '');
+  if (flat.includes(query.replace(/\s+/g, ''))) return true;
+  return query
+    .split(/\s+/)
+    .every(
+      (w) => hay.includes(w) || (w.length > 5 && hay.includes(w.slice(0, -3))),
+    );
 }

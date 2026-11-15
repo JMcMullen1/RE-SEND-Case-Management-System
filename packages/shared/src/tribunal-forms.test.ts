@@ -357,7 +357,9 @@ describe('every Tribunal form in the registry', () => {
     expect(new Set(keys).size).toBe(keys.length);
     for (const s of form.sections)
       if (s.fill === 'record')
-        expect(['child', 'appellant', 'details']).toContain(s.builder ?? s.key);
+        expect(['child', 'appellant', 'details', 'names']).toContain(
+          s.builder ?? s.key,
+        );
     if (form.dates.length) expect(keys).toContain(form.datesSection);
     const dateKeys = form.dates.map((d) => d.key);
     if (form.timing?.rule === 'limit') {
@@ -398,7 +400,15 @@ describe('time limits on the newer forms', () => {
         viaGovernors.sections,
         '2026-11-14',
       ).note,
-    ).toMatch(/1 Dec 2026/);
+      // Six months starting with 1 June: the last day is 30 November.
+    ).toMatch(/30 Nov 2026/);
+    expect(
+      reviewFormTiming(
+        viaGovernors.formTiming!,
+        viaGovernors.sections,
+        '2026-11-14',
+      ).note,
+    ).toMatch(/If a review panel review is pending/);
     const viaPanel = build('send26a_claim', none, {
       governorsUpheld: { date: '2026-06-01', sourceIds: ['email-1'] },
       irpDecision: { date: '2026-07-20', sourceIds: ['email-1'] },
@@ -406,7 +416,22 @@ describe('time limits on the newer forms', () => {
     expect(
       reviewFormTiming(viaPanel.formTiming!, viaPanel.sections, '2026-11-14')
         .note,
-    ).toMatch(/20 Jan 2027/);
+    ).toMatch(/19 Jan 2027/);
+  });
+
+  it('SEND4A: a claim is late the day after six months starting with the act', () => {
+    const d = build('send4a_claim', none, {
+      discriminationDate: { date: '2026-05-15', sourceIds: ['email-1'] },
+    });
+    // 14 Nov 2026 is the last day (a Saturday: not moved for a statutory limit).
+    expect(
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-14').alerts[0],
+    ).toMatch(/by 14 Nov 2026 — today/);
+    expect(
+      reviewFormTiming(d.formTiming!, d.sections, '2026-11-15').alerts[0],
+    ).toMatch(/14 Nov 2026, which has passed\. Section 7/);
+    // An empty "late claims" answer is not a gap when the claim is on time.
+    expect(d.sections.find((s) => s.key === 'late')!.gap).toBeNull();
   });
 
   it('SEND20A is 28 days from the decision, and late after that', () => {

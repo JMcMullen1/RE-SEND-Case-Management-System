@@ -325,6 +325,15 @@ test('a SEND35 draft shows record facts, the deadline warning and the form links
   await expect(page.getByRole('radio', { name: /SEND35A/ })).toHaveCount(0);
   await page.getByRole('radio', { name: /SEND7/ }).check();
   await page.screenshot({ path: 'test-results/form-chooser.png' });
+  // Forgiving search, and a plain message when nothing matches.
+  await page.getByLabel('Find a form').fill('send 8');
+  await expect(page.getByRole('radio', { name: /SEND8/ })).toBeVisible();
+  // The chosen form stays in view while searching for others.
+  await expect(page.getByRole('radio', { name: /SEND7/ })).toBeChecked();
+  await page.getByLabel('Find a form').fill('withdrawal');
+  await expect(page.getByRole('radio', { name: /SEND8/ })).toBeVisible();
+  await page.getByLabel('Find a form').fill('zzzz');
+  await expect(page.getByText('No forms match “zzzz”.')).toBeVisible();
   await page.getByLabel('Find a form').fill('');
   await page.getByRole('radio', { name: /SEND35 appeal form/ }).check();
   await page.getByRole('button', { name: 'Start drafting' }).click();

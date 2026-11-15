@@ -295,7 +295,9 @@ record holds and drafts the rest from the file, with its own checklist:
   18, detained in youth accommodation) — time limit as for SEND35.
 - **Disability discrimination claims:** SEND4A and SEND4B (by a parent or a
   young person), SEND26A and SEND26B (after a permanent exclusion, fast-track)
-  — six months from the discrimination; for an exclusion, from the Independent
+  — six months starting with the date of the discrimination (Equality Act,
+  Sch 17: the last day is the day before the same date six months on, and is
+  not moved off a weekend); for an exclusion, starting with the Independent
   Review Panel's decision if there was one, else the governors upholding it.
 - **During an appeal or claim:** SEND8 (withdrawal), SEND11 and SEND11YP
   (attendance — timed from the return date in the Tribunal's timetable),
@@ -304,7 +306,8 @@ record holds and drafts the rest from the file, with its own checklist:
   only the journey is drafted; tickets, receipts and bank details are for the
   claimant), SEND17 (missing tickets or receipts), SEND20A, SEND20B and SEND20C
   (permission to appeal, review, set aside — 28 days from the decision being
-  sent).
+  sent; for permission to appeal the AI writes no grounds unless the file
+  identifies an error of law).
 
 Not included: SEND12 (completed by the local authority) and SEND21 (the
 mediation certificate, completed by the mediation adviser). Each form can be

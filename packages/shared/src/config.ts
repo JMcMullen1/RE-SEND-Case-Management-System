@@ -655,6 +655,7 @@ export const SEND35_SECTIONS = [
     guidance:
       'Only if the file supports asking for recommendations about health (Sections C and G) or social care (Sections D and H): the issues for the Tribunal to consider and the recommendations sought (11.3 to 11.6).',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'mediation',
@@ -669,6 +670,7 @@ export const SEND35_SECTIONS = [
     guidance:
       'Only if the appeal is or may be late: the reasons for the delay, why the appeal should go ahead anyway, and why the appellant should not have to wait for an annual review (13.3). The dates on the decision letter and mediation certificate are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'other_cases',
@@ -691,12 +693,7 @@ export const SEND35_SECTIONS = [
       'One paragraph per document to send with the appeal, as a row of the form’s evidence table: what it is; who signed or wrote it; its date; and its number of pages if the file shows it. Cite the document itself.',
     fill: 'model',
   },
-] as const satisfies readonly {
-  key: string;
-  heading: string;
-  guidance: string;
-  fill: DraftSectionFill;
-}[];
+] as const satisfies readonly TribunalFormSectionDef[];
 export type Send35SectionKey = (typeof SEND35_SECTIONS)[number]['key'];
 /** The sections the model drafts (the rest are filled from the case record). */
 export const SEND35_MODEL_SECTION_KEYS = SEND35_SECTIONS.filter(
@@ -738,6 +735,7 @@ export const SEND35A_SECTIONS = [
     guidance:
       'Only if the appeal is late, or there is no mediation certificate: why, and why the appeal should go ahead. The local authority and the decision letter date are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'other_cases',
@@ -774,12 +772,7 @@ export const SEND35A_SECTIONS = [
       'One paragraph per document to send, as a row of the form’s table: its date; number of pages if known; who signed or wrote it and what kind of document it is; and, if not obvious, why it is relevant. Cite the document itself.',
     fill: 'model',
   },
-] as const satisfies readonly {
-  key: string;
-  heading: string;
-  guidance: string;
-  fill: DraftSectionFill;
-}[];
+] as const satisfies readonly TribunalFormSectionDef[];
 
 /** The SEND7 form (request for change). */
 export const SEND7_SECTIONS = [
@@ -811,12 +804,7 @@ export const SEND7_SECTIONS = [
       'The local authority’s response to the request, as the file shows it (an email or letter), or that they did not reply. The form is returned unconsidered without it.',
     fill: 'model',
   },
-] as const satisfies readonly {
-  key: string;
-  heading: string;
-  guidance: string;
-  fill: DraftSectionFill;
-}[];
+] as const satisfies readonly TribunalFormSectionDef[];
 
 /** The SEND45 form (case review). */
 export const SEND45_SECTIONS = [
@@ -862,12 +850,7 @@ export const SEND45_SECTIONS = [
       'Any special requirements of the appellant or their witnesses at the hearing, as the file shows.',
     fill: 'model',
   },
-] as const satisfies readonly {
-  key: string;
-  heading: string;
-  guidance: string;
-  fill: DraftSectionFill;
-}[];
+] as const satisfies readonly TribunalFormSectionDef[];
 
 /** A section of a Tribunal form, and how it is filled. */
 export interface TribunalFormSectionDef {
@@ -876,7 +859,9 @@ export interface TribunalFormSectionDef {
   guidance: string;
   fill: DraftSectionFill;
   /** For a record section: which record builder fills it (default: its key). */
-  builder?: 'child' | 'appellant' | 'details';
+  builder?: 'child' | 'appellant' | 'details' | 'names';
+  /** Left empty when it does not apply (e.g. reasons for lateness), without a gap. */
+  optional?: boolean;
 }
 
 // The forms below were mapped question by question from the published PDFs
@@ -953,6 +938,7 @@ export const SEND28_SECTIONS = [
     guidance:
       'Only if the appeal is sent more than 2 months after the date of the Local Authority’s letter or one month after the date of the mediation certificate: in writing, the reasons for the delay and why the appeal would succeed if time for making the appeal is extended. The form has no box for this; it goes on a separate sheet.',
     fill: 'model',
+    optional: true,
   },
 ] as const satisfies readonly TribunalFormSectionDef[];
 
@@ -1027,6 +1013,7 @@ export const SEND28A_SECTIONS = [
     guidance:
       'Only if the appeal is sent more than 2 months after the date of the Local Authority’s letter or one month after the date of the mediation certificate: in writing, the reasons for the delay and why the appeal would succeed if time for making the appeal is extended. The form has no box for this; it goes on a separate sheet.',
     fill: 'model',
+    optional: true,
   },
 ] as const satisfies readonly TribunalFormSectionDef[];
 
@@ -1081,6 +1068,7 @@ export const SEND4A_SECTIONS = [
     guidance:
       'Only if the claim is or may be late (received more than six months after the date of the discrimination: the date of the act, or the date the school decided not to do something, or for a series of connected acts the most recent one): why the claim is late and why it is important that it should be accepted, setting out any exceptional circumstances, and, where earlier acts are included, why they form part of a continuing course of conduct. If the claim is not late, leave this section blank. The relevant dates are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'remedy',
@@ -1157,6 +1145,7 @@ export const SEND4B_SECTIONS = [
     guidance:
       'Only if the claim is or may be late (received more than six months after the date of the discrimination: the date of the act, or the date the school decided not to do something, or for a series of connected acts the most recent one): why the claim is late and why it is important that it should be accepted, setting out any exceptional circumstances, and, where earlier acts are included, why they form part of a continuing course of conduct. If the claim is not late, leave this section blank. The relevant dates are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'remedy',
@@ -1232,6 +1221,7 @@ export const SEND26A_SECTIONS = [
     guidance:
       'Only if the school discriminated against the child in other ways, not just by the permanent exclusion; otherwise leave blank. For each heading that applies, using the form’s boxes (up to three entries each), and leaving out any that do not: fixed-term exclusions — the start and end date of each and, briefly, the reasons the school gave; exclusion from school trips or activities — a brief description of each trip or event with the dates of the trip and of any decision about it; unfavourable treatment — each instance described briefly, with dates as precise as the file allows; failure to make reasonable adjustments — the disadvantage to your child, the particular adjustment(s) needed, when they should have been put in place and what was done instead, including the rule, policy or arrangement that caused the disadvantage; other discriminatory act(s) by the school — brief detail with dates. Then, under ‘More detail’, for each claim: what happened, who was involved and when; why it related to your child’s disability (or the disability of someone your child is associated with); how the school should have acted instead; and which documents are important (the documents listed in Section 9). Cite every passage.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'late',
@@ -1239,6 +1229,7 @@ export const SEND26A_SECTIONS = [
     guidance:
       'Only if the claim is or may be late (received more than six months after the date of the discrimination: the date of the act, or the date the school decided not to do something, or for a series of connected acts the most recent one; for the permanent exclusion, six months from the date the governing body upheld it or, if applicable, the date the Independent Review Panel sent its decision): why the claim is late and why it is important that it should be accepted, setting out any exceptional circumstances, and, where earlier acts are included, why they form part of a continuing course of conduct. If the claim is not late, leave this section blank. The relevant dates are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'disability',
@@ -1321,6 +1312,7 @@ export const SEND26B_SECTIONS = [
     guidance:
       'Do not complete any of Section 4 if the only claim relates to the permanent exclusion. Written in the first person. For each heading that applies, using the form’s boxes (up to three entries each), and leaving out any that do not: fixed-term exclusions — the start and end date of each and, briefly, the reasons the school gave; exclusion from school trips or activities — a brief description of each trip or event with the dates of the trip and of any decision about it; unfavourable treatment — each instance described briefly, with dates as precise as the file allows; failure to make reasonable adjustments — the disadvantage to you, the particular adjustment(s) needed, when they should have been put in place and what was done instead, including the rule, policy or arrangement that caused the disadvantage; other discriminatory act(s) by the school — brief detail with dates. Then, under ‘More detail’, for each claim: what happened, who was involved and when; why it related to your disability (or the disability of someone you are associated with); how the school should have acted instead; and which documents are important (the documents listed in Section 8). Cite every passage.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'disability',
@@ -1335,6 +1327,7 @@ export const SEND26B_SECTIONS = [
     guidance:
       'Only if the claim is or may be late (received more than six months after the date of the discrimination: the date of the act, or the date the school decided not to do something, or for a series of connected acts the most recent one; for the permanent exclusion, six months from the date the governing body upheld it or, if applicable, the date the Independent Review Panel sent its decision): why the claim is late and why it is important that it should be accepted, setting out any exceptional circumstances, and, where earlier acts are included, why they form part of a continuing course of conduct. If the claim is not late, leave this section blank. The relevant dates are reported separately.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'remedy',
@@ -1381,7 +1374,7 @@ export const SEND8_SECTIONS = [
     guidance:
       'The name of the parent or young person withdrawing, from the case record. The notice must be signed by the same person (or people) who signed the notice of appeal or claim form; a second parent is named only if they signed the original appeal, which the caseworker adds.',
     fill: 'record',
-    builder: 'appellant',
+    builder: 'names',
   },
   {
     key: 'reason',
@@ -1404,6 +1397,7 @@ export const SEND11_SECTIONS = [
     heading: 'Full name of parent 1',
     guidance: 'The name of the parent from the case record.',
     fill: 'record',
+    builder: 'names',
   },
   {
     key: 'parent2',
@@ -1626,6 +1620,7 @@ export const SEND20A_SECTIONS = [
     guidance:
       'Only if the application is or may be made more than 28 days after the decision was sent: the reasons for the delay in sending the application, from the file.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'grounds',
@@ -1676,6 +1671,7 @@ export const SEND20B_SECTIONS = [
     guidance:
       'Only if the application is or may be made more than 28 days after the decision was sent: the reasons for the delay in sending the application, from the file.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'grounds',
@@ -1717,6 +1713,7 @@ export const SEND20C_SECTIONS = [
     guidance:
       'Only if the application is or may be made more than 28 days after the decision was sent: the reasons for the delay in sending the application, from the file.',
     fill: 'model',
+    optional: true,
   },
   {
     key: 'grounds',
@@ -1780,6 +1777,16 @@ export interface TribunalFormDef {
         lateQuestion: string | null;
         /** The rule in words, e.g. "28 days from the date the decision was sent". */
         describe: string;
+        /**
+         * A statutory period "starting with" the date (Equality Act claims):
+         * the last day is the day before the same date N months on, and it is
+         * not moved off a weekend. Otherwise the Tribunal's rule applies: the
+         * period runs from the date and a last day on a weekend or bank
+         * holiday moves to the next working day.
+         */
+        startingWith?: boolean;
+        /** Said when the limit is counted from a later-preferred date that is absent. */
+        fallbackNote?: string;
       }
     | null;
   /** What the appellant (or the caseworker) must still do, on every draft. */
@@ -1787,6 +1794,8 @@ export interface TribunalFormDef {
   /** What the "details" record section copies, beyond the name and appeal number. */
   details?: {
     localAuthority?: boolean;
+    /** The form asks for the "local authority or responsible body". */
+    responsibleBody?: boolean;
     finalHearing?: boolean;
     /** The date the form is due (SEND45: the case review form date). */
     dueDate?: boolean;
@@ -1983,14 +1992,15 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'the date of the act of discrimination, or the date the school decided not to do something, or, for a series of connected acts, the date of the most recent one',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'claim',
     timing: {
       rule: 'limit',
       from: 'discriminationDate',
       add: { months: 6 },
       lateQuestion: 'Section 7 (Late claims)',
       describe:
-        'six months from the date of the discrimination (or the most recent of a series of connected acts)',
+        'six months starting with the date of the discrimination (or the most recent of a series of connected acts)',
+      startingWith: true,
     },
     checklist: [
       'Confirm both eligibility boxes can be ticked: not asking the Tribunal to order reinstatement after a permanent exclusion (otherwise use SEND26A), and the claimant has parental responsibility for the child or lives with the child, and the child has not reached school leaving age (otherwise the young person claims on SEND4B).',
@@ -2018,14 +2028,15 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'the date of the act of discrimination, or the date the school decided not to do something, or, for a series of connected acts, the date of the most recent one',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'claim',
     timing: {
       rule: 'limit',
       from: 'discriminationDate',
       add: { months: 6 },
       lateQuestion: 'Section 7 (Late claims)',
       describe:
-        'six months from the date of the discrimination (or the most recent of a series of connected acts)',
+        'six months starting with the date of the discrimination (or the most recent of a series of connected acts)',
+      startingWith: true,
     },
     checklist: [
       'Confirm both eligibility boxes can be ticked: not asking the Tribunal to order reinstatement after a permanent exclusion (otherwise use SEND26B), and the young person is over compulsory school age (the last Friday in June of the academic year they turn 16); otherwise the parent claims on SEND4A.',
@@ -2067,16 +2078,20 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'for any other claims in Section 5, the date of the most recent act of discrimination or decision not to do something',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'exclusion',
     timing: {
       rule: 'limit',
       from: ['irpDecision', 'governorsUpheld'],
       add: { months: 6 },
       lateQuestion: 'Section 6 (Late claims)',
       describe:
-        'six months from the date an Independent Review Panel sent its decision, or else the date the governing body upheld the exclusion',
+        'six months starting with the date an Independent Review Panel sent its decision, or else the date the governing body upheld the exclusion',
+      startingWith: true,
+      fallbackNote:
+        'No Independent Review Panel decision was found, so this counts from the governors’ decision. If a review panel review is pending, the six months run from its decision instead.',
     },
     checklist: [
+      'Any other claim in the other-claims section has its own six-month limit, starting with the date of its most recent act — check each one.',
       'Confirm all three eligibility boxes can be ticked: parental responsibility for the child or living with the child, who has not reached school leaving age; the child has been permanently excluded (for a state school, the governing body has upheld it); and the claimant wants the Tribunal to order reinstatement. If reinstatement is not sought, use SEND4A.',
       'Section 1: tick the child’s gender (Boy/Girl).',
       'Section 3: choose who should receive information about the claim (1st claimant, 2nd claimant or representative); give any reason the other person with parental responsibility should not be sent details.',
@@ -2118,16 +2133,20 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'for any other claims in Section 4, the date of the most recent act of discrimination or decision not to do something',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'exclusion',
     timing: {
       rule: 'limit',
       from: ['irpDecision', 'governorsUpheld'],
       add: { months: 6 },
       lateQuestion: 'Section 6 (Late claims)',
       describe:
-        'six months from the date an Independent Review Panel sent its decision, or else the date the governing body upheld the exclusion',
+        'six months starting with the date an Independent Review Panel sent its decision, or else the date the governing body upheld the exclusion',
+      startingWith: true,
+      fallbackNote:
+        'No Independent Review Panel decision was found, so this counts from the governors’ decision. If a review panel review is pending, the six months run from its decision instead.',
     },
     checklist: [
+      'Any other claim in the other-claims section has its own six-month limit, starting with the date of its most recent act — check each one.',
       'Confirm all three eligibility boxes can be ticked: over compulsory school age (the last Friday in June of the academic year they turn 16); permanently excluded (for a state school, the governing body has upheld it); and wants an order for reinstatement. If reinstatement is not sought, use SEND4B.',
       'Section 1: the young person chooses their title, ticks Male/Female, and chooses who should receive information about the claim (You or Your Representative).',
       'Section 3: answer Yes/No to whether an Independent Review Panel review has been applied for and whether it has decided; if it has not decided, the claim is put on hold until the outcome is known.',
@@ -2155,7 +2174,11 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
       'Check the agreement is in writing (for example an amended EHC plan, or a letter confirming the concession) before withdrawing.',
       'Return the form to the Special Educational Needs and Disability Tribunal, 1st Floor, Darlington Magistrates Court, Parkgate, Darlington DL1 1RU.',
     ],
-    details: { localAuthority: true, finalHearing: true },
+    details: {
+      localAuthority: true,
+      responsibleBody: true,
+      finalHearing: true,
+    },
   },
   send11_attendance: {
     code: 'SEND11',
@@ -2336,7 +2359,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'the date the Tribunal sent its written decision (the date on, or of the covering email or letter with, the decision being challenged)',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'details',
     timing: {
       rule: 'limit',
       from: 'decisionSent',
@@ -2347,12 +2370,17 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         '28 days from the date the decision was sent (for permission to appeal, check the decision’s covering letter: the 28 days can run from a later date, such as when written reasons were sent)',
     },
     checklist: [
+      'If the appeal or claim was the young person’s own, Section A is about them, not the parent.',
       'Section A: confirm who should receive information about the application (Parent one, Parent two or Representative) — the applicant’s choice.',
       'Section E: the applicant signs and dates the declaration (“I apply for permission to appeal against the decision of the Tribunal identified in paragraph B above”).',
       'Section E: delete the line authorising the representative if there is no representative (or if a legal representative is filling in the form for a client).',
       'Send the signed form with a copy of the decision you are applying for leave to appeal against and any other relevant documentation to HMCTS, SEND Tribunal, 1st Floor, Darlington Magistrates Court, Parkgate, Darlington DL1 1RU (or by fax); obtain proof of posting and keep a copy.',
     ],
-    details: { localAuthority: true },
+    details: {
+      localAuthority: true,
+      responsibleBody: true,
+      finalHearing: true,
+    },
   },
   send20b_review: {
     code: 'SEND20B',
@@ -2369,7 +2397,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'the date the Tribunal sent its written decision (the date on, or of the covering email or letter with, the decision being challenged)',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'details',
     timing: {
       rule: 'limit',
       from: 'decisionSent',
@@ -2379,12 +2407,17 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
       describe: '28 days from the date the decision was sent',
     },
     checklist: [
+      'If the appeal or claim was the young person’s own, Section A is about them, not the parent.',
       'Section A: confirm who should receive information about the application (Parent one, Parent two or Representative) — the applicant’s choice.',
       'Section D: the applicant signs and dates the declaration (“I apply for the Tribunal to review its decision identified in paragraph B above for the reasons given”).',
       'Section D: delete the line authorising the representative if there is no representative (or if a legal representative is filling in the form for a client).',
       'Send the signed form with a copy of the decision you are asking the Tribunal to review and any other relevant documentation to HMCTS, SEND Tribunal, 1st Floor, Darlington Magistrates Court, Parkgate, Darlington DL1 1RU (or by fax); obtain proof of posting and keep a copy.',
     ],
-    details: { localAuthority: true },
+    details: {
+      localAuthority: true,
+      responsibleBody: true,
+      finalHearing: true,
+    },
   },
   send20c_set_aside: {
     code: 'SEND20C',
@@ -2401,7 +2434,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
         find: 'the date the Tribunal sent its written decision (the date on, or of the covering email or letter with, the decision being challenged)',
       },
     ],
-    datesSection: 'late',
+    datesSection: 'details',
     timing: {
       rule: 'limit',
       from: 'decisionSent',
@@ -2411,6 +2444,7 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
       describe: '28 days from the date the decision was sent',
     },
     checklist: [
+      'If the appeal or claim was the young person’s own, Section A is about them, not the parent.',
       'Section A: confirm who should receive information about the application (Parent one, Parent two or Representative) — the applicant’s choice.',
       'Section C: the applicant signs and dates the declaration (“I apply for the Tribunal to set aside its decision/ a part of the decision identified in paragraph B above for the reasons given”).',
       'Section C: delete the line authorising the representative if there is no representative (or if a legal representative is filling in the form for a client).',
@@ -2418,7 +2452,11 @@ export const TRIBUNAL_FORMS: Record<TribunalFormKind, TribunalFormDef> = {
       'Section C: delete “its decision” or “a part of the decision” as appropriate.',
       'Section B: tick the ground or grounds that apply (the draft proposes which).',
     ],
-    details: { localAuthority: true },
+    details: {
+      localAuthority: true,
+      responsibleBody: true,
+      finalHearing: true,
+    },
   },
 };
 
