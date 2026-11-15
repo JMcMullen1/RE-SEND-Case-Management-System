@@ -709,7 +709,10 @@ export function completeTribunalForm(
   const sections: DraftSection[] = form.sections.map((def) => {
     const fromModel = grounded.sections.find((s) => s.key === def.key);
     if (def.fill === 'record') {
-      const built = record[def.key] ?? { paragraphs: [], gap: null };
+      const built = record[def.builder ?? def.key] ?? {
+        paragraphs: [],
+        gap: null,
+      };
       const extra = def.key === form.datesSection ? dateParas : [];
       return {
         key: def.key,

@@ -39,7 +39,7 @@ function when(iso: string): string {
 }
 
 /** An example focus for each kind, shown in the request box. */
-const INSTRUCTION_EXAMPLES: Record<DraftKind, string> = {
+const INSTRUCTION_EXAMPLES: Partial<Record<DraftKind, string>> = {
   position_statement:
     "e.g. The LA disputes the need for a specialist placement; emphasise the EP's findings on anxiety.",
   send35_appeal:
@@ -109,6 +109,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
   });
   // What is being asked for: a kind, or 'form' while no form is chosen yet.
   const [asking, setAsking] = useState<DraftKind | 'form' | null>(null);
+  const [formQuery, setFormQuery] = useState('');
   const chosen: DraftKind | null =
     asking === null || asking === 'form' ? null : asking;
   const [instructions, setInstructions] = useState('');
@@ -166,10 +167,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
     <div className="max-w-3xl space-y-4">
       <p className="text-sm text-gray-600">
         The drafting assistant writes a first draft from this case’s documents,
-        emails and notes — a position statement, or the answers to a Tribunal
-        form (SEND35, SEND35A, SEND7 or SEND45). Every paragraph shows the items
-        it is drawn from, and where the file gives no basis the draft says so
-        instead of guessing. You read, edit and approve it — nothing is filed
+        emails and notes — a position statement, or the answers to any of the
+        Tribunal’s forms for parents and young people. Every paragraph shows the
+        items it is drawn from, and where the file gives no basis the draft says
+        so instead of guessing. You read, edit and approve it — nothing is filed
         until you do.
       </p>
 
@@ -190,17 +191,41 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 <legend className="text-sm font-semibold text-resend-ink">
                   Which form?
                 </legend>
-                <div className="mt-1 space-y-3">
+                <label className="mt-1 block text-sm text-gray-600">
+                  Find a form
+                  <input
+                    type="search"
+                    value={formQuery}
+                    onChange={(e) => setFormQuery(e.target.value)}
+                    placeholder="e.g. SEND7, expenses, exclusion"
+                    className="mt-0.5 block w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+                  />
+                </label>
+                <div className="mt-2 space-y-2">
                   {TRIBUNAL_FORM_GROUPS.map((group) => {
+                    const q = formQuery.trim().toLowerCase();
                     const kinds = TRIBUNAL_FORM_KINDS.filter(
-                      (k) => TRIBUNAL_FORMS[k].group === group.id,
+                      (k) =>
+                        TRIBUNAL_FORMS[k].group === group.id &&
+                        (!q ||
+                          `${DRAFT_KIND_LABELS[k]} ${DRAFT_KIND_DESCRIPTIONS[k]}`
+                            .toLowerCase()
+                            .includes(q)),
                     );
                     if (kinds.length === 0) return null;
                     return (
-                      <div key={group.id}>
-                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                          {group.label}
-                        </p>
+                      <details
+                        // Re-opened as the search changes: every match shown.
+                        key={`${group.id}:${q ? 'search' : 'browse'}`}
+                        open={
+                          Boolean(q) ||
+                          group.id === 'appeal' ||
+                          kinds.some((k) => k === chosen)
+                        }
+                      >
+                        <summary className="mb-1 cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          {group.label} ({kinds.length})
+                        </summary>
                         <div className="space-y-1">
                           {kinds.map((kind) => (
                             <label
@@ -241,7 +266,7 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                             </label>
                           ))}
                         </div>
-                      </div>
+                      </details>
                     );
                   })}
                 </div>
@@ -255,7 +280,10 @@ export function DraftsRegion({ caseId }: { caseId: string }) {
                 rows={3}
                 maxLength={2000}
                 placeholder={
-                  chosen ? INSTRUCTION_EXAMPLES[chosen] : 'Choose a form first.'
+                  chosen
+                    ? (INSTRUCTION_EXAMPLES[chosen] ??
+                      'e.g. Anything the file does not make clear, or what to emphasise.')
+                    : 'Choose a form first.'
                 }
                 className="mt-1 block w-full rounded-md border border-gray-200 p-2 text-sm font-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
               />

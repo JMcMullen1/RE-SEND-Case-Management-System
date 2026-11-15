@@ -307,18 +307,25 @@ test('a SEND35 draft shows record facts, the deadline warning and the form links
   await page.goto(`/cases/${CASE_ID}`);
   await page.getByRole('tab', { name: 'Drafting' }).click();
   await page.getByRole('button', { name: 'Fill in a Tribunal form' }).click();
-  // The four forms, each explained; none chosen until the caseworker picks.
-  for (const name of [/SEND35 appeal form/, /SEND35A/, /SEND7/, /SEND45/])
+  // Forms grouped by stage, each explained; none chosen until picked.
+  await expect(page.getByText(/Starting an appeal \(\d+\)/)).toBeVisible();
+  await expect(page.getByText(/After the hearing or decision/)).toBeVisible();
+  for (const name of [/SEND35 appeal form/, /SEND35A/, /SEND28 appeal/])
     await expect(page.getByRole('radio', { name })).toBeVisible();
   await expect(page.getByRole('radio', { checked: true })).toHaveCount(0);
   await expect(
     page.getByRole('button', { name: 'Start drafting' }),
   ).toBeDisabled();
+  // Searching finds a form in a closed group.
+  await expect(page.getByRole('radio', { name: /SEND7/ })).toBeHidden();
+  await page.getByLabel('Find a form').fill('change');
   await expect(
     page.getByRole('radio', { name: /SEND7/ }),
   ).toHaveAccessibleDescription(/ask the Tribunal for a change/);
+  await expect(page.getByRole('radio', { name: /SEND35A/ })).toHaveCount(0);
   await page.getByRole('radio', { name: /SEND7/ }).check();
   await page.screenshot({ path: 'test-results/form-chooser.png' });
+  await page.getByLabel('Find a form').fill('');
   await page.getByRole('radio', { name: /SEND35 appeal form/ }).check();
   await page.getByRole('button', { name: 'Start drafting' }).click();
   expect(asked).toMatchObject({ kind: 'send35_appeal' });

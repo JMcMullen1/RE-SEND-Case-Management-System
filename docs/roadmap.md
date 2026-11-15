@@ -28,7 +28,9 @@ between pieces of work.
   case record, the rest drafted with sources, the time limit worked out and
   flagged, filed with a "before you submit" list. Also **SEND35A** (refusal to
   assess), **SEND7** (request for change, with the earliest sending date) and
-  **SEND45** (case review).
+  **SEND45** (case review), and **every other form** a parent or young person
+  completes: SEND28/28A, SEND4A/4B, SEND26A/26B, SEND8, SEND11/11YP, SEND30,
+  SEND15A/15AYP, SEND16A, SEND17 and SEND20A/B/C.
 - **Case list import**: the existing Excel case list brought in by an admin,
   columns matched to the system's headings, every row checked (new or
   existing client, duplicate, needs fixing) in simple and advanced views before
@@ -79,9 +81,8 @@ Time recording decisions agreed:
 
 ### Also outstanding from the proposal
 
-- Assisted drafting, next: further Tribunal forms on the same pattern if
-  wanted (for example SEND8 withdrawal, SEND11 attendance, SEND20A permission to
-  appeal) — each is a `TRIBUNAL_FORMS` entry and a short prompt.
+- Assisted drafting: when HMCTS updates a form, update its `TRIBUNAL_FORMS`
+  entry (version, sections) to match.
 - SharePoint library migration: documents filed against the imported cases
   (folder per family or child, matched to clients and children, an admin
   confirming each match).

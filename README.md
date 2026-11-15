@@ -283,6 +283,33 @@ dates and checklist are in `TRIBUNAL_FORMS` in `config.ts`; one function
   is said to have passed) are copied; the issues still in dispute, the working
   document, placement, readiness, representative, supporter, witnesses and
   special requirements are drafted.
+
+### The rest of the Tribunal's forms
+
+Every other SEND Tribunal form a parent or young person completes is in the
+same registry, mapped question by question from the published forms, and offered
+on the Drafting tab grouped by stage (with a search). Each copies what the case
+record holds and drafts the rest from the file, with its own checklist:
+
+- **Starting an appeal:** SEND28 and SEND28A (a child, or a young person under
+  18, detained in youth accommodation) — time limit as for SEND35.
+- **Disability discrimination claims:** SEND4A and SEND4B (by a parent or a
+  young person), SEND26A and SEND26B (after a permanent exclusion, fast-track)
+  — six months from the discrimination; for an exclusion, from the Independent
+  Review Panel's decision if there was one, else the governors upholding it.
+- **During an appeal or claim:** SEND8 (withdrawal), SEND11 and SEND11YP
+  (attendance — timed from the return date in the Tribunal's timetable),
+  SEND30 (witness summons).
+- **After the hearing or decision:** SEND15A, SEND15AYP and SEND16A (expenses —
+  only the journey is drafted; tickets, receipts and bank details are for the
+  claimant), SEND17 (missing tickets or receipts), SEND20A, SEND20B and SEND20C
+  (permission to appeal, review, set aside — 28 days from the decision being
+  sent).
+
+Not included: SEND12 (completed by the local authority) and SEND21 (the
+mediation certificate, completed by the mediation adviser). Each form can be
+switched off with its own `draft_<form>` job flag.
+
 - **Switched off separately** with the `draft_send35a_appeal`,
   `draft_send7_request` and `draft_send45_case_review` job flags.
 
