@@ -7,7 +7,7 @@ import { defineConfig } from '@playwright/test';
  * journey and accessibility specs run here; the network-stubbed browser smokes
  * run under the default config. Specs run in name order against one database:
  * journey.spec.ts expects an empty case list, so the specs that add cases
- * (migrate, schools-import, search, timeline-history) sort after it, and timeline-history
+ * (migrate, schools-import, search, timeline-history, triage-emails) sort after it, and timeline-history
  * after search, whose counts it would change.
  *
  * PW_CHROMIUM lets a local run point at a preinstalled Chromium binary.
@@ -23,6 +23,7 @@ export default defineConfig({
     'schools-import.spec.ts',
     'search.spec.ts',
     'timeline-history.spec.ts',
+    'triage-emails.spec.ts',
   ],
   timeout: 60_000,
   expect: { timeout: 10_000 },

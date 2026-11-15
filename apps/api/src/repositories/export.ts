@@ -26,6 +26,7 @@ export const EXPORT_TABLES: { table: string; omit?: string[] }[] = [
   { table: 'case_reviews' },
   { table: 'documents' },
   { table: 'emails' },
+  { table: 'email_inbox' },
   { table: 'time_entries' },
   { table: 'schools' },
   { table: 'school_contacts' },

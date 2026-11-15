@@ -141,6 +141,13 @@
       "when": 1794773673218,
       "tag": "0019_encryption_state",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794785128115,
+      "tag": "0020_email_inbox",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LOGO_PATH, PRODUCT_NAME } from '@re-send/shared';
 import { getActingUserId, setActingUserId } from '../../api/client';
 import { fetchAccounts } from '../../api/auth';
+import { fetchInboxCount } from '../../api/email-inbox';
 import { useMe, useUsers } from '../../hooks/useCaseData';
 import { SessionMenu } from '../auth/SessionMenu';
 
@@ -12,6 +13,8 @@ interface NavItem {
   /** Also current on these paths (e.g. a case is part of Cases). */
   matches: (path: string) => boolean;
   adminOnly?: boolean;
+  /** Shows how many emails are waiting to be filed. */
+  countsWaiting?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -31,6 +34,12 @@ const NAV: NavItem[] = [
     matches: (p) => p.startsWith('/schools'),
   },
   { to: '/search', label: 'Search', matches: (p) => p.startsWith('/search') },
+  {
+    to: '/emails',
+    label: 'Emails',
+    matches: (p) => p.startsWith('/emails'),
+    countsWaiting: true,
+  },
   { to: '/time', label: 'My time', matches: (p) => p.startsWith('/time') },
   {
     to: '/admin/staff',
@@ -85,6 +94,12 @@ export function AppNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = useMe().data?.role === 'admin';
   const items = NAV.filter((i) => !i.adminOnly || isAdmin);
+  const waiting =
+    useQuery({
+      queryKey: ['email-inbox', 'count'],
+      queryFn: fetchInboxCount,
+      refetchInterval: 5 * 60_000,
+    }).data?.count ?? 0;
 
   return (
     <header className="shrink-0 border-b border-gray-200 bg-white">
@@ -125,6 +140,12 @@ export function AppNav() {
                     }`}
                   >
                     {item.label}
+                    {item.countsWaiting && waiting > 0 && (
+                      <span className="ml-1.5 rounded-full bg-resend-purple px-1.5 text-xs font-semibold leading-5 text-white">
+                        {waiting}
+                        <span className="sr-only"> waiting to be filed</span>
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

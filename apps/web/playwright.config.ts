@@ -18,6 +18,7 @@ export default defineConfig({
     'schools-import.spec.ts',
     'search.spec.ts',
     'timeline-history.spec.ts',
+    'triage-emails.spec.ts',
   ],
   use: {
     baseURL: 'http://localhost:5173',

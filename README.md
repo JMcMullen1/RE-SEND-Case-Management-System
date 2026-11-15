@@ -498,9 +498,26 @@ Correspondence is filed against the case it belongs to (Documents / Emails tab,
   and headers) for AI features, update live for everyone through the same
   `NOTIFY` channel, and every filing, duplicate and deletion is audited by
   identifier. Deleting an email is soft; ticking “also delete its attachments” (for an email filed on the wrong case) removes the attachments that filing added, never a file that was already on the case.
-- **Not yet:** filing straight from Outlook (an add-in or Microsoft Graph) and
-  automatic matching of unplaced email to cases with a review queue. Both build
-  on the same `fileEmail` path; see `docs/roadmap.md`.
+- **Emails to file** (`/emails`, _Emails_ in the navigation with how many are
+  waiting; `apps/api/src/repositories/email-inbox.ts`,
+  `packages/shared/src/email-matching.ts`). Drop in any number of emails
+  without choosing a case. Each is scored against every case from what it
+  holds — its reference or Tribunal appeal number in the subject or text, the
+  client's (or another parent's) email address among the people it is between
+  (staff addresses aside), the child's or client's full name (never a first
+  name alone), and the school and LA contacts on the case; weights and
+  thresholds in `config.ts` (`EMAIL_MATCH_*`, `EMAIL_AUTO_FILE_*`).
+  - One open case clearly ahead (a strong signal, well ahead of the next) is
+    filed straight away through the normal `fileEmail` path, audited with why.
+    A parent with two children's cases who names neither, a match on a name
+    alone, or a closed case is never filed without asking.
+  - Anything else waits in a shared list with its likely cases and why. The
+    original is kept encrypted in storage until someone files it (to a
+    suggestion, or any case found by search) or marks it _Not for a case_, when
+    the file is deleted. An email already on a case, or already waiting, is
+    reported, not added again. Read-only users can look but not file.
+- **Not yet:** filing straight from Outlook (an add-in or Microsoft Graph),
+  which would feed the same matching; see `docs/roadmap.md`.
 
 Demo files: `docs/demo/parent-email.eml` and `docs/demo/tribunal-bundle.msg`.
 

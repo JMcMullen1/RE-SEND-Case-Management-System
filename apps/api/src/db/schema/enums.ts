@@ -2,6 +2,7 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 import {
   AI_JOB_OUTCOME_VALUES,
   CASE_SCHOOL_ROLE_VALUES,
+  EMAIL_INBOX_STATUS_VALUES,
   DRAFT_KIND_VALUES,
   DRAFT_STATUS_VALUES,
   SCHOOL_FUNDING_VALUES,
@@ -68,6 +69,10 @@ export const schoolFundingEnum = pgEnum(
 export const schoolProvisionEnum = pgEnum(
   'school_provision',
   SCHOOL_PROVISION_VALUES,
+);
+export const emailInboxStatusEnum = pgEnum(
+  'email_inbox_status',
+  EMAIL_INBOX_STATUS_VALUES,
 );
 export const caseSchoolRoleEnum = pgEnum(
   'case_school_role',
