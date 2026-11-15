@@ -488,6 +488,13 @@ export const emailInbox = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
     status: emailInboxStatusEnum('status').notNull().default('waiting'),
+    // Someone is filing it now: set while filing runs, so two people cannot
+    // file it at once. It stays waiting meanwhile, so the same email cannot be
+    // added again; a claim left by a crash expires (EMAIL_INBOX_CLAIM_MINUTES).
+    filingStartedAt: timestamp('filing_started_at', { withTimezone: true }),
+    // The file key its stored file is known to be encrypted under (as for
+    // documents), so a key rotation re-encrypts it.
+    encryptionKeyId: text('encryption_key_id'),
     addedByUserId: uuid('added_by_user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),

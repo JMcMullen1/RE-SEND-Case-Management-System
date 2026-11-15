@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
+  EMAIL_INBOX_CLAIM_MINUTES,
   EMAIL_NO_AUTO_FILE_STATUSES,
   emailAddressesIn,
   matchEmailToCases,
@@ -21,6 +22,7 @@ import {
   emails,
   users,
 } from '../db/schema';
+import { currentFileKeyId } from '../crypto/encryption';
 import { parseEmailFile } from '../email/parse';
 import { getStorageProvider } from '../storage';
 import { recordAudit } from './audit';
@@ -128,17 +130,11 @@ export async function intakeEmail(
   const parsed = await parseEmailFile(input.filename, input.bytes);
 
   // The same email already filed on a case.
-  const [filed] = await db
-    .select({ id: emails.id, caseId: emails.caseId })
-    .from(emails)
-    .innerJoin(cases, and(eq(cases.id, emails.caseId), isNull(cases.deletedAt)))
-    .where(and(eq(emails.dedupKey, parsed.dedupKey), isNull(emails.deletedAt)))
-    .orderBy(emails.createdAt)
-    .limit(1);
-  if (filed?.caseId)
+  const filed = await alreadyFiled(parsed.dedupKey);
+  if (filed)
     return {
       outcome: 'duplicate',
-      emailId: filed.id,
+      emailId: filed.emailId,
       caseId: filed.caseId,
       caseReference: await caseReferenceOf(filed.caseId),
       reasons: [],
@@ -166,13 +162,15 @@ export async function intakeEmail(
     const caseId = match.autoFileCaseId;
     const reasons = match.matches[0]!.reasons;
     const result = await fileEmail(caseId, input, actor);
-    await recordAudit(db, {
-      actorUserId: actor,
-      action: 'email.auto_file',
-      entityType: 'email',
-      entityId: result.email.id,
-      after: { caseId, reasons, score: match.matches[0]!.score },
-    });
+    // Filed by matching (fileEmail audits a duplicate itself).
+    if (result.outcome === 'created')
+      await recordAudit(db, {
+        actorUserId: actor,
+        action: 'email.auto_file',
+        entityType: 'email',
+        entityId: result.email.id,
+        after: { caseId, reasons, score: match.matches[0]!.score },
+      });
     return {
       outcome: result.outcome === 'created' ? 'filed' : 'duplicate',
       emailId: result.email.id,
@@ -204,6 +202,7 @@ export async function intakeEmail(
         sentAt: parsed.sentAt,
         suggestions: match.matches,
         addedByUserId: actor,
+        encryptionKeyId: currentFileKeyId(),
       })
       .returning({ id: emailInbox.id });
     id = row!.id;
@@ -339,74 +338,122 @@ export async function inboxEmailText(id: string): Promise<{
   };
 }
 
+/** Delete a stored file that is no longer needed; a failure leaves it behind. */
+async function deleteStored(key: string): Promise<void> {
+  try {
+    await getStorageProvider().delete(key);
+  } catch {
+    // Left in storage (encrypted); the email itself is already dealt with.
+  }
+}
+
+/** Where an email is already filed, on any live case, or null. */
+async function alreadyFiled(
+  dedupKey: string,
+): Promise<{ emailId: string; caseId: string } | null> {
+  const [row] = await getDb()
+    .select({ emailId: emails.id, caseId: emails.caseId })
+    .from(emails)
+    .innerJoin(cases, and(eq(cases.id, emails.caseId), isNull(cases.deletedAt)))
+    .where(and(eq(emails.dedupKey, dedupKey), isNull(emails.deletedAt)))
+    .orderBy(emails.createdAt)
+    .limit(1);
+  return row?.caseId ? { emailId: row.emailId, caseId: row.caseId } : null;
+}
+
 /**
  * File an email from the list to the case chosen, by the normal email path
  * (duplicates, attachments and audit as ever), then take it off the list.
+ * If the same email has meanwhile been filed on a case by another route, it
+ * is not filed a second time: the list entry is closed against that case.
  */
 export async function fileInboxItem(
   id: string,
   caseId: string,
   actor: string | null,
 ): Promise<EmailIntakeResult> {
-  const item = await waitingItem(id);
-  const stored = await getStorageProvider().get(item.storageKey);
-  if (!stored) throw new InboxItemNotFound('The email file is missing.');
   const db = getDb();
-  // Claim it first, so two people filing it at once cannot put it on two
-  // cases; released again if filing fails.
-  const claimed = await db
+  // Claim it: two people filing it at once cannot put it on two cases. It
+  // stays waiting while filing runs, so the same email cannot be added again.
+  const [item] = await db
+    .update(emailInbox)
+    .set({ filingStartedAt: new Date() })
+    .where(
+      and(
+        eq(emailInbox.id, id),
+        eq(emailInbox.status, 'waiting'),
+        sql`(${emailInbox.filingStartedAt} IS NULL OR ${emailInbox.filingStartedAt} < now() - make_interval(mins => ${EMAIL_INBOX_CLAIM_MINUTES}))`,
+      ),
+    )
+    .returning();
+  if (!item) {
+    await waitingItem(id); // not found, or dealt with
+    throw new InboxItemResolved('Someone else is filing this email now.');
+  }
+  const release = () =>
+    db
+      .update(emailInbox)
+      .set({ filingStartedAt: null })
+      .where(eq(emailInbox.id, id));
+
+  let result: { emailId: string; caseId: string; created: boolean };
+  try {
+    const elsewhere = await alreadyFiled(item.dedupKey);
+    if (elsewhere) {
+      result = { ...elsewhere, created: false };
+    } else {
+      const stored = await getStorageProvider().get(item.storageKey);
+      if (!stored) throw new InboxItemNotFound('The email file is missing.');
+      const filed = await fileEmail(
+        caseId,
+        {
+          filename: item.originalFilename,
+          mimeType: item.mimeType,
+          bytes: stored.body,
+        },
+        actor,
+      );
+      result = {
+        emailId: filed.email.id,
+        caseId,
+        created: filed.outcome === 'created',
+      };
+    }
+  } catch (err) {
+    await release();
+    throw err;
+  }
+
+  await db
     .update(emailInbox)
     .set({
       status: 'filed',
+      filingStartedAt: null,
       resolvedByUserId: actor,
       resolvedAt: new Date(),
-      filedCaseId: caseId,
+      filedCaseId: result.caseId,
+      filedEmailId: result.emailId,
     })
-    .where(and(eq(emailInbox.id, id), eq(emailInbox.status, 'waiting')))
-    .returning({ id: emailInbox.id });
-  if (!claimed.length)
-    throw new InboxItemResolved('This email has already been dealt with.');
-  let result: Awaited<ReturnType<typeof fileEmail>>;
-  try {
-    result = await fileEmail(
-      caseId,
-      {
-        filename: item.originalFilename,
-        mimeType: item.mimeType,
-        bytes: stored.body,
-      },
-      actor,
-    );
-  } catch (err) {
-    await db
-      .update(emailInbox)
-      .set({
-        status: 'waiting',
-        resolvedByUserId: null,
-        resolvedAt: null,
-        filedCaseId: null,
-      })
-      .where(eq(emailInbox.id, id));
-    throw err;
-  }
-  await db
-    .update(emailInbox)
-    .set({ filedEmailId: result.email.id })
     .where(eq(emailInbox.id, id));
-  await getStorageProvider().delete(item.storageKey);
-  const suggestion = item.suggestions.find((s) => s.caseId === caseId);
+  const suggestion = item.suggestions.find((s) => s.caseId === result.caseId);
   await recordAudit(db, {
     actorUserId: actor,
     action: 'email_inbox.file',
     entityType: 'email_inbox',
     entityId: id,
-    after: { caseId, emailId: result.email.id, suggested: Boolean(suggestion) },
+    after: {
+      caseId: result.caseId,
+      emailId: result.emailId,
+      suggested: Boolean(suggestion),
+      alreadyFiled: !result.created,
+    },
   });
+  await deleteStored(item.storageKey);
   return {
-    outcome: result.outcome === 'created' ? 'filed' : 'duplicate',
-    emailId: result.email.id,
-    caseId,
-    caseReference: await caseReferenceOf(caseId),
+    outcome: result.created ? 'filed' : 'duplicate',
+    emailId: result.emailId,
+    caseId: result.caseId,
+    caseReference: await caseReferenceOf(result.caseId),
     reasons: (suggestion?.reasons ?? []) as EmailMatchReason[],
   };
 }
@@ -416,26 +463,33 @@ export async function dismissInboxItem(
   id: string,
   actor: string | null,
 ): Promise<void> {
-  const item = await waitingItem(id);
   const db = getDb();
-  const done = await db
+  const [done] = await db
     .update(emailInbox)
     .set({
       status: 'dismissed',
       resolvedByUserId: actor,
       resolvedAt: new Date(),
     })
-    .where(and(eq(emailInbox.id, id), eq(emailInbox.status, 'waiting')))
-    .returning({ id: emailInbox.id });
-  if (!done.length)
-    throw new InboxItemResolved('This email has already been dealt with.');
-  await getStorageProvider().delete(item.storageKey);
+    .where(
+      and(
+        eq(emailInbox.id, id),
+        eq(emailInbox.status, 'waiting'),
+        sql`(${emailInbox.filingStartedAt} IS NULL OR ${emailInbox.filingStartedAt} < now() - make_interval(mins => ${EMAIL_INBOX_CLAIM_MINUTES}))`,
+      ),
+    )
+    .returning({ storageKey: emailInbox.storageKey });
+  if (!done) {
+    await waitingItem(id);
+    throw new InboxItemResolved('Someone else is filing this email now.');
+  }
   await recordAudit(db, {
     actorUserId: actor,
     action: 'email_inbox.dismiss',
     entityType: 'email_inbox',
     entityId: id,
   });
+  await deleteStored(done.storageKey);
 }
 
 /** How many emails are waiting to be filed (for the navigation). */

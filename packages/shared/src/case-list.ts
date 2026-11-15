@@ -34,6 +34,7 @@ export type CaseOwner =
 /** One row of the case list, as returned by the API. */
 export interface CaseListRow {
   id: string;
+  caseReference: string;
   clientId: string | null;
   clientName: string | null;
   childName: string | null;

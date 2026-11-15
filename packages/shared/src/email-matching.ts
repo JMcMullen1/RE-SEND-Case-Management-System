@@ -86,6 +86,19 @@ function compact(text: string): string {
 }
 
 /**
+ * Whether a reference ("RS-2026-1001", "EH123/26/00042") is written in the
+ * text as a whole: its letters and digits in order, with only a space, tab
+ * or - / . _ between them (never a line break), and no letter or digit either
+ * side — so "RS-2026-10012" is not RS-2026-1001.
+ */
+function mentionsReference(text: string, reference: string): boolean {
+  const chars = compact(reference);
+  if (chars.length < 6) return false;
+  const pattern = chars.split('').join('[ \\t\\-/._]*');
+  return new RegExp(`(?<![a-z0-9])${pattern}(?![a-z0-9])`, 'i').test(text);
+}
+
+/**
  * Whether a name is written in the text as whole words. Only names of two or
  * more words count: a first name alone ("Kit") would match far too much.
  */
@@ -121,7 +134,7 @@ export function matchEmailToCases(
   staffAddresses: readonly string[],
 ): EmailMatchResult {
   const text = words(`${email.subject ?? ''}\n${email.bodyText ?? ''}`);
-  const flat = compact(`${email.subject ?? ''} ${email.bodyText ?? ''}`);
+  const raw = `${email.subject ?? ''}\n${email.bodyText ?? ''}`;
   // The people outside the charity the email is between.
   const people = new Set(
     [email.fromAddress, ...email.toAddresses, ...email.ccAddresses]
@@ -135,10 +148,8 @@ export function matchEmailToCases(
   const scored: (CaseMatch & { noAutoFile: boolean })[] = [];
   for (const c of cases) {
     const reasons: EmailMatchReason[] = [];
-    const ref = compact(c.caseReference);
-    if (ref.length >= 6 && flat.includes(ref)) reasons.push('case_reference');
-    const appeal = compact(c.appealNumber ?? '');
-    if (appeal.length >= 6 && flat.includes(appeal))
+    if (mentionsReference(raw, c.caseReference)) reasons.push('case_reference');
+    if (c.appealNumber && mentionsReference(raw, c.appealNumber))
       reasons.push('appeal_number');
     if (between(c.clientEmails)) reasons.push('client_email');
     if (c.childNames.some((n) => mentionsName(text, n)))

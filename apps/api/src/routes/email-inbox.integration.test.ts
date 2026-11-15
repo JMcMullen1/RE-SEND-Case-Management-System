@@ -252,6 +252,84 @@ run('emails to file API', () => {
     await app.close();
   });
 
+  it('never files a second copy when the email was filed on a case meanwhile', async () => {
+    const app = await buildServer();
+    const bytes = buildEml({
+      messageId: `<meanwhile-${stamp}@example.org>`,
+      from: `Twin Parent <${twoKids}>`,
+      subject: 'Meanwhile',
+    });
+    const queued = await send(app, bytes);
+    expect(queued.json().outcome).toBe('queued');
+    // Someone files it straight on case A from the case's own Emails tab.
+    const direct = await app.inject({
+      method: 'POST',
+      url: `/api/cases/${caseA}/emails`,
+      headers: { ...as(worker()), ...multipart('mail.eml', bytes).headers },
+      payload: multipart('mail.eml', bytes).payload,
+    });
+    expect(direct.json().outcome).toBe('created');
+    // Then someone else chooses case B in the list: it stays on A only.
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/email-inbox/${queued.json().item.id}/file`,
+      headers: as(worker()),
+      payload: { caseId: caseB },
+    });
+    expect(res.json()).toMatchObject({ outcome: 'duplicate', caseId: caseA });
+    const onB = await getDb()
+      .select({ id: emails.id })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.caseId, caseB),
+          eq(emails.dedupKey, `mid:meanwhile-${stamp}@example.org`),
+        ),
+      );
+    expect(onB).toEqual([]);
+    const onA = await getDb()
+      .select({ id: emails.id })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.caseId, caseA),
+          eq(emails.dedupKey, `mid:meanwhile-${stamp}@example.org`),
+        ),
+      );
+    expect(onA).toHaveLength(1);
+    await app.close();
+  });
+
+  it('lets only one person file an email at a time', async () => {
+    const app = await buildServer();
+    const queued = await send(
+      app,
+      buildEml({
+        messageId: `<race-inbox-${stamp}@example.org>`,
+        from: `Twin Parent <${twoKids}>`,
+        subject: 'Race',
+      }),
+    );
+    const id = queued.json().item.id;
+    const [one, two] = await Promise.all(
+      [caseA, caseB].map((caseId) =>
+        app.inject({
+          method: 'POST',
+          url: `/api/email-inbox/${id}/file`,
+          headers: as(worker()),
+          payload: { caseId },
+        }),
+      ),
+    );
+    expect([one!.statusCode, two!.statusCode].sort()).toEqual([200, 409]);
+    const copies = await getDb()
+      .select({ id: emails.id })
+      .from(emails)
+      .where(eq(emails.dedupKey, `mid:race-inbox-${stamp}@example.org`));
+    expect(copies).toHaveLength(1);
+    await app.close();
+  });
+
   it('refuses a file that is not an email', async () => {
     const app = await buildServer();
     const res = await send(app, Buffer.from(''));

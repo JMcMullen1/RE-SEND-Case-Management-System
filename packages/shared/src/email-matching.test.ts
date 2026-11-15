@@ -130,6 +130,24 @@ describe('matching an email to a case', () => {
     ).toBe('3');
   });
 
+  it('needs the whole reference: not part of a longer one, nor split across lines', () => {
+    expect(
+      matchEmailToCases(email({ subject: 'Re RS-2026-00012' }), [doe], STAFF)
+        .matches,
+    ).toEqual([]);
+    expect(
+      matchEmailToCases(
+        email({ subject: 'Invoice RS 2026', bodyText: '0001 items' }),
+        [doe],
+        STAFF,
+      ).matches,
+    ).toEqual([]);
+    expect(
+      matchEmailToCases(email({ subject: 'Ref: RS 2026 0001.' }), [doe], STAFF)
+        .autoFileCaseId,
+    ).toBe('1');
+  });
+
   it('does not take a first name alone as the child’s name', () => {
     const result = matchEmailToCases(
       email({ bodyText: 'Robin was much happier today.' }),

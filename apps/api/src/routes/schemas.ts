@@ -75,6 +75,7 @@ export const CaseOwnerSchema = z.discriminatedUnion('kind', [
 
 export const CaseListRowSchema = z.object({
   id: z.string(),
+  caseReference: z.string(),
   clientId: z.string().nullable(),
   clientName: z.string().nullable(),
   childName: z.string().nullable(),

@@ -74,11 +74,11 @@ const REGISTRY: Record<string, EntityMapping> = {
           ]
         : [],
   },
-  // A filed email also files its attachments, so the documents list refreshes
-  // with it.
   email_inbox: {
     keys: () => [['email-inbox']],
   },
+  // A filed email also files its attachments, so the documents list refreshes
+  // with it.
   emails: {
     keys: (_id, scopeId) =>
       scopeId

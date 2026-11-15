@@ -115,6 +115,7 @@ const ORDER_BY: Record<SortId, SQL> = {
 
 interface RawRow {
   id: string;
+  case_reference: string;
   client_id: string | null;
   client_name: string | null;
   child_name: string | null;
@@ -144,6 +145,7 @@ function mapRow(r: RawRow): CaseListRow {
     : { kind: 'queue', queue: (r.owner_queue ?? 'Enquiries') as never };
   return {
     id: r.id,
+    caseReference: r.case_reference,
     clientId: r.client_id,
     clientName: r.client_name,
     childName: r.child_name,
@@ -177,6 +179,7 @@ export interface CaseListQuery {
 
 const SELECT_ROW = sql`
   c.id,
+  c.case_reference,
   cl.id AS client_id,
   cl.display_name AS client_name,
   COALESCE(ch.preferred_name, ch.full_name) AS child_name,

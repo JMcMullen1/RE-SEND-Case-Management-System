@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   EMAIL_FILING_ROLES,
   EMAIL_MATCH_REASON_LABELS,
+  EMAIL_NO_AUTO_FILE_STATUSES,
   defaultViewState,
   isEmailFile,
   type EmailCaseSuggestion,
@@ -165,11 +166,12 @@ function CasePicker({
           {found.data?.rows.map((row) => (
             <li key={row.id} className="flex items-center gap-2 py-1">
               <span className="min-w-0 flex-1 truncate">
+                <span className="font-medium">{row.caseReference}</span>{' '}
                 {row.clientName ?? 'Unnamed client'}
                 {row.childName && (
                   <span className="text-gray-500"> · {row.childName}</span>
                 )}
-                {row.status === 'Closed' && (
+                {EMAIL_NO_AUTO_FILE_STATUSES.includes(row.status) && (
                   <span className="ml-1 text-xs text-gray-500">(closed)</span>
                 )}
               </span>
@@ -384,6 +386,7 @@ export function EmailsToFilePage() {
     subject: string;
     caseId: string;
     caseReference: string;
+    already: boolean;
   } | null>(null);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -496,7 +499,9 @@ export function EmailsToFilePage() {
           </h2>
           {filed && (
             <p className="mt-2 rounded-md border-l-4 border-resend-green bg-gray-50 px-3 py-2 text-sm">
-              Filed “{filed.subject}” to{' '}
+              {filed.already
+                ? `“${filed.subject}” was already filed on `
+                : `Filed “${filed.subject}” to `}
               <a href={caseLink(filed.caseId)} className={quiet}>
                 {filed.caseReference}
               </a>
@@ -524,6 +529,7 @@ export function EmailsToFilePage() {
                       subject,
                       caseId: result.caseId,
                       caseReference: result.caseReference,
+                      already: result.outcome === 'duplicate',
                     });
                 }}
               />

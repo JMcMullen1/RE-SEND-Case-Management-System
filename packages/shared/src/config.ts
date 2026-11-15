@@ -2804,6 +2804,8 @@ export const EMAIL_INBOX_STATUS_VALUES = [
   'dismissed',
 ] as const;
 export type EmailInboxStatus = (typeof EMAIL_INBOX_STATUS_VALUES)[number];
+/** How long a claim to be filing an email from the list holds (a crash's expires). */
+export const EMAIL_INBOX_CLAIM_MINUTES = 5;
 /** Roles that may file emails from the list (read-only may not). */
 export const EMAIL_FILING_ROLES = ['admin', 'caseworker', 'finance'] as const;
 
