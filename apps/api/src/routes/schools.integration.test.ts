@@ -362,7 +362,13 @@ run('schools directory API', () => {
 
   it('handles URNs: spaces, archived schools, and a clash on restore', async () => {
     const app = await buildServer();
-    const urn2 = String(200000 + (stamp % 700000));
+    // A URN no school holds yet (the test database is reused between runs).
+    const [free] = (await getDb().execute(
+      sql`SELECT n::text AS urn FROM generate_series(200000, 999999) n
+          WHERE NOT EXISTS (SELECT 1 FROM schools s WHERE s.urn = n::text)
+          ORDER BY random() LIMIT 1`,
+    )) as unknown as { urn: string }[];
+    const urn2 = free!.urn;
     const spaced = await app.inject({
       method: 'POST',
       url: '/api/schools',

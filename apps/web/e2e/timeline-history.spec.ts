@@ -97,7 +97,7 @@ test('a case reads start to finish: notes, emails and documents together', async
     'aria-selected',
     'true',
   );
-  await expect(page.getByText('3 entries.')).toBeVisible();
+  await expect(page.getByText('4 entries.')).toBeVisible();
   // Oldest first reads the case in order: the note, then the email.
   await page.getByLabel('Order').selectOption('oldest');
   const items = page.locator('ol ol > li');
@@ -105,9 +105,11 @@ test('a case reads start to finish: notes, emails and documents together', async
     'Parent called about the draft plan.',
   );
   await expect(items.nth(1)).toContainText('Final EHC plan issued');
-  // The attachment sits with its email, not again on its own.
+  // The attachment is listed on its email, and as a document saying so.
   await expect(items.nth(1)).toContainText('final-plan.txt');
-  await expect(page.getByText('final-plan.txt')).toHaveCount(1);
+  await expect(
+    page.getByText('Also attached to the email “Final EHC plan issued”'),
+  ).toBeVisible();
 
   // A long email opens in full on request.
   await expect(page.getByText(/occupational therapy/)).toHaveCount(0);
@@ -129,10 +131,13 @@ test('a case reads start to finish: notes, emails and documents together', async
 
   // Filters and find.
   await page.getByRole('button', { name: 'Emails' }).click();
-  await expect(page.getByText('1 of 3 entries shown.')).toBeVisible();
-  await page.getByRole('button', { name: 'Emails' }).click();
+  await expect(page.getByText('1 of 4 entries shown.')).toBeVisible();
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'All', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Find in this case’s history').fill('ep-report');
-  await expect(page.getByText('1 of 3 entries shown.')).toBeVisible();
+  await expect(page.getByText('1 of 4 entries shown.')).toBeVisible();
   await expect(
     page.getByRole('link', { name: /ep-report\.txt/ }),
   ).toBeVisible();

@@ -6,24 +6,11 @@
  * them.
  */
 
+import type { HistoryFilter } from './config';
 import type { DocumentInfo } from './case-detail';
 import { londonToday } from './case-list';
 import type { EmailInfo } from './email';
 import type { NoteTimelineItem } from './timeline';
-
-export const HISTORY_FILTER_VALUES = [
-  'note',
-  'billable',
-  'email',
-  'document',
-] as const;
-export type HistoryFilter = (typeof HISTORY_FILTER_VALUES)[number];
-export const HISTORY_FILTER_LABELS: Record<HistoryFilter, string> = {
-  note: 'Case notes',
-  billable: 'Billables',
-  email: 'Emails',
-  document: 'Documents',
-};
 
 interface HistoryBase {
   /** Unique across kinds (a note and a document can share no key). */
@@ -37,7 +24,12 @@ interface HistoryBase {
 export type HistoryEntry =
   | (HistoryBase & { kind: 'note'; note: NoteTimelineItem })
   | (HistoryBase & { kind: 'email'; email: EmailInfo })
-  | (HistoryBase & { kind: 'document'; document: DocumentInfo });
+  | (HistoryBase & {
+      kind: 'document';
+      document: DocumentInfo;
+      /** Subjects of the emails it was attached to, if any. */
+      attachedTo: string[];
+    });
 
 /** What an entry counts as, for the filters. */
 export function historyFilterOf(entry: HistoryEntry): HistoryFilter {
@@ -48,9 +40,11 @@ export function historyFilterOf(entry: HistoryEntry): HistoryFilter {
 
 /**
  * Merge a case's notes, emails and documents into one history, newest first
- * (or oldest first). A document filed as an email's attachment is shown with
- * its email, not again on its own. Emails are dated when sent (else when
- * filed); documents when their current version was uploaded.
+ * (or oldest first). Every document appears on the day it was uploaded, and
+ * one that was also an email's attachment says so (the same file can arrive
+ * first by upload and later by email, so hiding it would misdate it). Emails
+ * are dated when sent (else when filed). A note belongs to the day it is
+ * about; one written on a later day sits at the end of its day.
  */
 export function buildCaseHistory(
   input: {
@@ -60,15 +54,23 @@ export function buildCaseHistory(
   },
   order: 'newest' | 'oldest' = 'newest',
 ): HistoryEntry[] {
-  const attached = new Set(
-    input.emails.flatMap((e) => e.attachments.map((a) => a.documentId)),
-  );
+  const attachedTo = new Map<string, string[]>();
+  for (const e of input.emails)
+    for (const a of e.attachments)
+      attachedTo.set(a.documentId, [
+        ...(attachedTo.get(a.documentId) ?? []),
+        e.subject || '(no subject)',
+      ]);
   const entries: HistoryEntry[] = [
     ...input.notes.map((note): HistoryEntry => ({
       kind: 'note',
       key: `note:${note.id}`,
       date: note.occurredOn,
-      at: note.createdAt,
+      // Written that day: when it was written; backdated: the end of its day.
+      at:
+        londonToday(new Date(note.createdAt)) === note.occurredOn
+          ? note.createdAt
+          : `${note.occurredOn}T23:59:59.999Z`,
       note,
     })),
     ...input.emails.map((email): HistoryEntry => {
@@ -81,15 +83,14 @@ export function buildCaseHistory(
         email,
       };
     }),
-    ...input.documents
-      .filter((d) => !attached.has(d.id))
-      .map((document): HistoryEntry => ({
-        kind: 'document',
-        key: `document:${document.id}`,
-        date: londonToday(new Date(document.uploadedAt)),
-        at: document.uploadedAt,
-        document,
-      })),
+    ...input.documents.map((document): HistoryEntry => ({
+      kind: 'document',
+      key: `document:${document.id}`,
+      date: londonToday(new Date(document.uploadedAt)),
+      at: document.uploadedAt,
+      document,
+      attachedTo: attachedTo.get(document.id) ?? [],
+    })),
   ];
   const sign = order === 'newest' ? -1 : 1;
   return entries.sort((a, b) =>
@@ -113,6 +114,7 @@ function searchableText(entry: HistoryEntry): string {
         e.fromName,
         e.fromAddress,
         ...e.toAddresses,
+        ...e.ccAddresses,
         e.bodyText,
         ...e.attachments.map((a) => a.originalFilename),
       ]

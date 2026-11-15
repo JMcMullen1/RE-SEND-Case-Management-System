@@ -18,6 +18,13 @@ run('request logging', () => {
         method: 'GET',
         url: '/api/cases/00000000-0000-0000-0000-000000000000/timeline?q=Zebedee%20Madeupname',
       });
+      // A filter value that fails validation (its message can quote it)…
+      await app.inject({
+        method: 'GET',
+        url: '/api/cases/00000000-0000-0000-0000-000000000000/timeline?kind=Madeupname',
+      });
+      // …and a path that matches no route.
+      await app.inject({ method: 'GET', url: '/api/nope?q=Madeupname' });
       await app.close();
     } finally {
       spy.mockRestore();

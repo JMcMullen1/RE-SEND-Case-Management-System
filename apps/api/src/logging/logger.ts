@@ -31,7 +31,17 @@ export function buildLogger(level = process.env.LOG_LEVEL ?? 'info') {
       timestamp: pino.stdTimeFunctions.epochTime,
       // A query string can carry what someone searched for (a child's name,
       // say), which the redaction rules cannot recognise: log the path only.
-      serializers: { req: serializeRequest },
+      serializers: { req: serializeRequest, err: serializeError },
+      hooks: {
+        // Fastify logs a failed request with the error's message as the line's
+        // text: for a validation error that quotes what was sent, so replace it.
+        logMethod(args, method) {
+          const first = args[0] as { err?: { code?: string } } | undefined;
+          if (first?.err?.code === 'FST_ERR_VALIDATION' && args.length > 1)
+            args[1] = 'Request failed validation';
+          return method.apply(this, args);
+        },
+      },
     },
     redactingStream(process.stdout),
   );
@@ -51,4 +61,35 @@ export function serializeRequest(req: {
     hostname: req.hostname,
     remoteAddress: req.ip ?? req.socket?.remoteAddress,
   };
+}
+
+/**
+ * An error as logged. A request that fails validation is logged with what was
+ * wrong but not what was sent: a validation message can quote the value
+ * (Zod's "received": ...), which may be a name someone typed.
+ */
+export function serializeError(err: unknown) {
+  const e = err as {
+    name?: string;
+    message?: string;
+    stack?: string;
+    code?: string;
+    statusCode?: number;
+    validationContext?: string;
+    validation?: {
+      instancePath?: string;
+      keyword?: string;
+      params?: unknown;
+    }[];
+  };
+  if (!e || typeof e !== 'object') return err;
+  if (e.code === 'FST_ERR_VALIDATION')
+    return {
+      type: e.name,
+      code: e.code,
+      statusCode: e.statusCode,
+      validationContext: e.validationContext,
+      message: 'Request failed validation',
+    };
+  return pino.stdSerializers.err(err as Error);
 }

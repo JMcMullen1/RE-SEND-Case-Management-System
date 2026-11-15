@@ -9,6 +9,11 @@
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
+// The query string of any URL path in a line ("/api/x?q=A%20Name"): it can
+// carry what someone searched for, which no pattern below would recognise.
+// Framework messages ("Route GET:/x?q=... not found") include raw URLs.
+const QUERY_STRING = /(\/[^\s"?\\]*)\?[^\s"\\]*/g;
+
 // UK mobiles (+44 7xxx / 07xxx) and landlines (0xx / +44 xx), with the usual
 // spacing and separators. The leading boundary keeps it from firing inside a
 // longer number (e.g. a decimal response time), and the trailing one stops it
@@ -31,6 +36,7 @@ const UK_DATE = /\b\d{2}[/-]\d{2}[/-]\d{4}\b/g;
  */
 export function redactLine(line: string): string {
   return line
+    .replace(QUERY_STRING, '$1?[redacted-query]')
     .replace(EMAIL, '[redacted-email]')
     .replace(ISO_DATE, '[redacted-date]')
     .replace(UK_DATE, '[redacted-date]')

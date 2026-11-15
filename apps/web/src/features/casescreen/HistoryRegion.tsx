@@ -20,8 +20,9 @@ import {
 
 const chip = 'rounded px-1.5 py-0.5 text-[11px] font-medium';
 
-/** How long an email body shows before "Show the whole email". */
+/** How much of an email body shows before "Show the whole email". */
 const EMAIL_PREVIEW_LINES = 6;
+const EMAIL_PREVIEW_CHARS = 600;
 
 function time(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-GB', {
@@ -61,10 +62,15 @@ function EmailEntry({
 }) {
   const e = entry.email;
   const [open, setOpen] = useState(false);
-  const lines = (e.bodyText ?? '').trim().split('\n');
-  const long = lines.length > EMAIL_PREVIEW_LINES;
-  const body =
-    open || !long ? e.bodyText : lines.slice(0, EMAIL_PREVIEW_LINES).join('\n');
+  const text = (e.bodyText ?? '').trim();
+  // Short enough to show whole: few lines and not one long run of text.
+  const preview = text
+    .split('\n')
+    .slice(0, EMAIL_PREVIEW_LINES)
+    .join('\n')
+    .slice(0, EMAIL_PREVIEW_CHARS);
+  const long = preview.length < text.length;
+  const body = open || !long ? text : preview.trimEnd();
   const from = e.fromName || e.fromAddress || 'Unknown sender';
   return (
     <>
@@ -157,6 +163,12 @@ function DocumentEntry({
           </span>
         )}
       </p>
+      {entry.attachedTo.length > 0 && (
+        <p className="text-xs text-gray-600">
+          Also attached to the email{entry.attachedTo.length > 1 ? 's' : ''}{' '}
+          {entry.attachedTo.map((subject) => `“${subject}”`).join(', ')}
+        </p>
+      )}
     </>
   );
 }
@@ -209,6 +221,18 @@ export function HistoryRegion({ caseId }: { caseId: string }) {
     <div className="max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            aria-pressed={kinds.length === 0}
+            onClick={() => setKinds([])}
+            className={`rounded-full border px-3 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple ${
+              kinds.length === 0
+                ? 'border-resend-purple bg-resend-purple text-white'
+                : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            All
+          </button>
           {HISTORY_FILTER_VALUES.map((k) => (
             <button
               key={k}

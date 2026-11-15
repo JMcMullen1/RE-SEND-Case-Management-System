@@ -33,7 +33,7 @@ const email: EmailInfo = {
   fromName: 'Made Up Officer',
   fromAddress: 'officer@la.example',
   toAddresses: ['parent@example.org'],
-  ccAddresses: [],
+  ccAddresses: ['copied@example.org'],
   // 23:30 on 2 March in London (GMT) is still 2 March.
   sentAt: '2026-03-02T23:30:00.000Z',
   direction: 'inbound',
@@ -79,6 +79,7 @@ describe('buildCaseHistory', () => {
     const newest = buildCaseHistory(input);
     expect(newest.map((e) => e.key)).toEqual([
       'note:n2',
+      'document:d-attached',
       'document:d1',
       'email:e1',
       'note:n1',
@@ -87,10 +88,14 @@ describe('buildCaseHistory', () => {
       'note:n1',
       'email:e1',
       'document:d1',
+      'document:d-attached',
       'note:n2',
     ]);
-    // An attachment is shown with its email, not again on its own.
-    expect(newest.some((e) => e.key === 'document:d-attached')).toBe(false);
+    // An attachment is still shown on its upload day, saying which email it came with.
+    const attached = newest.find((e) => e.key === 'document:d-attached')!;
+    expect(attached.kind === 'document' && attached.attachedTo).toEqual([
+      'Final EHC plan issued',
+    ]);
     // Emails are dated when sent, in UK time.
     expect(newest.find((e) => e.kind === 'email')!.date).toBe('2026-03-02');
   });
@@ -109,7 +114,7 @@ describe('buildCaseHistory', () => {
 describe('filterCaseHistory', () => {
   const all = buildCaseHistory(input);
   it('keeps the chosen kinds, or all when none are chosen', () => {
-    expect(filterCaseHistory(all, {}).length).toBe(4);
+    expect(filterCaseHistory(all, {}).length).toBe(5);
     expect(
       filterCaseHistory(all, { kinds: ['email', 'billable'] }).map(
         historyFilterOf,
@@ -120,10 +125,30 @@ describe('filterCaseHistory', () => {
   it('finds every word typed, in notes, emails (and their attachments) and documents', () => {
     const keys = (text: string) =>
       filterCaseHistory(all, { text }).map((e) => e.key);
-    expect(keys('final plan')).toEqual(['note:n2', 'email:e1']);
-    expect(keys('FINAL-PLAN.PDF')).toEqual(['email:e1']);
+    expect(keys('final plan')).toEqual([
+      'note:n2',
+      'document:d-attached',
+      'email:e1',
+    ]);
+    expect(keys('FINAL-PLAN.PDF')).toEqual(['document:d-attached', 'email:e1']);
     expect(keys('officer@la.example')).toEqual(['email:e1']);
+    expect(keys('copied@example.org')).toEqual(['email:e1']);
     expect(keys('ep-report')).toEqual(['document:d1']);
     expect(keys('nothing-like-this')).toEqual([]);
+  });
+});
+
+describe('backdated notes', () => {
+  it('sit at the end of the day they are about', () => {
+    const late = {
+      ...note('n9', '2026-03-02', 'Summary of the call on 2 March.'),
+      createdAt: '2026-03-05T09:00:00.000Z',
+    };
+    const order = buildCaseHistory(
+      { notes: [late], emails: [email], documents: [] },
+      'oldest',
+    ).map((e) => e.key);
+    // The email was sent at 23:30 on 2 March; the note was written on 5 March.
+    expect(order).toEqual(['email:e1', 'note:n9']);
   });
 });

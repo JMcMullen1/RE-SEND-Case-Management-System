@@ -62,4 +62,16 @@ describe('redactLine', () => {
     const line = JSON.stringify({ time: 1786033403286, msg: 'ok' });
     expect(redactLine(line)).toBe(line);
   });
+
+  it('strips the query string from any URL in a line, keeping the path', () => {
+    const line = JSON.stringify({
+      msg: 'Route GET:/api/nope?q=Zebedee%20Madeupname not found',
+      url: '/api/cases/abc/timeline?q=Madeupname&kind=note',
+    });
+    const out = redactLine(line);
+    expect(out).not.toContain('Madeupname');
+    const parsed = JSON.parse(out) as Record<string, string>;
+    expect(parsed.msg).toBe('Route GET:/api/nope?[redacted-query] not found');
+    expect(parsed.url).toBe('/api/cases/abc/timeline?[redacted-query]');
+  });
 });
