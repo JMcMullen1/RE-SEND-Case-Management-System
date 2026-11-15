@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { SEARCH_QUERY_MAX } from '@re-send/shared';
 import { searchFiles } from '../../api/search';
-import { SEARCH_TIPS, SearchResults } from './SearchResults';
+import { SEARCH_TIPS, SearchResults, searchMessage } from './SearchResults';
 
 /** Search inside one case's documents and emails, above its lists. */
 export function CaseSearch({ caseId }: { caseId: string }) {
@@ -63,8 +63,11 @@ export function CaseSearch({ caseId }: { caseId: string }) {
             : 'Search failed.'}
         </p>
       )}
+      <p role="status" className="mt-1 text-sm text-gray-600">
+        {searchMessage(search)}
+      </p>
       {search.data && (
-        <div className="mt-2 max-h-80 overflow-auto">
+        <div className="max-h-80 overflow-auto">
           <SearchResults result={search.data} showCase={false} />
         </div>
       )}

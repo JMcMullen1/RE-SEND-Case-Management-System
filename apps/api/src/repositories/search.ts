@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { sql, type SQL } from 'drizzle-orm';
 import {
-  SEARCH_INDEXED_CHARS,
+  SEARCH_SNIPPET_CHARS,
   SEARCH_MAX_RESULTS,
   SNIPPET_MATCH_END,
   SNIPPET_MATCH_START,
@@ -12,22 +12,11 @@ import {
 import { getDb } from '../db/client';
 import { recordAudit } from './audit';
 
-// These two expressions must match the indexes in migration 0017 exactly, or
-// Postgres cannot use them (and every search reads every row).
-const DOCUMENT_VECTOR = sql.raw(`(
-  setweight(to_tsvector('english', coalesce(d.original_filename, '')), 'A') ||
-  setweight(to_tsvector('english', left(coalesce(d.extracted_text, ''), ${SEARCH_INDEXED_CHARS})), 'B')
-)`);
-const EMAIL_VECTOR = sql.raw(`(
-  setweight(to_tsvector('english', coalesce(e.subject, '')), 'A') ||
-  setweight(to_tsvector('english', coalesce(e.from_name, '') || ' ' || coalesce(e.from_address, '')), 'B') ||
-  setweight(to_tsvector('english', left(coalesce(e.body_text, ''), ${SEARCH_INDEXED_CHARS})), 'C')
-)`);
-
 /** Snippet options: up to two short passages, matches between the markers. */
 const HEADLINE_OPTIONS = `StartSel=${SNIPPET_MATCH_START}, StopSel=${SNIPPET_MATCH_END}, MaxWords=30, MinWords=12, MaxFragments=2, FragmentDelimiter=" … "`;
 
 interface Row {
+  total: number;
   kind: 'document' | 'email';
   id: string;
   case_id: string;
@@ -63,27 +52,26 @@ export async function searchFiles(
 
   const documentMatches = sql`
     SELECT 'document' AS kind, d.id, d.case_id,
-           ts_rank(${DOCUMENT_VECTOR}, ${query}) AS rank,
+           ts_rank(d.search_vector, ${query}) AS rank,
            d.uploaded_at AS date
     FROM documents d
     JOIN cases c ON c.id = d.case_id AND c.deleted_at IS NULL
     WHERE d.deleted_at IS NULL
-      AND ${DOCUMENT_VECTOR} @@ ${query}
+      AND d.search_vector @@ ${query}
       ${caseFilter(sql.raw('d.case_id'))}
       ${request.includeEarlierVersions ? sql`` : sql`AND d.superseded_by_id IS NULL`}
       ${request.folder ? sql`AND d.category = ${request.folder}` : sql``}
-      AND NOT EXISTS (
-        SELECT 1 FROM emails x
-        WHERE x.raw_document_id = d.id AND x.deleted_at IS NULL
-      )`;
+      -- A filed email's original file, whether or not the email is deleted
+      -- (deleting an email leaves the file; the documents list hides it too).
+      AND NOT EXISTS (SELECT 1 FROM emails x WHERE x.raw_document_id = d.id)`;
   const emailMatches = sql`
     SELECT 'email' AS kind, e.id, e.case_id,
-           ts_rank(${EMAIL_VECTOR}, ${query}) AS rank,
+           ts_rank(e.search_vector, ${query}) AS rank,
            coalesce(e.sent_at, e.received_at, e.created_at) AS date
     FROM emails e
     JOIN cases c ON c.id = e.case_id AND c.deleted_at IS NULL
     WHERE e.deleted_at IS NULL
-      AND ${EMAIL_VECTOR} @@ ${query}
+      AND e.search_vector @@ ${query}
       ${caseFilter(sql.raw('e.case_id'))}`;
   // A folder is a document's; emails have none, so a folder means documents.
   const parts =
@@ -96,12 +84,12 @@ export async function searchFiles(
 
   // Rank everything, but write snippets (the costly part) for the best only.
   const rows = (await db.execute(sql`
-    WITH matches AS (${matches}),
+    WITH matches AS MATERIALIZED (${matches}),
     best AS (
       SELECT * FROM matches ORDER BY rank DESC, date DESC NULLS LAST
       LIMIT ${SEARCH_MAX_RESULTS}
     )
-    SELECT b.kind, b.id, b.case_id, c.case_reference,
+    SELECT (SELECT count(*)::int FROM matches) AS total, b.kind, b.id, b.case_id, c.case_reference,
            ch.full_name AS child_name, cl.display_name AS client_name,
            coalesce(d.original_filename, nullif(e.subject, ''), '(no subject)') AS title,
            CASE WHEN b.kind = 'document' THEN d.category
@@ -109,9 +97,9 @@ export async function searchFiles(
            b.date,
            (b.kind = 'email' OR d.superseded_by_id IS NULL) AS current,
            CASE WHEN b.kind = 'document' THEN
-             ts_headline('english', left(coalesce(d.extracted_text, d.original_filename), ${SEARCH_INDEXED_CHARS}), ${query}, ${HEADLINE_OPTIONS})
+             ts_headline('english', left(coalesce(d.extracted_text, d.original_filename), ${SEARCH_SNIPPET_CHARS}), ${query}, ${HEADLINE_OPTIONS})
            ELSE
-             ts_headline('english', left(coalesce(nullif(e.body_text, ''), e.subject, ''), ${SEARCH_INDEXED_CHARS}), ${query}, ${HEADLINE_OPTIONS})
+             ts_headline('english', left(coalesce(nullif(e.body_text, ''), e.subject, ''), ${SEARCH_SNIPPET_CHARS}), ${query}, ${HEADLINE_OPTIONS})
            END AS snippet
     FROM best b
     JOIN cases c ON c.id = b.case_id
@@ -121,9 +109,6 @@ export async function searchFiles(
     LEFT JOIN emails e ON b.kind = 'email' AND e.id = b.id
     ORDER BY b.rank DESC, b.date DESC NULLS LAST
   `)) as unknown as Row[];
-  const [count] = (await db.execute(
-    sql`SELECT count(*)::int AS n FROM (${matches}) m`,
-  )) as unknown as { n: number }[];
 
   const hits: SearchHit[] = rows.map((r) => ({
     kind: r.kind,
@@ -139,7 +124,7 @@ export async function searchFiles(
     // Line breaks and spacing from the file collapsed to single spaces.
     snippet: (r.snippet ?? '').replace(/\s+/g, ' ').trim(),
   }));
-  const total = count?.n ?? hits.length;
+  const total = rows[0]?.total ?? 0;
 
   await recordAudit(db, {
     actorUserId: actor,

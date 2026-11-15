@@ -174,6 +174,11 @@ run('search inside documents and emails', () => {
     expect((await search({ q: `${stamp}y`, scope: 'documents' })).total).toBe(
       0,
     );
+    // Deleting the email never brings its original file back as a document.
+    await db.execute(
+      sql`UPDATE emails SET deleted_at = now() WHERE dedup_key = ${`search:${stamp}`}`,
+    );
+    expect((await search({ q: `${stamp}y` })).total).toBe(0);
   });
 
   it('audits each search without the words searched for', async () => {

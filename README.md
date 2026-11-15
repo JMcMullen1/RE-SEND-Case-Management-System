@@ -87,10 +87,16 @@ Documents / Emails tab has a search box for that case alone
   they never appear in a logged URL. Each search is audited with its scope and
   result count — never the words.
 - **Long documents.** Each document and email is indexed up to its first
-  300,000 characters (about 100 pages; `SEARCH_INDEXED_CHARS`). This also fixed
-  a bug: the earlier index covered the whole text, and Postgres refuses a search
-  index entry over 1 MB, so a very long document with many distinct words could
-  not be uploaded at all.
+  300,000 characters (about 100 pages), or 150,000 for text in scripts with
+  4-byte characters (`SEARCH_INDEXED_CHARS`, applied by the database function
+  `resend_search_text`). The search vectors are stored on each row (migration
+  0018), so ranking never re-reads a document. Snippets are written from the
+  first 100,000 characters; a match further in still counts, and its snippet
+  shows the opening words. This also fixed a bug: the earlier index covered the
+  whole text, and Postgres refuses a search vector over 1 MB, so a very long
+  document with many distinct words could not be uploaded at all.
+- **The data export** leaves out the stored search vectors (generated, not
+  records).
 
 ## Case corpus
 

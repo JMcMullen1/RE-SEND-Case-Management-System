@@ -9,7 +9,7 @@ import {
   type SearchScope,
 } from '@re-send/shared';
 import { searchFiles } from '../../api/search';
-import { SEARCH_TIPS, SearchResults } from './SearchResults';
+import { SEARCH_TIPS, SearchResults, searchMessage } from './SearchResults';
 
 const field =
   'rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple';
@@ -29,8 +29,8 @@ export function SearchPage() {
     if (!q.trim()) return;
     search.mutate({
       q: q.trim(),
-      scope: folder ? 'documents' : scope,
-      folder: folder || null,
+      scope: folder.trim() ? 'documents' : scope,
+      folder: folder.trim() || null,
       includeEarlierVersions: earlier,
     });
   };
@@ -103,18 +103,20 @@ export function SearchPage() {
             </label>
             <label className="flex items-center gap-2">
               Folder
-              <select
+              <input
+                type="text"
+                list="search-folders"
                 value={folder}
                 onChange={(e) => setFolder(e.target.value)}
-                className={field}
-              >
-                <option value="">Any folder</option>
+                maxLength={60}
+                placeholder="Any folder"
+                className={`${field} w-44`}
+              />
+              <datalist id="search-folders">
                 {DEFAULT_DOCUMENT_FOLDERS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
+                  <option key={f} value={f} />
                 ))}
-              </select>
+              </datalist>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -133,6 +135,9 @@ export function SearchPage() {
             {errorText(search.error)}
           </p>
         )}
+        <p role="status" className="text-sm text-gray-600">
+          {searchMessage(search)}
+        </p>
         {search.data && <SearchResults result={search.data} showCase />}
       </main>
     </div>

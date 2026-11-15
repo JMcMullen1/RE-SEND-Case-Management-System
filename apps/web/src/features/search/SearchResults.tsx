@@ -39,13 +39,21 @@ function Hit({ hit, showCase }: { hit: SearchHit; showCase: boolean }) {
             {hit.title}
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
-        ) : (
+        ) : showCase ? (
           <a
             href={caseLink}
             className="font-medium text-resend-purple hover:underline"
           >
             {hit.title}
           </a>
+        ) : (
+          // On the case already: the email is in the Emails list below.
+          <span className="font-medium text-resend-ink">
+            {hit.title}
+            <span className="ml-1 text-xs font-normal text-gray-600">
+              (in the Emails list)
+            </span>
+          </span>
         )}
         <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
           {hit.kind === 'email' ? 'Email' : (hit.detail ?? 'Document')}
@@ -73,7 +81,25 @@ function Hit({ hit, showCase }: { hit: SearchHit; showCase: boolean }) {
   );
 }
 
-/** Results of a search, best first; says how many matched in all. */
+/**
+ * What a search found, in words — for a status line the page keeps on screen,
+ * so screen readers announce each new result.
+ */
+export function searchMessage(state: {
+  isPending: boolean;
+  data?: SearchResult;
+}): string {
+  if (state.isPending) return 'Searching…';
+  const result = state.data;
+  if (!result) return '';
+  return result.total === 0
+    ? 'Nothing matched. Try fewer words, or other words for the same thing.'
+    : result.total > result.hits.length
+      ? `The best ${result.hits.length} of ${result.total} matches.`
+      : `${result.total} match${result.total === 1 ? '' : 'es'}.`;
+}
+
+/** Results of a search, best first. */
 export function SearchResults({
   result,
   showCase,
@@ -82,20 +108,11 @@ export function SearchResults({
   showCase: boolean;
 }) {
   return (
-    <div>
-      <p role="status" className="text-sm text-gray-600">
-        {result.total === 0
-          ? 'Nothing matched. Try fewer words, or other words for the same thing.'
-          : result.total > result.hits.length
-            ? `The best ${result.hits.length} of ${result.total} matches.`
-            : `${result.total} match${result.total === 1 ? '' : 'es'}.`}
-      </p>
-      <ul className="divide-y divide-gray-100">
-        {result.hits.map((hit) => (
-          <Hit key={`${hit.kind}:${hit.id}`} hit={hit} showCase={showCase} />
-        ))}
-      </ul>
-    </div>
+    <ul className="divide-y divide-gray-100">
+      {result.hits.map((hit) => (
+        <Hit key={`${hit.kind}:${hit.id}`} hit={hit} showCase={showCase} />
+      ))}
+    </ul>
   );
 }
 
