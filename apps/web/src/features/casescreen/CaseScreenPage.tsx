@@ -1,3 +1,4 @@
+import { CaseSearch } from '../search/CaseSearch';
 import { useState, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,11 @@ export function CaseScreenPage() {
   const isAdmin = useMe().data?.role === 'admin';
   const users = useUsers().data?.users ?? [];
   const mutations = useCaseMutations(caseId);
-  const [tab, setTab] = useState<Tab>('details');
+  // A link can open a tab directly (e.g. ?tab=docs-emails from search).
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = new URLSearchParams(window.location.search).get('tab');
+    return TABS.some((t) => t.id === asked) ? (asked as Tab) : 'details';
+  });
   const [justCreated, setJustCreated] = useState(
     () => new URLSearchParams(window.location.search).get('created') === '1',
   );
@@ -130,15 +135,18 @@ export function CaseScreenPage() {
     </section>
   );
   const docsEmailsSection = (
-    <div className="grid h-full min-h-0 divide-x divide-gray-100 md:grid-cols-2">
-      <section className="h-full overflow-auto p-5">
-        <RegionHeading>Documents</RegionHeading>
-        <DocumentsRegion caseId={caseId} />
-      </section>
-      <section className="h-full overflow-auto p-5">
-        <RegionHeading>Emails</RegionHeading>
-        <EmailsRegion caseId={caseId} />
-      </section>
+    <div className="flex h-full min-h-0 flex-col">
+      <CaseSearch caseId={caseId} />
+      <div className="grid min-h-0 flex-1 divide-x divide-gray-100 md:grid-cols-2">
+        <section className="h-full overflow-auto p-5">
+          <RegionHeading>Documents</RegionHeading>
+          <DocumentsRegion caseId={caseId} />
+        </section>
+        <section className="h-full overflow-auto p-5">
+          <RegionHeading>Emails</RegionHeading>
+          <EmailsRegion caseId={caseId} />
+        </section>
+      </div>
     </div>
   );
   const billablesSection = (

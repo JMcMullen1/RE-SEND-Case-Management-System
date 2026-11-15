@@ -58,6 +58,8 @@ export async function exportTableColumns(
   const cols = (await getDb().execute(
     sql`SELECT column_name FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = ${table}
+          -- Generated columns (search vectors) are derived, not records.
+          AND is_generated = 'NEVER'
         ORDER BY ordinal_position`,
   )) as unknown as { column_name: string }[];
   return cols.map((c) => c.column_name).filter((c) => !omit.includes(c));

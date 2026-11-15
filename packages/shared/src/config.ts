@@ -3229,3 +3229,30 @@ export const CASE_IMPORT_DEFAULT_STATUS: Status = 'Enquiry';
 export const CASE_IMPORT_DEFAULT_QUEUE: OwnerQueue = 'Enquiries';
 /** First line of the case note made from a row's Notes column. */
 export const CASE_IMPORT_NOTE_HEADING = 'From the case list (imported):';
+
+// --- Search inside documents and emails ----------------------------------------
+/**
+ * How much of each document's (and email's) text is indexed for search: the
+ * first this many characters (roughly 100 pages), or half that if they take
+ * more than 600,000 bytes (scripts with 4-byte characters). Postgres refuses a
+ * search vector over 1 MB, so this keeps every text under it. Applied by the
+ * database function `resend_search_text` (migration 0018), which must match.
+ */
+export const SEARCH_INDEXED_CHARS = 300_000;
+/**
+ * How much of a matched text is read to write its snippet: matches further in
+ * still count, but the snippet then shows the text's opening words.
+ */
+export const SEARCH_SNIPPET_CHARS = 100_000;
+/** The most results one search returns (the total is still reported). */
+export const SEARCH_MAX_RESULTS = 50;
+/** The longest search a person can type. */
+export const SEARCH_QUERY_MAX = 200;
+/** What a search looks in. */
+export const SEARCH_SCOPE_VALUES = ['all', 'documents', 'emails'] as const;
+export type SearchScope = (typeof SEARCH_SCOPE_VALUES)[number];
+export const SEARCH_SCOPE_LABELS: Record<SearchScope, string> = {
+  all: 'Documents and emails',
+  documents: 'Documents',
+  emails: 'Emails',
+};

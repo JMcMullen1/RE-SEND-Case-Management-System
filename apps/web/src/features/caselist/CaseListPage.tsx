@@ -150,6 +150,12 @@ export function CaseListPage() {
             </a>
           )}
           <a
+            href="/search"
+            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+          >
+            Search documents
+          </a>
+          <a
             href="/schools"
             className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-lilac hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           >
