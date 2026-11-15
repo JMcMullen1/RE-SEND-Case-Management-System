@@ -1,6 +1,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   hkdfSync,
   randomBytes,
 } from 'node:crypto';
@@ -37,9 +38,9 @@ export class EncryptionKeyMissing extends Error {}
 export class DecryptionFailed extends Error {}
 
 function keyMaterial(): { current: string; previous: string | null } {
-  const current =
-    env.ENCRYPTION_KEY ||
-    (env.NODE_ENV === 'test' || process.env.VITEST ? TEST_ONLY_KEY : null);
+  // The public test key only ever under the test runner, never in production.
+  const testRun = Boolean(process.env.VITEST) && env.NODE_ENV !== 'production';
+  const current = env.ENCRYPTION_KEY || (testRun ? TEST_ONLY_KEY : null);
   if (!current)
     throw new EncryptionKeyMissing(
       'ENCRYPTION_KEY is not set. Sensitive fields and documents cannot be stored without it.',
@@ -85,7 +86,9 @@ function open(
   const body = sealed.subarray(NONCE_BYTES, sealed.length - TAG_BYTES);
   for (const [keyIndex, key] of candidates.entries()) {
     try {
-      const decipher = createDecipheriv('aes-256-gcm', key, nonce);
+      const decipher = createDecipheriv('aes-256-gcm', key, nonce, {
+        authTagLength: TAG_BYTES,
+      });
       decipher.setAuthTag(tag);
       return {
         plain: Buffer.concat([decipher.update(body), decipher.final()]),
@@ -115,6 +118,37 @@ export function encryptField<T extends string | null | undefined>(value: T): T {
   if (value === null || value === undefined || value === '') return value;
   const [key] = keys('fields');
   return `${FIELD_PREFIX}${seal(Buffer.from(value, 'utf8'), key!).toString('base64')}` as T;
+}
+
+/** What a reader shows for a value that cannot be decrypted. */
+export const UNREADABLE_FIELD =
+  '[This could not be decrypted with the configured key. Tell an administrator.]';
+
+/**
+ * Read a stored field for display: decrypted, as it is if never encrypted, or
+ * UNREADABLE_FIELD (and `onError` told) if it cannot be decrypted, so one bad
+ * value never takes down a whole page or export.
+ */
+export function readField<T extends string | null | undefined>(
+  value: T,
+  onError?: () => void,
+): T | string {
+  try {
+    return decryptField(value);
+  } catch {
+    onError?.();
+    return UNREADABLE_FIELD;
+  }
+}
+
+/**
+ * A value read from storage made safe to store again (e.g. copied into the
+ * audit trail): kept if already encrypted, encrypted if not.
+ */
+export function protectStoredField<T extends string | null | undefined>(
+  value: T,
+): T {
+  return isEncryptedField(value) ? value : encryptField(value);
 }
 
 /** Read a stored field: decrypted, or as it is if it was never encrypted. */
@@ -157,6 +191,18 @@ export function decryptFile(bytes: Buffer): Buffer {
 export function fileNeedsEncrypting(bytes: Buffer): boolean {
   if (!isEncryptedFile(bytes)) return true;
   return open(bytes.subarray(FILE_MAGIC.length), keys('files')).keyIndex > 0;
+}
+
+/**
+ * A short, non-secret identifier of the current file key, recorded on each
+ * document once its file is known to be encrypted under it, so the start-up
+ * pass reads only files it has not seen under this key.
+ */
+export function currentFileKeyId(): string {
+  return createHash('sha256')
+    .update(keys('files')[0]!)
+    .digest('hex')
+    .slice(0, 16);
 }
 
 /** Fail at start-up, not at the first save, when no key is configured. */

@@ -1,7 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { getDb } from '../db/client';
-import { decryptField } from '../crypto/encryption';
-import { SENSITIVE_COLUMNS } from '../crypto/sensitive-fields';
+import { readField } from '../crypto/encryption';
+import {
+  ALL_SENSITIVE_FIELDS,
+  SENSITIVE_COLUMNS,
+} from '../crypto/sensitive-fields';
 import { recordAudit } from './audit';
 
 /**
@@ -86,30 +89,31 @@ export async function exportTablePage(
       `SELECT ${list} FROM "${table}" ORDER BY 1 LIMIT ${Math.trunc(limit)} OFFSET ${Math.trunc(offset)}`,
     ),
   )) as unknown as Record<string, unknown>[];
-  // The export is the charity's own readable copy: encrypted fields (and
-  // encrypted values the audit trail recorded) are written decrypted.
+  // The export is the charity's own readable copy: encrypted fields (and the
+  // encrypted values the audit trail recorded for them) are written decrypted.
+  // A value that cannot be decrypted is written as a marker, never failing
+  // the export (e.g. audit entries after a key rotation).
   const sensitive =
     SENSITIVE_COLUMNS[table as keyof typeof SENSITIVE_COLUMNS] ?? [];
   return rows.map((row) => {
     const out = { ...row };
     for (const column of sensitive)
-      out[column] = decryptField(out[column] as string | null);
+      out[column] = readField(out[column] as string | null);
     if (table === 'audit_log')
       for (const column of ['before', 'after'])
-        if (column in out) out[column] = decryptDeep(out[column]);
+        out[column] = readAuditValues(out[column]);
     return out;
   });
 }
 
-/** Any encrypted strings within a JSON value, decrypted. */
-function decryptDeep(value: unknown): unknown {
-  if (typeof value === 'string') return decryptField(value);
-  if (Array.isArray(value)) return value.map(decryptDeep);
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, decryptDeep(v)]),
-    );
-  return value;
+/** An audit entry's before/after with its sensitive fields readable. */
+function readAuditValues(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const out = { ...(value as Record<string, unknown>) };
+  for (const field of ALL_SENSITIVE_FIELDS)
+    if (typeof out[field] === 'string')
+      out[field] = readField(out[field] as string);
+  return out;
 }
 
 /** Audit an export: who started it, and how it ended (counts only). */

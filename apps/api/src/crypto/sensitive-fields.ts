@@ -1,4 +1,4 @@
-import { decryptField, encryptField } from './encryption';
+import { encryptField, protectStoredField, readField } from './encryption';
 
 /**
  * The fields stored encrypted: special category information (health, needs,
@@ -36,11 +36,24 @@ export function encryptSensitive<T extends object>(table: Table, row: T): T {
   return out as T;
 }
 
-/** A row read from `table` with its sensitive fields decrypted. */
+/** A row read from `table` with its sensitive fields readable (see readField). */
 export function decryptSensitive<T extends object>(table: Table, row: T): T {
   const out = { ...row } as Record<string, unknown>;
   for (const field of SENSITIVE_FIELDS[table])
     if (field in out)
-      out[field] = decryptField(out[field] as string | null | undefined);
+      out[field] = readField(out[field] as string | null | undefined);
   return out as T;
 }
+
+/** A stored row's sensitive fields kept encrypted, or encrypted if not yet. */
+export function protectSensitive<T extends object>(table: Table, row: T): T {
+  const out = { ...row } as Record<string, unknown>;
+  for (const field of SENSITIVE_FIELDS[table])
+    if (field in out)
+      out[field] = protectStoredField(out[field] as string | null | undefined);
+  return out as T;
+}
+
+/** Every sensitive field name, in any table (as the audit trail records them). */
+export const ALL_SENSITIVE_FIELDS: readonly string[] =
+  Object.values(SENSITIVE_FIELDS).flat();

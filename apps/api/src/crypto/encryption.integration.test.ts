@@ -6,7 +6,13 @@ import { getDb } from '../db/client';
 import { buildServer } from '../server';
 import { getStorageProvider } from '../storage';
 import type { UserSummary } from '../repositories/users';
-import { FIELD_PREFIX, isEncryptedFile } from './encryption';
+import { env } from '../env';
+import {
+  FIELD_PREFIX,
+  UNREADABLE_FIELD,
+  isEncryptedFile,
+  resetEncryptionKeys,
+} from './encryption';
 import { runEncryptionBackfill } from './backfill';
 
 const run = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -149,40 +155,137 @@ run('encryption of sensitive fields and documents', () => {
     );
   });
 
-  it('encrypts values and files stored before encryption, once', async () => {
-    // As if written before encryption was switched on.
-    await getDb().execute(
-      sql`UPDATE clients SET additional_needs = 'Plain older text' WHERE id = ${clientId}`,
-    );
-    const key = `documents/${caseId}/${randomUUID()}`;
-    await getStorageProvider().putRaw({
-      key,
-      contentType: 'text/plain',
-      body: Buffer.from('Older plain file'),
-    });
-    await getDb().execute(sql`
+  it(
+    'encrypts what was stored before encryption, once, keeping "last updated"',
+    {
+      timeout: 120_000,
+    },
+    async () => {
+      // As if written before encryption was switched on.
+      await getDb().execute(
+        sql`UPDATE clients SET additional_needs = 'Plain older text' WHERE id = ${clientId}`,
+      );
+      const [beforeRow] = await raw(
+        sql`SELECT updated_at::text FROM clients WHERE id = ${clientId}`,
+      );
+      const before = beforeRow!.updated_at;
+      const key = `documents/${caseId}/${randomUUID()}`;
+      await getStorageProvider().putRaw({
+        key,
+        contentType: 'text/plain',
+        body: Buffer.from('Older plain file'),
+      });
+      await getDb().execute(sql`
       INSERT INTO documents (storage_key, original_filename, mime_type, byte_size, sha256,
                              uploaded_by_user_id, category, case_id, document_group_id, version)
       VALUES (${key}, ${`older-${stamp}.txt`}, 'text/plain', 16, ${`sha-${stamp}`},
               ${admin().id}, 'Other', ${caseId}, ${randomUUID()}, 1)`);
+      const auditId = randomUUID();
+      await getDb().execute(sql`
+      INSERT INTO audit_log (id, action, entity_type, entity_id, before, after)
+      VALUES (${auditId}, 'child.update', 'child', ${childId},
+              '{"sendNeeds": "Older plain needs"}'::jsonb, '{"sendNeeds": "Newer plain needs"}'::jsonb)`);
 
-    const first = await runEncryptionBackfill();
-    expect(first!.fields).toBeGreaterThanOrEqual(1);
-    expect(first!.files).toBeGreaterThanOrEqual(1);
-    const [client] = await raw(
-      sql`SELECT additional_needs FROM clients WHERE id = ${clientId}`,
-    );
-    expect(client!.additional_needs!.startsWith(FIELD_PREFIX)).toBe(true);
-    expect(
-      isEncryptedFile((await getStorageProvider().getRaw(key))!.body),
-    ).toBe(true);
-    expect((await getStorageProvider().get(key))!.body.toString()).toBe(
-      'Older plain file',
-    );
-    // Nothing left to do the second time.
-    expect(await runEncryptionBackfill()).toMatchObject({
-      fields: 0,
-      files: 0,
-    });
-  });
+      // (The counts cover the whole test database, reused between runs, so this
+      // test checks its own records rather than totals.)
+      const first = await runEncryptionBackfill();
+      expect(first).toMatchObject({ failed: 0 });
+      expect(first!.fields).toBeGreaterThanOrEqual(1);
+      expect(first!.files).toBeGreaterThanOrEqual(1);
+      expect(first!.auditEntries).toBeGreaterThanOrEqual(1);
+
+      const [client] = await raw(
+        sql`SELECT additional_needs, updated_at::text FROM clients WHERE id = ${clientId}`,
+      );
+      expect(client!.additional_needs!.startsWith(FIELD_PREFIX)).toBe(true);
+      // A storage-only change is not an edit.
+      expect(client!.updated_at).toBe(before);
+      const [audit] = await raw(
+        sql`SELECT before::text AS b, after::text AS a FROM audit_log WHERE id = ${auditId}`,
+      );
+      expect(`${audit!.b}${audit!.a}`).not.toMatch(/plain needs/i);
+      expect(
+        isEncryptedFile((await getStorageProvider().getRaw(key))!.body),
+      ).toBe(true);
+      expect((await getStorageProvider().get(key))!.body.toString()).toBe(
+        'Older plain file',
+      );
+      // Nothing left to do, and files already seen are not read again.
+      expect(await runEncryptionBackfill()).toMatchObject({
+        fields: 0,
+        files: 0,
+        auditEntries: 0,
+      });
+      const [marked] = await raw(
+        sql`SELECT encryption_key_id FROM documents WHERE storage_key = ${key}`,
+      );
+      expect(marked!.encryption_key_id).toMatch(/^[0-9a-f]{16}$/);
+    },
+  );
+
+  it('rotates the key without losing anything, and the export never fails on old data', async () => {
+    const mutable = env as {
+      ENCRYPTION_KEY?: string;
+      ENCRYPTION_KEY_PREVIOUS?: string;
+    };
+    const original = {
+      key: env.ENCRYPTION_KEY,
+      previous: env.ENCRYPTION_KEY_PREVIOUS,
+    };
+    const oldKey = env.ENCRYPTION_KEY;
+    try {
+      // Rotate: a new key, the old one as previous, and run the pass.
+      mutable.ENCRYPTION_KEY = `rotated-test-key-${stamp}`.padEnd(40, 'x');
+      mutable.ENCRYPTION_KEY_PREVIOUS = oldKey ?? undefined;
+      resetEncryptionKeys();
+      if (!oldKey) {
+        // Under the test runner the old key is the built-in test key.
+        mutable.ENCRYPTION_KEY_PREVIOUS =
+          'test-only-encryption-key-never-used-for-real-data';
+        resetEncryptionKeys();
+      }
+      const rotated = await runEncryptionBackfill();
+      expect(rotated).toMatchObject({ failed: 0 });
+      // The old key is no longer needed: everything reads with the new one.
+      mutable.ENCRYPTION_KEY_PREVIOUS = undefined;
+      resetEncryptionKeys();
+      const app = await buildServer();
+      const detail = (
+        await app.inject({
+          method: 'GET',
+          url: `/api/cases/${caseId}/detail`,
+          headers: as(admin()),
+        })
+      ).json();
+      expect(detail.child.sendNeeds).toBe('Dyslexia and anxiety');
+      // Something only an unavailable key could read shows as a marker.
+      await getDb().execute(
+        sql`UPDATE cases SET aims = ${`${FIELD_PREFIX}${Buffer.alloc(40, 7).toString('base64')}`} WHERE id = ${caseId}`,
+      );
+      const exported = await app.inject({
+        method: 'GET',
+        url: '/api/admin/export',
+        headers: as(admin()),
+      });
+      expect(exported.statusCode).toBe(200);
+      const files = unzipSync(new Uint8Array(exported.rawPayload));
+      expect(strFromU8(files['data/cases.csv']!)).toContain(UNREADABLE_FIELD);
+      expect(strFromU8(files['MANIFEST.txt']!)).toMatch(/Export complete/);
+      await app.close();
+    } finally {
+      mutable.ENCRYPTION_KEY = original.key;
+      mutable.ENCRYPTION_KEY_PREVIOUS = original.previous;
+      resetEncryptionKeys();
+      // Back under the original key for any later test.
+      mutable.ENCRYPTION_KEY_PREVIOUS = `rotated-test-key-${stamp}`.padEnd(
+        40,
+        'x',
+      );
+      resetEncryptionKeys();
+      await runEncryptionBackfill();
+      mutable.ENCRYPTION_KEY_PREVIOUS = original.previous;
+      resetEncryptionKeys();
+    }
+    // Re-encrypting the whole (reused) test database twice takes a while.
+  }, 120_000);
 });

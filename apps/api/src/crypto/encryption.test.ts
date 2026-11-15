@@ -12,7 +12,9 @@ import {
   fieldNeedsEncrypting,
   fileNeedsEncrypting,
   isEncryptedFile,
+  readField,
   resetEncryptionKeys,
+  UNREADABLE_FIELD,
 } from './encryption';
 
 const mutable = env as { -readonly [K in keyof typeof env]: (typeof env)[K] };
@@ -113,6 +115,25 @@ describe('without a key', () => {
     useKeys(undefined);
     mutable.NODE_ENV = 'development';
     delete process.env.VITEST;
+    expect(() => assertEncryptionConfigured()).toThrow(EncryptionKeyMissing);
+  });
+});
+
+describe('reading for display', () => {
+  it('shows a marker for a value it cannot decrypt, instead of failing', () => {
+    useKeys(KEY_A);
+    const stored = encryptField('Sensitive');
+    useKeys(KEY_B);
+    let told = false;
+    expect(readField(stored, () => (told = true))).toBe(UNREADABLE_FIELD);
+    expect(told).toBe(true);
+  });
+});
+
+describe('the test-only key', () => {
+  it('is never used in production, even under a test runner', () => {
+    useKeys(undefined);
+    mutable.NODE_ENV = 'production';
     expect(() => assertEncryptionConfigured()).toThrow(EncryptionKeyMissing);
   });
 });

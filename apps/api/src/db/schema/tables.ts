@@ -363,6 +363,10 @@ export const documents = pgTable(
     // case corpus and Postgres full-text search. Null when extraction is not
     // possible for the type or failed; the raw file is always the source of truth.
     extractedText: text('extracted_text'),
+    // Which file key the stored file is known to be encrypted under (a short,
+    // non-secret id; see crypto/encryption.ts), so the start-up encryption
+    // pass reads only files not yet seen under the current key.
+    encryptionKeyId: text('encryption_key_id'),
     documentGroupId: uuid('document_group_id'),
     version: integer('version').notNull().default(1),
     supersededById: uuid('superseded_by_id').references(

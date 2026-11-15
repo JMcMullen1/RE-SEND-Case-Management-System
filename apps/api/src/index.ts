@@ -44,12 +44,12 @@ async function main(): Promise<void> {
     // the background: the service is already answering. Counts only are logged.
     void runEncryptionBackfill()
       .then((r) => {
-        if (r && (r.fields || r.files || r.unreadable))
-          app.log.info(r, 'encryption pass finished');
-        if (r?.unreadable)
+        if (!r) return; // another instance is running it
+        app.log.info(r, 'encryption pass finished');
+        if (r.unreadable || r.failed)
           app.log.error(
-            { unreadable: r.unreadable },
-            'some protected data could not be read with the configured keys',
+            { unreadable: r.unreadable, failed: r.failed },
+            'encryption pass incomplete: keep ENCRYPTION_KEY_PREVIOUS until a pass reports none',
           );
       })
       .catch((error: unknown) =>

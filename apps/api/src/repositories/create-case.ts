@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
 import { londonToday, type CaseClientDetail, type Team } from '@re-send/shared';
 import { getDb } from '../db/client';
-import { decryptField, encryptField } from '../crypto/encryption';
+import { encryptField, readField } from '../crypto/encryption';
 import { encryptSensitive } from '../crypto/sensitive-fields';
 import { extractIntakeText } from '../ai/intake';
 import { getStorageProvider } from '../storage';
@@ -441,7 +441,7 @@ export async function getClientDetail(
     city: c.city,
     county: c.county,
     postcode: c.postcode,
-    additionalNeeds: decryptField(c.additionalNeeds),
+    additionalNeeds: readField(c.additionalNeeds),
     consentDataProcessing: c.consentDataProcessing,
     consentInformationSharing: c.consentInformationSharing,
     consentContact: c.consentContact,

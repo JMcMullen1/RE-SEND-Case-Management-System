@@ -585,9 +585,15 @@ the file store is unreadable without the key (`apps/api/src/crypto`).
   a copy**: without it the encrypted data cannot be read, even from a backup
   (`docs/disaster-recovery.md`). `ENCRYPTION_KEY_PREVIOUS` supports rotation.
 - **Turning it on needs no downtime.** Data stored before encryption reads as
-  it is; at start-up a background pass encrypts it (and, after a rotation,
-  re-encrypts under the new key), once, one instance at a time, logging and
-  auditing counts only.
+  it is; at start-up a background pass encrypts it — the fields, the sensitive
+  values the audit trail recorded, and every file — and, after a rotation,
+  re-encrypts under the new key. It is idempotent, one instance at a time,
+  keeps records' "last updated" times (it is not an edit), records on each
+  document which key its file is under so later starts read only new files,
+  and logs and audits counts only.
+- **Never all-or-nothing.** A value that cannot be decrypted shows as a
+  marker (and is counted), so one bad value never breaks a page, the export or
+  the pass; the export lists an unreadable file instead of stopping.
 
 ## Deployment and demo
 

@@ -9,7 +9,10 @@ const optionalSecret = z.preprocess(
   (v) => (v === '' ? undefined : v),
   z
     .string()
-    .min(32, 'must be at least 32 characters (e.g. `openssl rand -base64 32`)')
+    .refine(
+      (v) => v.trim().length >= 32,
+      'must be at least 32 characters (e.g. `openssl rand -base64 32`)',
+    )
     .optional(),
 );
 

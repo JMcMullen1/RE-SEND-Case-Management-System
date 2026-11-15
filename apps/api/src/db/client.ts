@@ -19,3 +19,12 @@ export function getDb() {
 }
 
 export type Database = ReturnType<typeof getDb>;
+
+/**
+ * A connection of its own, for work that must stay on one connection (a
+ * session advisory lock). Release it when done.
+ */
+export async function reserveConnection() {
+  getDb();
+  return client!.reserve();
+}

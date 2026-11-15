@@ -39,8 +39,11 @@ encrypted data only: without the key it cannot be read.** So:
   it cannot read the data (it logs that some data is unreadable).
 - **Rotating the key:** set the new value as `ENCRYPTION_KEY` and the old one
   as `ENCRYPTION_KEY_PREVIOUS`, and deploy. At start-up the API re-encrypts
-  everything under the new key (it logs the counts and audits the pass). Once
-  it has, remove `ENCRYPTION_KEY_PREVIOUS`.
+  everything under the new key in the background, then logs
+  `encryption pass finished` with its counts (and audits them as
+  `encryption.backfill`). **Remove `ENCRYPTION_KEY_PREVIOUS` only after a pass
+  has finished with `unreadable: 0` and `failed: 0`** — redeploy to run it
+  again if not. Removing it earlier leaves data that only the old key opens.
 
 ## Restore
 
