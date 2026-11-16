@@ -1,7 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import {
-  encodeViewStateToString,
   hasActiveFilters,
   type CaseFilters,
   type OwnerQueue,
@@ -103,13 +102,6 @@ export function CaseListPage() {
             onSave={(name, shared) => saveView.mutate({ name, shared, state })}
             onDelete={(id) => deleteView.mutate(id)}
           />
-          <a
-            href={`/review${encodeViewStateToString(state)}`}
-            title="Work through the cases in this list one at a time"
-            className="rounded-lg border border-resend-purple px-3 py-1.5 text-sm font-semibold text-resend-purple hover:bg-resend-purple hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          >
-            Review these cases
-          </a>
           <Link
             to="/cases/new"
             className="rounded-lg bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
