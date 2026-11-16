@@ -653,7 +653,7 @@ export function NewCasePage() {
                   {CONSENT_LABELS[name]}
                   {m.filled && (
                     <span
-                      className={`rounded px-1 text-[10px] font-semibold ${
+                      className={`rounded px-1 text-xs font-semibold ${
                         m.low
                           ? 'border border-status-amber text-resend-ink'
                           : 'bg-resend-lilac text-white'
@@ -937,7 +937,7 @@ export function NewCasePage() {
                 {label}
                 {m.filled && (
                   <span
-                    className={`rounded px-1 text-[10px] font-semibold ${
+                    className={`rounded px-1 text-xs font-semibold ${
                       m.low
                         ? 'border border-status-amber text-resend-ink'
                         : 'bg-resend-lilac text-white'

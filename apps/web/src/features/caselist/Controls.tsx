@@ -82,7 +82,7 @@ export function SearchBox({
       onChange={(e) => setLocal(e.target.value)}
       placeholder="Search client, child, reference or notes"
       aria-label="Search cases"
-      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
     />
   );
 }

@@ -9,4 +9,14 @@
  */
 body {
   color: var(--resend-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Lighter than typed text, but still readable (branding.ts NEUTRAL_COLORS). */
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--gray-placeholder));
+  opacity: 1;
 }

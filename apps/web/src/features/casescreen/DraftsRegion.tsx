@@ -416,7 +416,7 @@ function StatusChip({ draft }: { draft: Draft }) {
   };
   return (
     <span
-      className={`ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium ${styles[draft.status]}`}
+      className={`ml-2 rounded px-1.5 py-0.5 text-xs font-medium ${styles[draft.status]}`}
     >
       {labels[draft.status]}
     </span>

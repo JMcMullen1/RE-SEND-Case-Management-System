@@ -412,7 +412,7 @@ function LaContactsEditor({
             onBlur={() => commit(rows)}
             placeholder="Name · email · phone"
             aria-label={`LA contact ${i + 1}`}
-            className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink placeholder:text-gray-400 focus:border-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-resend-ink focus:border-resend-purple focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           />
           <button
             type="button"

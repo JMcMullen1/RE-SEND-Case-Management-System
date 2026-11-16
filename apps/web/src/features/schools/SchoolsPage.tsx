@@ -161,7 +161,7 @@ export function SchoolsPage() {
                       {s.name}
                     </span>
                     {s.section41 && (
-                      <span className="ml-2 rounded bg-resend-purple px-1.5 py-0.5 text-[11px] font-medium text-white">
+                      <span className="ml-2 rounded bg-resend-purple px-1.5 py-0.5 text-xs font-medium text-white">
                         Section 41
                       </span>
                     )}

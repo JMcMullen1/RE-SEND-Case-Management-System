@@ -230,7 +230,7 @@ function EmailRow({
         <div className="flex items-baseline justify-between gap-3">
           <span className="flex min-w-0 items-baseline gap-2">
             <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+              className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
                 sent
                   ? 'bg-resend-green text-white'
                   : 'bg-gray-100 text-gray-600'

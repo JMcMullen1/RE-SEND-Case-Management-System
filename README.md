@@ -19,6 +19,17 @@ npm run db:migrate -w @re-send/api     # apply checked-in SQL migrations
 DATABASE_URL=... NODE_ENV=development npm run fixtures:load   # dev data only
 ```
 
+## Legibility
+
+The interface greys (secondary text, labels, borders, dividers, panels) come
+from `NEUTRAL_COLORS` in `packages/shared/src/branding.ts`, emitted as
+`--gray-*` custom properties and used through Tailwind's usual `gray-*`
+classes. They are darker than Tailwind's defaults: every grey used for text
+meets WCAG AA (4.5:1) on white, and borders and dividers stay visible on any
+screen. Small print (`text-xs`) is 13px rather than 12px, text is smoothed, and
+input placeholders use their own lighter grey so they never read as typed
+values.
+
 ## Navigation and loading
 
 Every screen sits under one navigation bar (`apps/web/src/features/layout/AppNav.tsx`),
