@@ -297,20 +297,23 @@ export const EXTRACT_DIRECTIONS_JOB = 'extract_directions';
 export const DIRECTIONS_LOW_CONFIDENCE = 0.6;
 
 // --- Consultation states ----------------------------------------------------
+/**
+ * Whether the case's consultation is done: Incomplete until it is (the
+ * default), Completed, or N/A when there is none to do.
+ */
 export const CONSULTATION_STATE_VALUES = [
-  'not_required',
-  'referred',
-  'booked',
-  'held',
+  'incomplete',
+  'completed',
+  'not_applicable',
 ] as const;
+export const CONSULTATION_STATE_DEFAULT = 'incomplete';
 export type ConsultationState = (typeof CONSULTATION_STATE_VALUES)[number];
 export const ConsultationStateSchema = z.enum(CONSULTATION_STATE_VALUES);
 /** How each consultation state reads on screen. */
 export const CONSULTATION_STATE_LABELS: Record<ConsultationState, string> = {
-  not_required: 'Not required',
-  referred: 'Referred',
-  booked: 'Booked',
-  held: 'Held',
+  incomplete: 'Incomplete',
+  completed: 'Completed',
+  not_applicable: 'N/A',
 };
 /** A consultation state as it reads on screen (as stored if unrecognised). */
 export function consultationStateLabel(
@@ -363,6 +366,12 @@ export const KEY_DATE_SOURCE_VALUES = [
 ] as const;
 export type KeyDateSource = (typeof KEY_DATE_SOURCE_VALUES)[number];
 export const KeyDateSourceSchema = z.enum(KEY_DATE_SOURCE_VALUES);
+/** Where a key date came from, as the case list's drop-down says it. */
+export const KEY_DATE_SOURCE_LABELS: Record<KeyDateSource, string> = {
+  manual: 'Added by hand',
+  directions_order: 'From a directions order',
+  jotform: 'From the query form',
+};
 
 // --- Email direction --------------------------------------------------------
 export const EMAIL_DIRECTION_VALUES = ['inbound', 'outbound'] as const;
@@ -2969,8 +2978,9 @@ export const SORTS: { id: SortId; label: string }[] = [
 ];
 
 // --- Case list: optional columns -------------------------------------------
-// Team, Status and Updated are always shown and are not toggleable ('team'
-// stays a valid id so views saved before it was always shown still read).
+// Team, Consultation, Status and Updated are always shown and are not
+// toggleable ('team' and 'consultationState' stay valid ids so views saved
+// before they were always shown still read).
 // These are the columns a user can switch on and persist.
 export const OPTIONAL_COLUMN_VALUES = [
   'team',
@@ -2994,7 +3004,6 @@ export const OPTIONAL_COLUMNS: { id: OptionalColumnId; label: string }[] = [
   { id: 'paymentCode', label: 'Payment code' },
   { id: 'discountCode', label: 'Discount code' },
   { id: 'invoiceStatus', label: 'Invoice status' },
-  { id: 'consultationState', label: 'Consultation state' },
   { id: 'lastReviewed', label: 'Last reviewed' },
 ];
 
@@ -3201,7 +3210,7 @@ export const SAVED_VIEW_SEEDS: SavedViewSeed[] = [
     name: 'Awaiting consultation',
     mode: 'advanced',
     sort: 'keyDateSoonest',
-    filters: { consultationState: ['referred', 'booked'] },
+    filters: { consultationState: ['incomplete'] },
   },
   {
     id: 'seed-payments-billing',

@@ -359,9 +359,9 @@ export function DetailPanel({
               onSave={(v) => mutations.patchCase.mutate({ dateOfEnquiry: v })}
             />
           </Field>
-          <Field label="Consultation state">
+          <Field label="Consultation">
             {caseField(
-              'Consultation state',
+              'Consultation',
               'consultStatus',
               detail.consultStatus,
               'select',

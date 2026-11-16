@@ -3,6 +3,8 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   decodeViewState,
+  KeyDateSourceSchema,
+  KeyDateTypeSchema,
   NoteKindSchema,
   OwnerQueueSchema,
   type OwnerQueue,
@@ -91,6 +93,18 @@ export function registerCaseRoutes(fastify: FastifyInstance): void {
             email: z.string().nullable(),
             phone: z.string().nullable(),
             mobile: z.string().nullable(),
+            keyDates: z.array(
+              z.object({
+                id: z.string().uuid(),
+                date: z.string(),
+                time: z.string().nullable(),
+                type: KeyDateTypeSchema,
+                title: z.string(),
+                description: z.string().nullable(),
+                source: KeyDateSourceSchema,
+                sourceReference: z.string().nullable(),
+              }),
+            ),
           }),
         },
       },

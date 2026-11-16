@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   calculateAge,
+  CONSULTATION_STATE_DEFAULT,
   CONSULTATION_STATE_LABELS,
   CONSULTATION_STATE_VALUES,
   DISCOUNT_CODE_VALUES,
@@ -119,7 +120,7 @@ export function NewCasePage() {
     methodOfEnquiry: '',
     owner: '',
     status: 'Enquiry',
-    consultStatus: '',
+    consultStatus: CONSULTATION_STATE_DEFAULT,
     supportLevel: '',
     aims: '',
     finalPlanIssuedDate: '',
@@ -318,7 +319,17 @@ export function NewCasePage() {
       const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}');
       if (d.client) setClient({ ...EMPTY_CLIENT, ...d.client });
       if (d.child) setChild({ ...EMPTY_CHILD, ...d.child });
-      if (d.caseFields) setCaseFields((p) => ({ ...p, ...d.caseFields }));
+      if (d.caseFields) {
+        const fields = { ...d.caseFields };
+        // A draft saved before consultation had its current values.
+        if (
+          !(CONSULTATION_STATE_VALUES as readonly string[]).includes(
+            fields.consultStatus,
+          )
+        )
+          fields.consultStatus = CONSULTATION_STATE_DEFAULT;
+        setCaseFields((p) => ({ ...p, ...fields }));
+      }
       if (Array.isArray(d.team)) setTeam(d.team);
     } catch {
       /* ignore */
@@ -848,7 +859,7 @@ export function NewCasePage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Consultation state"
+            label="Consultation"
             type="select"
             options={CONSULTATION_STATE_VALUES.map((v) => ({
               value: v,

@@ -1,5 +1,7 @@
 import type {
   CaseListRow,
+  KeyDateSource,
+  KeyDateType,
   NoteKind,
   OwnerQueue,
   SavedViewSeed,
@@ -39,6 +41,17 @@ export interface CaseExpansion {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  /** Every live key date of the case, soonest first, with its detail. */
+  keyDates: {
+    id: string;
+    date: string;
+    time: string | null;
+    type: KeyDateType;
+    title: string;
+    description: string | null;
+    source: KeyDateSource;
+    sourceReference: string | null;
+  }[];
 }
 
 const USER_KEY = 'resend.currentUserId';

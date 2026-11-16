@@ -18,16 +18,16 @@ interface ColumnMeta {
 }
 
 export const COLUMN_META: Record<ColumnId, ColumnMeta> = {
-  select: { header: '', width: '40px' },
-  expander: { header: '', width: '36px' },
-  client: { header: 'Client Name', width: 'minmax(200px, 1.6fr)' },
-  child: { header: "Child's Name", width: 'minmax(120px, 1fr)' },
-  type: { header: 'Type of Case', width: 'minmax(130px, 1fr)' },
-  staff: { header: 'Staff', width: 'minmax(190px, 1fr)' },
-  keydate: { header: 'Key Date', width: '210px' },
-  status: { header: 'Status', width: '130px' },
-  updated: { header: 'Updated', width: 'minmax(170px, 1.2fr)' },
-  team: { header: 'Team', width: '120px' },
+  select: { header: '', width: '32px' },
+  expander: { header: '', width: '32px' },
+  client: { header: 'Client Name', width: 'minmax(142px, 1.5fr)' },
+  child: { header: "Child's Name", width: 'minmax(90px, 1fr)' },
+  type: { header: 'Type of Case', width: 'minmax(110px, 1fr)' },
+  staff: { header: 'Staff', width: 'minmax(168px, 1fr)' },
+  keydate: { header: 'Key Date', width: '172px' },
+  status: { header: 'Status', width: '112px' },
+  updated: { header: 'Updated', width: 'minmax(150px, 1.2fr)' },
+  team: { header: 'Team', width: '100px' },
   dateOfEnquiry: { header: 'Date of enquiry', width: '130px' },
   methodOfEnquiry: { header: 'Method', width: '150px' },
   dealingShadow: { header: 'Dealing/Shadow', width: '150px' },
@@ -35,13 +35,13 @@ export const COLUMN_META: Record<ColumnId, ColumnMeta> = {
   paymentCode: { header: 'Payment', width: '110px' },
   discountCode: { header: 'Discount', width: '110px' },
   invoiceStatus: { header: 'Invoice', width: '160px' },
-  consultationState: { header: 'Consultation', width: '150px' },
+  consultationState: { header: 'Consultation', width: '115px' },
   lastReviewed: { header: 'Last reviewed', width: '130px' },
 };
 
 /**
- * The ordered list of visible columns: the fixed ones (Team, Status and
- * Updated always shown), then the optional ones the person has switched on.
+ * The ordered list of visible columns: the fixed ones (Team, Consultation,
+ * Status and Updated always shown), then the optional ones the person has switched on.
  */
 export function visibleColumns(state: ViewState): ColumnId[] {
   const cols: ColumnId[] = [
@@ -52,6 +52,7 @@ export function visibleColumns(state: ViewState): ColumnId[] {
     'type',
     'staff',
     'team',
+    'consultationState',
     'status',
     'keydate',
     'updated',

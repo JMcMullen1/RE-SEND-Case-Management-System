@@ -1,5 +1,7 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import type {
+  KeyDateSource,
+  KeyDateType,
   CaseFilters,
   CaseListRow,
   NoteKind,
@@ -275,9 +277,23 @@ export interface CaseExpansion {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  /** Every live key date of the case, soonest first, with its detail. */
+  keyDates: {
+    id: string;
+    date: string;
+    time: string | null;
+    type: KeyDateType;
+    title: string;
+    description: string | null;
+    source: KeyDateSource;
+    sourceReference: string | null;
+  }[];
 }
 
-/** The three most recent notes plus contact details, for the row expander. */
+/**
+ * The three most recent notes, contact details and every key date, for the
+ * row's drop-down.
+ */
 export async function getCaseExpansion(id: string): Promise<CaseExpansion> {
   const db = getDb();
   const notesResult = await db.execute(sql`
@@ -288,6 +304,22 @@ export async function getCaseExpansion(id: string): Promise<CaseExpansion> {
     ORDER BY n.entry_date DESC, n.created_at DESC
     LIMIT 3
   `);
+  const keyDateRows = (await db.execute(sql`
+    SELECT k.id, k.date::text AS date, k.time::text AS time, k.type, k.title,
+           k.description, k.source, k.source_reference
+    FROM key_dates k
+    WHERE k.case_id = ${id} AND k.deleted_at IS NULL AND k.superseded_at IS NULL
+    ORDER BY k.date, k.time NULLS FIRST
+  `)) as unknown as {
+    id: string;
+    date: string;
+    time: string | null;
+    type: KeyDateType;
+    title: string;
+    description: string | null;
+    source: KeyDateSource;
+    source_reference: string | null;
+  }[];
   const contactResult = await db.execute(sql`
     SELECT cl.email AS email, cl.phone AS phone, cl.mobile AS mobile
     FROM cases c LEFT JOIN clients cl ON cl.id = c.client_id
@@ -318,6 +350,16 @@ export async function getCaseExpansion(id: string): Promise<CaseExpansion> {
     email: contact?.email ?? null,
     phone: contact?.phone ?? null,
     mobile: contact?.mobile ?? null,
+    keyDates: keyDateRows.map((k) => ({
+      id: k.id,
+      date: k.date,
+      time: k.time,
+      type: k.type,
+      title: k.title,
+      description: k.description,
+      source: k.source,
+      sourceReference: k.source_reference,
+    })),
   };
 }
 

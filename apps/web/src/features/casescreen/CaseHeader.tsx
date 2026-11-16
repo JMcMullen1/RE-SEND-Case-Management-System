@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
+  CONSULTATION_STATE_LABELS,
+  CONSULTATION_STATE_VALUES,
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
   type CaseDetail,
+  type ConsultationState,
   type OwnerQueue,
   type Status,
 } from '@re-send/shared';
@@ -105,6 +108,24 @@ export function CaseHeader({
           {STATUS_VALUES.map((s) => (
             <option key={s} value={s}>
               {s}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1.5 text-sm text-gray-600">
+        Consultation
+        <select
+          value={detail.consultStatus}
+          onChange={(e) =>
+            mutations.patchCase.mutate({
+              consultStatus: e.target.value as ConsultationState,
+            })
+          }
+          className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+        >
+          {CONSULTATION_STATE_VALUES.map((v) => (
+            <option key={v} value={v}>
+              {CONSULTATION_STATE_LABELS[v]}
             </option>
           ))}
         </select>

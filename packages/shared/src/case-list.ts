@@ -230,6 +230,19 @@ function countdownWords(diffDays: number): string {
   return `${-diffDays} days overdue`;
 }
 
+/**
+ * When a key date is, from today: "Today", "Tomorrow", "in 12 days", or for
+ * one gone by, "Yesterday" / "5 days ago" — and whether it has passed.
+ */
+export function keyDateWhen(
+  date: string,
+  today: string,
+): { words: string; passed: boolean } {
+  const diff = calendarDaysBetween(today, date);
+  if (diff >= -1) return { words: countdownWords(diff), passed: diff < 0 };
+  return { words: `${-diff} days ago`, passed: true };
+}
+
 // --- "Updated" relative time -------------------------------------------------
 
 /** Relative time since a civil date, e.g. "3 days ago", "Today". */

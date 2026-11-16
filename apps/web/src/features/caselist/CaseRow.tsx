@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router';
 import {
-  consultationStateLabel,
   formatCivilDate,
   relativeSince,
   type CaseListRow,
@@ -9,7 +8,13 @@ import {
 import type { UserSummary } from '../../api/client';
 import { Chevron } from './primitives';
 import { KeyDateCell } from './KeyDateCell';
-import { StaffCell, StatusCell, TeamCell, TypeCell } from './StaffCell';
+import {
+  ConsultationCell,
+  StaffCell,
+  StatusCell,
+  TeamCell,
+  TypeCell,
+} from './StaffCell';
 import { RowExpansion } from './RowExpansion';
 import { COLUMN_META, type ColumnId } from './columns';
 
@@ -156,11 +161,7 @@ export function CaseRow({
           </span>
         );
       case 'consultationState':
-        return (
-          <span className="text-sm text-resend-ink">
-            {consultationStateLabel(row.consultStatus)}
-          </span>
-        );
+        return <ConsultationCell row={row} />;
       case 'lastReviewed':
         return (
           <span className="text-sm text-gray-500">
@@ -178,7 +179,7 @@ export function CaseRow({
     <div role="presentation" className="border-b border-gray-100">
       <div
         role="row"
-        className={`grid items-center gap-3 pr-4 ${pad} ${unassigned ? 'border-l-2 border-status-amber pl-3' : 'pl-3.5'}`}
+        className={`grid items-center gap-x-2 pr-4 ${pad} ${unassigned ? 'border-l-2 border-status-amber pl-3' : 'pl-3.5'}`}
         style={{ gridTemplateColumns: template }}
       >
         {columns.map((id) => (

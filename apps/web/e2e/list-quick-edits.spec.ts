@@ -58,7 +58,16 @@ test('type, status, team and the weekly review are edited straight from the case
   await page.keyboard.press('Escape');
   await expect(row.getByRole('button', { name: /^Team: Admin/ })).toBeVisible();
 
+  // Consultation starts Incomplete and is changed in place.
+  await row.getByRole('button', { name: /^Consultation: Incomplete/ }).click();
+  await page.getByRole('menuitemradio', { name: /Completed/ }).click();
+  await expect(
+    row.getByRole('button', { name: /^Consultation: Completed/ }),
+  ).toBeVisible();
+
   await row.getByRole('button', { name: 'Expand row' }).click();
+  await expect(page.getByRole('heading', { name: 'Key dates' })).toBeVisible();
+  await expect(page.getByText('No key dates on this case.')).toBeVisible();
   await page.getByLabel('Weekly review').fill(`Week ${stamp}: bundle chased.`);
 
   const axe = await new AxeBuilder({ page })
@@ -85,6 +94,9 @@ test('type, status, team and the weekly review are edited straight from the case
     row.getByRole('button', { name: /^Status: Active/ }),
   ).toBeVisible();
   await expect(row.getByRole('button', { name: /^Team: Admin/ })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: /^Consultation: Completed/ }),
+  ).toBeVisible();
   await expect(
     row.getByRole('button', { name: /^Type of case: Annual Review/ }),
   ).toBeVisible();

@@ -74,7 +74,7 @@ export function CaseTable({
       <div role="rowgroup">
         <div
           role="row"
-          className="grid items-center gap-3 border-b border-gray-200 pl-3.5 pr-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
+          className="grid items-center gap-x-2 border-b border-gray-200 pl-3.5 pr-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
           style={{ gridTemplateColumns: template }}
         >
           {columns.map((id) => (
