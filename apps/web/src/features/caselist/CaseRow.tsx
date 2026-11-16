@@ -3,14 +3,13 @@ import {
   consultationStateLabel,
   formatCivilDate,
   relativeSince,
-  typeOfCase,
   type CaseListRow,
   type OwnerQueue,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
 import { Chevron } from './primitives';
 import { KeyDateCell } from './KeyDateCell';
-import { StaffCell, StatusCell, TeamCell } from './StaffCell';
+import { StaffCell, StatusCell, TeamCell, TypeCell } from './StaffCell';
 import { RowExpansion } from './RowExpansion';
 import { COLUMN_META, type ColumnId } from './columns';
 
@@ -85,11 +84,7 @@ export function CaseRow({
           </span>
         );
       case 'type':
-        return (
-          <span className="text-sm text-resend-ink">
-            {typeOfCase(row.currentWork, row.originalQuery) ?? '—'}
-          </span>
-        );
+        return <TypeCell row={row} />;
       case 'staff':
         return <StaffCell row={row} users={users} onReassign={onReassign} />;
       case 'keydate':

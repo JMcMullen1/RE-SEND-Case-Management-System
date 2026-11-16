@@ -13,7 +13,7 @@ async function signIn(page: Page, email = 'jamie.mcmullen@resend.demo') {
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
-test('status, team and the weekly review are edited straight from the case list', async ({
+test('type, status, team and the weekly review are edited straight from the case list', async ({
   page,
 }) => {
   const stamp = Date.now();
@@ -41,6 +41,14 @@ test('status, team and the weekly review are edited straight from the case list'
   await page.getByRole('menuitemradio', { name: /Active/ }).click();
   await expect(
     row.getByRole('button', { name: /^Status: Active/ }),
+  ).toBeVisible();
+
+  await row
+    .getByRole('button', { name: /^Type of case: Section Appeal/ })
+    .click();
+  await page.getByRole('menuitemradio', { name: /Annual Review/ }).click();
+  await expect(
+    row.getByRole('button', { name: /^Type of case: Annual Review/ }),
   ).toBeVisible();
 
   await row.getByRole('button', { name: /^Team: TSA/ }).click();
@@ -77,4 +85,7 @@ test('status, team and the weekly review are edited straight from the case list'
     row.getByRole('button', { name: /^Status: Active/ }),
   ).toBeVisible();
   await expect(row.getByRole('button', { name: /^Team: Admin/ })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: /^Type of case: Annual Review/ }),
+  ).toBeVisible();
 });
