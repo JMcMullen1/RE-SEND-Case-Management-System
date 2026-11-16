@@ -33,7 +33,7 @@ function periodTitle(period: TimePeriod, from: string, to: string): string {
 }
 
 /**
- * "My time": the time a person has recorded by day, week or month, and what it
+ * "My Timesheet": the time a person has recorded by day, week or month, and what it
  * earned at their pay rate. Everyone sees their own; admins can look at anyone.
  * Billables with no time recorded are listed so they can be put right.
  */
@@ -51,7 +51,7 @@ export function TimePage() {
 
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [anchor, setAnchor] = useState(today);
-  // Whose time is shown lives in the address (?person=), so "My time" in the
+  // Whose time is shown lives in the address (?person=), so "My Timesheet" in the
   // navigation always comes back to your own, and Back returns to a colleague.
   const router = useRouter();
   const search = useRouterState({ select: (st) => st.location.searchStr });
@@ -87,7 +87,7 @@ export function TimePage() {
         <div className="flex flex-wrap items-center gap-4">
           <div className="mr-auto">
             <h1 className="text-xl font-semibold text-resend-ink">
-              {isMine ? 'My time' : 'Time'}
+              {isMine ? 'My Timesheet' : 'Timesheet'}
             </h1>
             <p className="text-xs text-gray-500">
               Time recorded on billables, and what it earned
@@ -160,7 +160,7 @@ export function TimePage() {
               aria-label="Whose time"
               className="ml-auto rounded-md border border-gray-200 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
             >
-              <option value="">My time</option>
+              <option value="">My Timesheet</option>
               {people
                 .filter((u) => u.id !== me?.id)
                 .map((u) => (

@@ -31,7 +31,7 @@ const NAV: NavItem[] = [
     matches: (p) => p.startsWith('/schools'),
   },
   { to: '/search', label: 'Search', matches: (p) => p.startsWith('/search') },
-  { to: '/time', label: 'My time', matches: (p) => p.startsWith('/time') },
+  { to: '/time', label: 'My Timesheet', matches: (p) => p.startsWith('/time') },
   {
     to: '/admin/staff',
     label: 'Admin',
