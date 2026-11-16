@@ -72,7 +72,7 @@ export interface ViewState {
 
 export function defaultViewState(): ViewState {
   return {
-    mode: 'simple',
+    mode: 'advanced',
     sort: DEFAULT_SORT,
     density: 'comfortable',
     search: '',
@@ -111,7 +111,6 @@ const DAY_FACETS = [
 
 export function encodeViewState(state: ViewState): URLSearchParams {
   const p = new URLSearchParams();
-  if (state.mode !== 'simple') p.set('mode', state.mode);
   if (state.sort !== DEFAULT_SORT) p.set('sort', state.sort);
   if (state.density !== 'comfortable') p.set('density', state.density);
   if (state.search.trim()) p.set('q', state.search.trim());
@@ -166,8 +165,7 @@ export function decodeViewState(input: URLSearchParams | string): ViewState {
 
   const state = defaultViewState();
 
-  const mode = params.get('mode');
-  if (mode === 'advanced' || mode === 'simple') state.mode = mode;
+  // One view now: an old link's ?mode= is ignored.
 
   const sort = params.get('sort');
   if (sort && (SORT_VALUES as readonly string[]).includes(sort)) {

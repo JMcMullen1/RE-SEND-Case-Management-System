@@ -13,6 +13,7 @@ export default defineConfig({
   testDir: './e2e',
   testIgnore: [
     'journey.spec.ts',
+    'list-quick-edits.spec.ts',
     'a11y.spec.ts',
     'migrate.spec.ts',
     'schools-import.spec.ts',

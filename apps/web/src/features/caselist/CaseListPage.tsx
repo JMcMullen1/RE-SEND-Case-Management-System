@@ -19,12 +19,7 @@ import {
   useUsers,
 } from '../../hooks/useCaseData';
 import { gridTemplate, visibleColumns } from './columns';
-import {
-  DensityToggle,
-  SearchBox,
-  SegmentedControl,
-  SortSelect,
-} from './Controls';
+import { DensityToggle, SearchBox, SortSelect } from './Controls';
 import { QuickFilters } from './QuickFilters';
 import { ActiveFilterChips } from './ActiveFilterChips';
 import { FiltersPopover } from './FiltersPopover';
@@ -52,7 +47,6 @@ export function CaseListPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const advanced = state.mode === 'advanced';
   const columns = visibleColumns(state);
   const template = gridTemplate(columns);
 
@@ -102,10 +96,6 @@ export function CaseListPage() {
           <h1 className="mr-auto text-xl font-semibold text-resend-ink">
             Cases
           </h1>
-          <SegmentedControl
-            mode={state.mode}
-            onChange={(mode) => update({ mode })}
-          />
           <SavedViewsMenu
             seeds={savedViews.data?.seeds ?? []}
             views={savedViews.data?.views ?? []}
@@ -136,24 +126,20 @@ export function CaseListPage() {
             />
           </div>
           <SortSelect sort={state.sort} onChange={(sort) => update({ sort })} />
-          {advanced && (
-            <>
-              <FiltersPopover
-                filters={state.filters}
-                counts={cases.facetCounts}
-                users={users}
-                onChange={setFilters}
-              />
-              <ColumnChooser
-                columns={state.columns}
-                onChange={(cols) => update({ columns: cols })}
-              />
-              <DensityToggle
-                density={state.density}
-                onChange={(density) => update({ density })}
-              />
-            </>
-          )}
+          <FiltersPopover
+            filters={state.filters}
+            counts={cases.facetCounts}
+            users={users}
+            onChange={setFilters}
+          />
+          <ColumnChooser
+            columns={state.columns}
+            onChange={(cols) => update({ columns: cols })}
+          />
+          <DensityToggle
+            density={state.density}
+            onChange={(density) => update({ density })}
+          />
         </div>
 
         <div className="mt-3">
@@ -168,7 +154,7 @@ export function CaseListPage() {
           />
         </div>
 
-        {advanced && selected.size > 0 && (
+        {selected.size > 0 && (
           <div className="mt-3">
             <BulkBar
               count={selected.size}
@@ -204,7 +190,7 @@ export function CaseListPage() {
             compact={state.density === 'compact'}
             expanded={expanded}
             onToggleExpand={toggleExpand}
-            selectable={advanced}
+            selectable
             selected={selected}
             onToggleSelect={toggleSelect}
             onToggleSelectAll={toggleSelectAll}

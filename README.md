@@ -19,6 +19,17 @@ npm run db:migrate -w @re-send/api     # apply checked-in SQL migrations
 DATABASE_URL=... NODE_ENV=development npm run fixtures:load   # dev data only
 ```
 
+## The case list
+
+One view (there is no simple / advanced switch), with tick boxes for bulk
+reassignment, more filters, columns and density. Staff, Team and Status are
+always shown and are changed in place: click the value and choose (several
+teams can be ticked at once — TSA, ISA, Admin, Support; each change saves at
+once and is audited). Opening a row's drop-down shows a **Weekly review** box:
+what is written is saved as a note on the case and recorded as the week's
+review (as review mode does), so the **Updated** column shows "Today" with the
+start of it. A half-written review is kept if the row is closed.
+
 ## Legibility
 
 The interface greys (secondary text, labels, borders, dividers, panels) come
@@ -248,7 +259,7 @@ admins only; `packages/shared/src/case-import.ts`,
   same way. One email given for two different names (a school's or a
   professional's address, say) is a problem to fix in the sheet, never a join.
   A name alone makes a separate record and says so.
-- **Simple and advanced views**, as in the case list: the simple view shows the
+- **Simple and advanced views**: the simple view shows the
   essentials; the advanced view shows every column. "More" on a row shows what
   to look at and each value as written and as it will be imported. Rows can be
   filtered by outcome.

@@ -9,8 +9,11 @@ import {
   type CaseListRow,
   type CaseOwner,
   type OwnerQueue,
+  type Status,
+  type Team,
   type ViewState,
 } from '@re-send/shared';
+import { patchCaseFields, setCaseTeams } from '../api/caseScreen';
 import {
   createSavedView,
   deleteSavedView,
@@ -95,7 +98,7 @@ export function useReassign() {
         qc.getQueryData<{ users: UserSummary[] }>(['users'])?.users ?? [];
       const owner = ownerFromTarget(target, users);
       qc.setQueriesData<CasesPage>({ queryKey: ['cases'] }, (old) =>
-        old
+        old?.pages
           ? {
               ...old,
               pages: old.pages.map((page) => ({
@@ -139,4 +142,60 @@ export function useDeleteView() {
     mutationFn: deleteSavedView,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['saved-views'] }),
   });
+}
+
+/**
+ * Change one row's fields on the case list straight away (shown at once,
+ * put back if the save fails), then refresh the list from the server.
+ */
+function useRowEdit<V extends { id: string }>(
+  save: (vars: V) => Promise<unknown>,
+  apply: (row: CaseListRow, vars: V) => CaseListRow,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: save,
+    onMutate: async (vars: V) => {
+      await qc.cancelQueries({ queryKey: ['cases'] });
+      const snapshots = qc.getQueriesData<CasesPage>({ queryKey: ['cases'] });
+      qc.setQueriesData<CasesPage>({ queryKey: ['cases'] }, (old) =>
+        old?.pages
+          ? {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                rows: page.rows.map((row: CaseListRow) =>
+                  row.id === vars.id ? apply(row, vars) : row,
+                ),
+              })),
+            }
+          : old,
+      );
+      return { snapshots };
+    },
+    onError: (_error, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: (_data, _error, vars) => {
+      void qc.invalidateQueries({ queryKey: ['cases'] });
+      void qc.invalidateQueries({ queryKey: ['case-detail', vars.id] });
+    },
+  });
+}
+
+/** Change a case's status from the case list. */
+export function useSetStatus() {
+  return useRowEdit(
+    ({ id, status }: { id: string; status: Status }) =>
+      patchCaseFields(id, { status }),
+    (row, { status }) => ({ ...row, status }),
+  );
+}
+
+/** Change which teams a case sits with from the case list. */
+export function useSetTeams() {
+  return useRowEdit(
+    ({ id, team }: { id: string; team: Team[] }) => setCaseTeams(id, team),
+    (row, { team }) => ({ ...row, team }),
+  );
 }

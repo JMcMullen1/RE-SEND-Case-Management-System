@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaseDetail, NoteKind } from '@re-send/shared';
+import type { CaseDetail, NoteKind, Team } from '@re-send/shared';
 import { reassignCase, type UserSummary } from '../api/client';
 import {
   addNote,
@@ -106,7 +106,7 @@ export function useCaseMutations(id: string) {
       ...opts,
     }),
     setTeams: useMutation({
-      mutationFn: (team: ('TSA' | 'ISA')[]) => setCaseTeams(id, team),
+      mutationFn: (team: Team[]) => setCaseTeams(id, team),
       ...opts,
     }),
     addKeyDate: useMutation({

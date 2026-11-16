@@ -31,7 +31,7 @@ export type Status = (typeof STATUS_VALUES)[number];
 export const StatusSchema = z.enum(STATUS_VALUES);
 
 // --- Teams ------------------------------------------------------------------
-export const TEAM_VALUES = ['TSA', 'ISA'] as const;
+export const TEAM_VALUES = ['TSA', 'ISA', 'Admin', 'Support'] as const;
 export type Team = (typeof TEAM_VALUES)[number];
 export const TeamSchema = z.enum(TEAM_VALUES);
 
@@ -2968,9 +2968,10 @@ export const SORTS: { id: SortId; label: string }[] = [
   { id: 'staffThenKeyDate', label: 'Staff, then key date' },
 ];
 
-// --- Case list: optional advanced columns -----------------------------------
-// Status and Updated are shown by default in advanced view and are not
-// toggleable. These are the columns a user can switch on and persist.
+// --- Case list: optional columns -------------------------------------------
+// Team, Status and Updated are always shown and are not toggleable ('team'
+// stays a valid id so views saved before it was always shown still read).
+// These are the columns a user can switch on and persist.
 export const OPTIONAL_COLUMN_VALUES = [
   'team',
   'dateOfEnquiry',
@@ -2986,7 +2987,6 @@ export const OPTIONAL_COLUMN_VALUES = [
 export type OptionalColumnId = (typeof OPTIONAL_COLUMN_VALUES)[number];
 export const OptionalColumnSchema = z.enum(OPTIONAL_COLUMN_VALUES);
 export const OPTIONAL_COLUMNS: { id: OptionalColumnId; label: string }[] = [
-  { id: 'team', label: 'Team' },
   { id: 'dateOfEnquiry', label: 'Date of enquiry' },
   { id: 'methodOfEnquiry', label: 'Method of enquiry' },
   { id: 'dealingShadow', label: 'Dealing/Shadow' },

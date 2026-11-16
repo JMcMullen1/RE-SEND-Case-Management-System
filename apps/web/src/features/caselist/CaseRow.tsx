@@ -8,9 +8,9 @@ import {
   type OwnerQueue,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
-import { Chevron, StatusChip } from './primitives';
+import { Chevron } from './primitives';
 import { KeyDateCell } from './KeyDateCell';
-import { StaffCell } from './StaffCell';
+import { StaffCell, StatusCell, TeamCell } from './StaffCell';
 import { RowExpansion } from './RowExpansion';
 import { COLUMN_META, type ColumnId } from './columns';
 
@@ -97,19 +97,27 @@ export function CaseRow({
           <KeyDateCell row={row} today={today} onExpand={onToggleExpand} />
         );
       case 'status':
-        return <StatusChip status={row.status} />;
+        return <StatusCell row={row} />;
       case 'updated':
         return (
-          <span className="text-sm text-gray-500">
-            {relativeSince(row.mostRecentNoteDate, today)}
+          <span
+            className="block min-w-0 text-sm"
+            title={row.mostRecentNoteText ?? undefined}
+          >
+            <span className="text-resend-ink">
+              {row.mostRecentNoteDate
+                ? relativeSince(row.mostRecentNoteDate, today)
+                : 'No notes yet'}
+            </span>
+            {row.mostRecentNoteText && (
+              <span className="block truncate text-xs text-gray-500">
+                {row.mostRecentNoteText}
+              </span>
+            )}
           </span>
         );
       case 'team':
-        return (
-          <span className="text-sm text-resend-ink">
-            {row.team.join(', ') || '—'}
-          </span>
-        );
+        return <TeamCell row={row} />;
       case 'dateOfEnquiry':
         return (
           <span className="text-sm text-resend-ink">
@@ -172,7 +180,7 @@ export function CaseRow({
   };
 
   return (
-    <div className="border-b border-gray-100">
+    <div role="presentation" className="border-b border-gray-100">
       <div
         role="row"
         className={`grid items-center gap-3 pr-4 ${pad} ${unassigned ? 'border-l-2 border-status-amber pl-3' : 'pl-3.5'}`}
@@ -192,7 +200,14 @@ export function CaseRow({
           </div>
         ))}
       </div>
-      {expanded && <RowExpansion row={row} today={today} />}
+      {expanded && (
+        // The drop-down is a row of its own, one cell wide, under its case.
+        <div role="row">
+          <div role="cell">
+            <RowExpansion row={row} today={today} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
