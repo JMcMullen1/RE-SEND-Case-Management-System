@@ -8,7 +8,8 @@ import { defineConfig } from '@playwright/test';
  * run under the default config. Specs run in name order against one database:
  * journey.spec.ts expects an empty case list, so the specs that add cases
  * (list-quick-edits, migrate, schools-import, search, timeline-history, triage-emails) sort after it, and timeline-history
- * after search, whose counts it would change.
+ * after search, whose counts it would change. zz-restore replaces everything
+ * with a backup, so it runs last.
  *
  * PW_CHROMIUM lets a local run point at a preinstalled Chromium binary.
  */
@@ -25,6 +26,7 @@ export default defineConfig({
     'search.spec.ts',
     'timeline-history.spec.ts',
     'triage-emails.spec.ts',
+    'zz-restore.spec.ts',
   ],
   timeout: 60_000,
   expect: { timeout: 10_000 },

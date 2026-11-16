@@ -9,6 +9,12 @@ import {
 } from '@re-send/shared';
 import { resolveActingUser } from '../auth/context';
 import { streamExport } from '../export/zip';
+import {
+  checkBackup,
+  restoreStatus,
+  RestoreRefused,
+  startRestore,
+} from '../backup/restore';
 import { disconnectUser } from '../realtime';
 import { recordExportEvent } from '../repositories/export';
 import {
@@ -219,6 +225,117 @@ export function registerAdminRoutes(fastify: FastifyInstance): void {
         .header('cache-control', 'no-store')
         .type('application/zip');
       return reply.send(stream);
+    },
+  );
+
+  // --- Full import (restore) -------------------------------------------------
+
+  // A full export can be up to this size.
+  const BACKUP_MAX_BYTES = 4 * 1024 * 1024 * 1024;
+
+  // Step 1: upload a full export and check it. Nothing changes yet.
+  app.post(
+    '/api/admin/restore/check',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
+      schema: {
+        response: {
+          200: z.object({
+            id: z.string().uuid(),
+            summary: z.object({
+              createdAt: z.string(),
+              createdBy: z.string(),
+              tables: z.number().int(),
+              rows: z.number().int(),
+              files: z.number().int(),
+            }),
+          }),
+          400: Message,
+          403: Message,
+          422: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) return;
+      const file = await request.file({
+        limits: { fileSize: BACKUP_MAX_BYTES },
+      });
+      if (!file) return reply.code(400).send({ message: 'No file uploaded' });
+      try {
+        return await checkBackup(
+          file.file,
+          admin.id,
+          () => file.file.truncated,
+        );
+      } catch (err) {
+        if (err instanceof RestoreRefused)
+          return reply.code(422).send({ message: err.message });
+        throw err;
+      }
+    },
+  );
+
+  // Step 2: replace everything with the checked backup (audited).
+  app.post(
+    '/api/admin/restore/:id',
+    {
+      config: { rateLimit: { max: 3, timeWindow: '1 hour' } },
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ confirm: z.literal('REPLACE') }),
+        response: {
+          202: z.object({ started: z.literal(true) }),
+          403: Message,
+          422: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) return;
+      try {
+        // Runs in the background; the page follows it through the status.
+        startRestore(request.params.id, admin.id);
+        return reply.code(202).send({ started: true });
+      } catch (err) {
+        if (err instanceof RestoreRefused)
+          return reply.code(422).send({ message: err.message });
+        throw err;
+      }
+    },
+  );
+
+  // Where the restore stands: running, done (with counts) or failed.
+  app.get(
+    '/api/admin/restore/status',
+    {
+      schema: {
+        response: {
+          200: z.discriminatedUnion('state', [
+            z.object({ state: z.literal('idle') }),
+            z.object({ state: z.literal('running'), startedAt: z.string() }),
+            z.object({
+              state: z.literal('done'),
+              rows: z.number().int(),
+              files: z.number().int(),
+              finishedAt: z.string(),
+            }),
+            z.object({
+              state: z.literal('failed'),
+              message: z.string(),
+              finishedAt: z.string(),
+            }),
+          ]),
+          403: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) return;
+      return restoreStatus(admin.id);
     },
   );
 }

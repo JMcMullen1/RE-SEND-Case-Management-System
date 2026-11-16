@@ -169,6 +169,20 @@
       "when": 1794793050790,
       "tag": "0023_consultation_simple",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794795788883,
+      "tag": "0024_remove_old_demo_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794796997466,
+      "tag": "0025_restore_quiet_notify",
+      "breakpoints": true
     }
   ]
 }

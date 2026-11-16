@@ -205,10 +205,13 @@ more than one set of conventions.
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
 
-## Staff administration and data export
+## Staff administration, full export and full import
 
-Admins manage staff and take the charity's data with them at any time
-(`/admin/staff`, `apps/api/src/repositories/staff.ts`, `apps/api/src/export`).
+Admins manage staff, take the charity's data with them at any time, and can
+put a full export back. Each is its own Admin tab: **Staff** (`/admin/staff`),
+**Full export** (`/admin/export`) and **Full import** (`/admin/restore`)
+(`apps/api/src/repositories/staff.ts`, `apps/api/src/export`,
+`apps/api/src/backup`, `apps/api/src/repositories/backup.ts`).
 
 - **Joiners, roles and leavers are an admin action, not a deploy.** An admin
   adds a person (name, work email used to sign in, role), changes their name,
@@ -234,7 +237,36 @@ Admins manage staff and take the charity's data with them at any time
   Streamed with backpressure (tables a page at a time, documents in slices,
   stopping if the download is abandoned); admin-only, rate-limited; the start
   and the outcome of each export are audited. A test fails if a new table is
-  not added to the export.
+  not added to the export. Original emails (the .eml/.msg filed, and those
+  still waiting in Emails to file) are under `emails/`.
+- **The export is also a backup.** Alongside the readable CSVs it carries
+  `restore/`: every table as JSON lines with exact values, read from **one
+  consistent database snapshot** (sensitive fields decrypted, so the backup
+  opens under any key — keep it as safely as the system itself), and
+  `restore/manifest.json`, naming the migration state, the row counts, and the
+  size and SHA-256 of every table and every file with its storage key.
+- **Full import** puts a full export back. In two steps:
+  1. **Check.** The ZIP is uploaded and read through its central directory (a
+     Word document, itself a ZIP, is read as one file). It must be a complete,
+     unaltered export from the same version of the system (same migrations):
+     exactly the exported tables and columns, every line a row, every checksum
+     and size matching, and every file belonging to one of the backup's own
+     document records. The admin sees when and by whom it was made and what it
+     holds. Limits guard against oversized or crafted files.
+  2. **Replace**, after typing **REPLACE**. It runs in the background (the page
+     follows it): every file is stored again under its original key, encrypted
+     under the current key, then, in **one transaction**, every exported table
+     is emptied and refilled with the backup's own ids in foreign-key order,
+     `updated_at` kept, sensitive fields encrypted again. Any failure leaves
+     the records untouched. Afterwards every open screen refreshes.
+  - **Not rewound:** the **audit trail** keeps every entry made since the
+    backup alongside the backup's own; anyone **marked as having left** stays
+    so (and is disconnected); each person keeps their **calendar link**.
+  - Admin-only, rate-limited, one at a time; the check, start, outcome and any
+    failure are audited (outcomes only — no record values). The temporary copy
+    is deleted when done, after an hour unused, or at the next start after a
+    crash. The restore state is held by the API process, which suits the
+    single instance this system runs as.
 
 ## Importing the existing case list
 

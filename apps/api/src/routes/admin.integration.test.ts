@@ -18,6 +18,20 @@ run('staff admin and data export API', () => {
   const admin = () => users.find((u) => u.role === 'admin')!;
   const worker = () => users.find((u) => u.role === 'caseworker')!;
   const as = (u: { id: string }) => ({ 'x-user-id': u.id });
+  let exported: Uint8Array | null = null;
+  const upload = (body: Uint8Array | Buffer, name = 'backup.zip') => {
+    const boundary = `----restore${stamp}`;
+    return {
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: application/zip\r\n\r\n`,
+        ),
+        Buffer.from(body),
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]),
+    };
+  };
 
   beforeAll(async () => {
     const app = await buildServer();
@@ -292,6 +306,14 @@ run('staff admin and data export API', () => {
       strFromU8(files[`documents/${c!.case_reference}/export-${stamp}.txt`]!),
     ).toBe(`Export check ${stamp}`);
 
+    // What Full import needs to put it all back.
+    const restore = JSON.parse(strFromU8(files['restore/manifest.json']!));
+    expect(restore.format).toBe('resend-backup');
+    for (const { table } of EXPORT_TABLES)
+      expect(files[`restore/tables/${table}.ndjson`], table).toBeDefined();
+    for (const f of restore.files) expect(files[f.path], f.path).toBeDefined();
+    exported = new Uint8Array(res.rawPayload);
+
     // Written last: proof the export finished, with counts.
     const manifest = strFromU8(files['MANIFEST.txt']!);
     expect(manifest).toMatch(/Export complete/);
@@ -317,6 +339,67 @@ run('staff admin and data export API', () => {
     expect(await actions()).toEqual(
       new Set(['export.download', 'export.complete']),
     );
+    await app.close();
+  });
+
+  it('checks a full export before putting it back, and refuses anything else', async () => {
+    const app = await buildServer();
+    const notAdmin = upload(Buffer.from('x'));
+    const refused = await app.inject({
+      method: 'POST',
+      url: '/api/admin/restore/check',
+      headers: { ...notAdmin.headers, ...as(worker()) },
+      payload: notAdmin.payload,
+    });
+    expect(refused.statusCode).toBe(403);
+
+    const junk = upload(Buffer.from('not a zip at all'));
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/admin/restore/check',
+      headers: { ...junk.headers, ...as(admin()) },
+      payload: junk.payload,
+    });
+    expect(bad.statusCode).toBe(422);
+    expect(bad.json().message).toMatch(/full export/);
+
+    expect(exported).not.toBeNull();
+    const good = upload(exported!);
+    const checked = await app.inject({
+      method: 'POST',
+      url: '/api/admin/restore/check',
+      headers: { ...good.headers, ...as(admin()) },
+      payload: good.payload,
+    });
+    expect(checked.statusCode).toBe(200);
+    const { id, summary } = checked.json();
+    expect(summary.tables).toBe(EXPORT_TABLES.length);
+    expect(summary.rows).toBeGreaterThan(0);
+
+    // Only with REPLACE typed, and only by the admin who checked it. (The
+    // replacing itself is covered end to end: here other tests share the
+    // database.)
+    const noConfirm = await app.inject({
+      method: 'POST',
+      url: `/api/admin/restore/${id}`,
+      headers: as(admin()),
+      payload: { confirm: 'yes' },
+    });
+    expect(noConfirm.statusCode).toBe(400);
+    const otherUser = await app.inject({
+      method: 'POST',
+      url: `/api/admin/restore/${id}`,
+      headers: as(worker()),
+      payload: { confirm: 'REPLACE' },
+    });
+    expect(otherUser.statusCode).toBe(403);
+    const unknown = await app.inject({
+      method: 'POST',
+      url: '/api/admin/restore/00000000-0000-4000-8000-000000000000',
+      headers: as(admin()),
+      payload: { confirm: 'REPLACE' },
+    });
+    expect(unknown.statusCode).toBe(422);
     await app.close();
   });
 });

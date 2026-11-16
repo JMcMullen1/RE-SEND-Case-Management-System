@@ -4,6 +4,7 @@ import { provisionDemoAccounts } from './auth/demo-accounts';
 import { assertRuntimeSafety, env } from './env';
 import { assertEncryptionConfigured } from './crypto/encryption';
 import { runEncryptionBackfill } from './crypto/backfill';
+import { sweepRestoreLeftovers } from './backup/restore';
 
 async function main(): Promise<void> {
   // Fatal safety checks before anything binds: demo login must never be live in
@@ -13,6 +14,9 @@ async function main(): Promise<void> {
   assertEncryptionConfigured();
 
   const app = await buildServer();
+
+  // Temporary copies of a backup left by a crash hold children's data.
+  await sweepRestoreLeftovers().catch(() => undefined);
 
   // In demo mode, ensure the named sign-in accounts exist. This provisions
   // staff (the real staff list), not cases — the case list still starts empty.

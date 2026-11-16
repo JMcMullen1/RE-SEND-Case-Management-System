@@ -20,8 +20,9 @@ between pieces of work.
 - **Time recording**: billables carry their time (15-minute units, required),
   case totals, a "My Timesheet" page with earnings, and admin-set dated pay and work
   rates.
-- **Staff administration** (joiners, roles, leavers with case handover) and a
-  **full data export** (every table as CSV and every document, in one ZIP).
+- **Staff administration** (joiners, roles, leavers with case handover), a
+  **full export** (every table as CSV, every document and original email, in
+  one ZIP) and a **full import** that puts such an export back exactly.
 - **Assisted drafting**: a position statement starter drawn only from the
   case file, every paragraph tied to its sources, reviewed and approved by a
   caseworker and filed as a Word document.
