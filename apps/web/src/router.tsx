@@ -48,7 +48,7 @@ function screenTitle(path: string): string | null {
   if (path.startsWith('/cases/')) return 'Case';
   if (path === '/review') return 'Review';
   if (path === '/calendar') return 'Calendar';
-  if (path === '/time') return 'My time';
+  if (path === '/time') return 'My Timesheet';
   if (path === '/admin/rates') return 'Staff rates';
   if (path === '/admin/staff') return 'Staff';
   if (path === '/admin/import') return 'Import the case list';

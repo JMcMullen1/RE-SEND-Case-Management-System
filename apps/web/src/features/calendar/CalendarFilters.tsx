@@ -1,11 +1,9 @@
 import {
   KEY_DATE_TYPE_LABELS,
   KEY_DATE_TYPE_VALUES,
-  STATUS_VALUES,
   TEAM_VALUES,
   type CalendarFilters as Filters,
   type KeyDateType,
-  type Status,
   type Team,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
@@ -13,7 +11,7 @@ import { TypeDot } from './primitives';
 
 /**
  * The calendar filter bar: whose dates (mine / all staff / a named person),
- * team, key-date type, case status, and whether to show superseded history.
+ * team, key-date type, and whether to show superseded history.
  */
 export function CalendarFilters({
   filters,
@@ -34,13 +32,6 @@ export function CalendarFilters({
     if (set.has(t)) set.delete(t);
     else set.add(t);
     patch({ types: set.size ? [...set] : undefined });
-  };
-
-  const toggleStatus = (s: Status) => {
-    const set = new Set(filters.statuses ?? []);
-    if (set.has(s)) set.delete(s);
-    else set.add(s);
-    patch({ statuses: set.size ? [...set] : undefined });
   };
 
   return (
@@ -111,40 +102,6 @@ export function CalendarFilters({
           );
         })}
       </fieldset>
-
-      <label className="flex items-center gap-1 text-sm text-gray-600">
-        <span className="text-xs font-medium text-gray-500">Status</span>
-        <select
-          value=""
-          onChange={(e) => {
-            if (e.target.value) toggleStatus(e.target.value as Status);
-          }}
-          aria-label="Add a case-status filter"
-          className="rounded border border-gray-200 bg-white px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-        >
-          <option value="">
-            {filters.statuses?.length
-              ? `${filters.statuses.length} selected`
-              : 'Any status'}
-          </option>
-          {STATUS_VALUES.map((s) => (
-            <option key={s} value={s}>
-              {filters.statuses?.includes(s) ? `✓ ${s}` : s}
-            </option>
-          ))}
-        </select>
-      </label>
-      {filters.statuses?.map((s) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => toggleStatus(s)}
-          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
-          aria-label={`Remove status filter ${s}`}
-        >
-          {s} ×
-        </button>
-      ))}
 
       <label className="ml-auto flex items-center gap-1.5 text-sm text-gray-600">
         <input

@@ -18,7 +18,7 @@ between pieces of work.
 - **Email filing** (.msg and .eml) with attachments filed as documents,
   de-duplication, sent/received detection, live updates and the case corpus.
 - **Time recording**: billables carry their time (15-minute units, required),
-  case totals, a "My time" page with earnings, and admin-set dated pay and work
+  case totals, a "My Timesheet" page with earnings, and admin-set dated pay and work
   rates.
 - **Staff administration** (joiners, roles, leavers with case handover) and a
   **full data export** (every table as CSV and every document, in one ZIP).
@@ -51,7 +51,7 @@ between pieces of work.
   local authority, with every Section 41 school; re-run it to bring the
   directory up to date.
 - **One navigation bar** across every screen (Cases, Calendar, Schools,
-  Search, My time, and Admin for admins), the current section marked; admin
+  Search, My Timesheet, and Admin for admins), the current section marked; admin
   screens share a sub-navigation. Moving between screens no longer reloads
   the page, and each screen's code loads when first opened.
 

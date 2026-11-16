@@ -489,7 +489,7 @@ Time is recorded where the work is written up, ready for QuickBooks later
   date, or delete it (soft; a billable's time goes with it). Every create, edit
   and delete is audited; the note is locked while it changes.
 - **Case totals.** The Billables tab shows the time on the case, by person.
-- **My time** (`/time`): a person's recorded time by day, week or month, and
+- **My Timesheet** (`/time`): a person's recorded time by day, week or month, and
   what it earned. Everyone sees their own; admins can choose anyone.
 - **Leavers.** Admins can still pick a leaver on the Time page (final pay), and
   time on a case deleted later still counts, marked as such.

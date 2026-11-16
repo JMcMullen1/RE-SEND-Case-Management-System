@@ -230,7 +230,7 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
   await page.getByRole('button', { name: 'Add billable' }).click();
   await expect(page.getByText('45m recorded on this case')).toBeVisible();
 
-  // An admin sets a pay rate (backdated), and My time shows the earnings.
+  // An admin sets a pay rate (backdated), and My Timesheet shows the earnings.
   await page.goto('/admin/rates');
   await page
     .getByRole('button', { name: 'Set pay rate for Jamie McMullen' })
