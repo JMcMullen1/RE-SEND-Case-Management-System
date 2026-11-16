@@ -98,7 +98,7 @@ export function useReassign() {
         qc.getQueryData<{ users: UserSummary[] }>(['users'])?.users ?? [];
       const owner = ownerFromTarget(target, users);
       qc.setQueriesData<CasesPage>({ queryKey: ['cases'] }, (old) =>
-        old
+        old?.pages
           ? {
               ...old,
               pages: old.pages.map((page) => ({
@@ -159,7 +159,7 @@ function useRowEdit<V extends { id: string }>(
       await qc.cancelQueries({ queryKey: ['cases'] });
       const snapshots = qc.getQueriesData<CasesPage>({ queryKey: ['cases'] });
       qc.setQueriesData<CasesPage>({ queryKey: ['cases'] }, (old) =>
-        old
+        old?.pages
           ? {
               ...old,
               pages: old.pages.map((page) => ({

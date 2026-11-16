@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
@@ -113,18 +113,48 @@ export function StatusCell({ row }: { row: CaseListRow }) {
  */
 export function TeamCell({ row }: { row: CaseListRow }) {
   const setTeams = useSetTeams();
-  // Ticks show at once; the list catches up when the save lands.
-  const [team, setTeam] = useState<Team[]>(row.team);
-  const saved = row.team.join(',');
+  // In the system's order, whatever order the server lists them in.
+  const ordered = (codes: readonly string[]) =>
+    TEAM_VALUES.filter((t) => codes.includes(t));
+  // Ticks show at once. Saves go one after another, each sending the latest
+  // set, and the list's copy is not taken back while any is still going — so
+  // quick ticks are never lost or undone by a refresh.
+  const [team, setTeam] = useState<Team[]>(() => ordered(row.team));
+  const latest = useRef(team);
+  const inFlight = useRef(0);
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
+  const failed = useRef(false);
+  const rowTeam = useRef(row.team);
+  rowTeam.current = row.team;
+  const saved = ordered(row.team).join(',');
   useEffect(() => {
-    setTeam(saved ? (saved.split(',') as Team[]) : []);
+    if (inFlight.current > 0) return;
+    const next = saved ? (saved.split(',') as Team[]) : [];
+    latest.current = next;
+    setTeam(next);
   }, [saved]);
   const toggle = (t: Team) => {
-    const next = team.includes(t)
-      ? team.filter((x) => x !== t)
-      : TEAM_VALUES.filter((x) => x === t || team.includes(x));
+    const now = latest.current;
+    const next = now.includes(t)
+      ? now.filter((x) => x !== t)
+      : TEAM_VALUES.filter((x) => x === t || now.includes(x));
+    latest.current = next;
     setTeam(next);
-    setTeams.mutate({ id: row.id, team: next });
+    inFlight.current += 1;
+    chain.current = chain.current
+      .then(() => setTeams.mutateAsync({ id: row.id, team: latest.current }))
+      .catch(() => {
+        failed.current = true;
+      })
+      .finally(() => {
+        inFlight.current -= 1;
+        // A save failed: show what the case really has (the list put it back).
+        if (inFlight.current === 0 && failed.current) {
+          failed.current = false;
+          latest.current = ordered(rowTeam.current);
+          setTeam(latest.current);
+        }
+      });
   };
   return (
     <CellMenu

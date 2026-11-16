@@ -107,6 +107,33 @@ export function CellMenu({
             ref={menuRef}
             role={role}
             aria-label={label}
+            // Tabbing out closes it, as clicking elsewhere does.
+            onBlur={(e) => {
+              const to = e.relatedTarget as Node | null;
+              if (
+                to &&
+                (menuRef.current?.contains(to) ||
+                  buttonRef.current?.contains(to))
+              )
+                return;
+              if (to) setPos(null);
+            }}
+            // Up and down move through the choices.
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+              const items = Array.from(
+                menuRef.current?.querySelectorAll<HTMLElement>(
+                  'button, input',
+                ) ?? [],
+              );
+              const at = items.indexOf(document.activeElement as HTMLElement);
+              const next =
+                e.key === 'ArrowDown'
+                  ? items[(at + 1) % items.length]
+                  : items[(at - 1 + items.length) % items.length];
+              e.preventDefault();
+              next?.focus();
+            }}
             style={{
               position: 'fixed',
               left: pos.left,

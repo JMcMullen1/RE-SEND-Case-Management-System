@@ -111,10 +111,13 @@ export async function setCaseTeams(
   const db = getDb();
   let ok = false;
   await db.transaction(async (tx) => {
+    // Locked, so two changes to the same case's teams take turns rather than
+    // both deleting and re-inserting at once.
     const [existsRow] = await tx
       .select({ id: cases.id })
       .from(cases)
-      .where(eq(cases.id, caseId));
+      .where(eq(cases.id, caseId))
+      .for('update');
     if (!existsRow) return;
 
     const before = (

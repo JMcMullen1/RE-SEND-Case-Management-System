@@ -29,12 +29,21 @@ function WeeklyReview({ row, today }: { row: CaseListRow; today: string }) {
     setTextState(value);
   };
   const [saved, setSaved] = useState(false);
+  // The note is saved first; if recording the review then fails, a retry
+  // records only the review, never the same note twice.
+  const [noteSaved, setNoteSaved] = useState(false);
   const save = useMutation({
     mutationFn: async (body: string) => {
-      await addNote(row.id, body, 'note');
+      if (!noteSaved) {
+        await addNote(row.id, body, 'note');
+        setNoteSaved(true);
+        setText('');
+        void qc.invalidateQueries({ queryKey: ['cases'] });
+      }
       await recordReview(row.id);
     },
     onSuccess: () => {
+      setNoteSaved(false);
       setText('');
       setSaved(true);
       void qc.invalidateQueries({ queryKey: ['cases'] });
@@ -43,12 +52,16 @@ function WeeklyReview({ row, today }: { row: CaseListRow; today: string }) {
     },
   });
   const id = `weekly-review-${row.id}`;
+  const submit = () => {
+    if (save.isPending) return;
+    if (noteSaved || text.trim()) save.mutate(text.trim());
+  };
   return (
     <form
       className="mb-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (text.trim()) save.mutate(text.trim());
+        submit();
       }}
     >
       <label
@@ -69,7 +82,7 @@ function WeeklyReview({ row, today }: { row: CaseListRow; today: string }) {
           // Ctrl/⌘ + Enter saves, as in review mode.
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            if (text.trim()) save.mutate(text.trim());
+            submit();
           }
         }}
         placeholder="Where this case is this week, and what happens next"
@@ -78,14 +91,20 @@ function WeeklyReview({ row, today }: { row: CaseListRow; today: string }) {
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={!text.trim() || save.isPending}
+          disabled={(!text.trim() && !noteSaved) || save.isPending}
           className="rounded-md bg-resend-purple px-3 py-1.5 text-sm font-semibold text-white hover:bg-resend-lilac focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {save.isPending ? 'Saving…' : 'Save review'}
+          {save.isPending
+            ? 'Saving…'
+            : noteSaved
+              ? 'Record the review'
+              : 'Save review'}
         </button>
         <span role="status" className="text-xs text-gray-600">
           {save.isError
-            ? 'Not saved. Try again.'
+            ? noteSaved
+              ? 'The note is saved, but the review was not recorded. Try again.'
+              : 'Not saved. Try again.'
             : saved
               ? 'Saved as a note on the case — shown under Updated.'
               : row.lastReviewedAt

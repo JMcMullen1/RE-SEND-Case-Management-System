@@ -70,12 +70,7 @@ export function CaseTable({
     selectable && rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   return (
-    <div
-      role="table"
-      aria-label="Cases"
-      aria-rowcount={rows.length + 1}
-      className="flex h-full flex-col"
-    >
+    <div role="table" aria-label="Cases" className="flex h-full flex-col">
       <div role="rowgroup">
         <div
           role="row"
