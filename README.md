@@ -23,7 +23,7 @@ DATABASE_URL=... NODE_ENV=development npm run fixtures:load   # dev data only
 
 One view (there is no simple / advanced switch), with tick boxes for bulk
 reassignment, more filters, columns and density. Staff, Team and Status are
-always shown and are changed in place: click the value and choose (several
+always shown and, with Type of case, are changed in place: click the value and choose (several
 teams can be ticked at once — TSA, ISA, Admin, Support; each change saves at
 once and is audited). Opening a row's drop-down shows a **Weekly review** box:
 what is written is saved as a note on the case and recorded as the week's

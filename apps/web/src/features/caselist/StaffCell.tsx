@@ -3,12 +3,18 @@ import {
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
   TEAM_VALUES,
+  WORK_TYPE_VALUES,
+  typeOfCase,
   type CaseListRow,
   type OwnerQueue,
   type Team,
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
-import { useSetStatus, useSetTeams } from '../../hooks/useCaseData';
+import {
+  useSetStatus,
+  useSetTeams,
+  useSetWorkType,
+} from '../../hooks/useCaseData';
 import { CellMenu, MenuChoice, MenuHeading } from './CellMenu';
 import { StatusChip, UnassignedChip } from './primitives';
 
@@ -69,6 +75,46 @@ export function StaffCell({
               }}
             >
               {q}
+            </MenuChoice>
+          ))}
+        </>
+      )}
+    </CellMenu>
+  );
+}
+
+/**
+ * Type of case: changed in place. Choosing sets the case's current work
+ * (until then the list shows the original query, as it always has).
+ */
+export function TypeCell({ row }: { row: CaseListRow }) {
+  const setWorkType = useSetWorkType();
+  const shown = typeOfCase(row.currentWork, row.originalQuery);
+  return (
+    <CellMenu
+      label={`Type of case: ${shown ?? 'not set'}. Change`}
+      trigger={
+        shown ? (
+          <span className="text-resend-ink">{shown}</span>
+        ) : (
+          <span className="text-gray-500">Add type</span>
+        )
+      }
+    >
+      {(close) => (
+        <>
+          <MenuHeading>Type of case</MenuHeading>
+          {WORK_TYPE_VALUES.map((w) => (
+            <MenuChoice
+              key={w}
+              current={row.currentWork === w}
+              onChoose={() => {
+                close();
+                if (w !== row.currentWork)
+                  setWorkType.mutate({ id: row.id, currentWork: w });
+              }}
+            >
+              {w}
             </MenuChoice>
           ))}
         </>

@@ -12,6 +12,7 @@ import {
   type Status,
   type Team,
   type ViewState,
+  type WorkType,
 } from '@re-send/shared';
 import { patchCaseFields, setCaseTeams } from '../api/caseScreen';
 import {
@@ -197,5 +198,14 @@ export function useSetTeams() {
   return useRowEdit(
     ({ id, team }: { id: string; team: Team[] }) => setCaseTeams(id, team),
     (row, { team }) => ({ ...row, team }),
+  );
+}
+
+/** Change a case's type of case (its current work) from the case list. */
+export function useSetWorkType() {
+  return useRowEdit(
+    ({ id, currentWork }: { id: string; currentWork: WorkType }) =>
+      patchCaseFields(id, { currentWork }),
+    (row, { currentWork }) => ({ ...row, currentWork }),
   );
 }
