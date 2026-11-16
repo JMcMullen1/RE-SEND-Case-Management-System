@@ -93,6 +93,7 @@ export const CaseListRowSchema = z.object({
   invoiceStatusText: z.string().nullable(),
   consultStatus: ConsultationStateSchema,
   mostRecentNoteDate: z.string().nullable(),
+  mostRecentNoteText: z.string().nullable(),
   lastReviewedAt: z.string().nullable(),
   keyDates: z.array(KeyDateLiteSchema),
 });

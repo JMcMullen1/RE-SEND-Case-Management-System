@@ -52,6 +52,8 @@ export interface CaseListRow {
   invoiceStatusText: string | null;
   consultStatus: ConsultationState;
   mostRecentNoteDate: string | null;
+  /** The start of the most recent note (e.g. a weekly review), one line. */
+  mostRecentNoteText: string | null;
   lastReviewedAt: string | null;
   keyDates: KeyDateLite[];
 }

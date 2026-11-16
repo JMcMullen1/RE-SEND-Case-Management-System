@@ -23,11 +23,11 @@ export const COLUMN_META: Record<ColumnId, ColumnMeta> = {
   client: { header: 'Client Name', width: 'minmax(200px, 1.6fr)' },
   child: { header: "Child's Name", width: 'minmax(120px, 1fr)' },
   type: { header: 'Type of Case', width: 'minmax(130px, 1fr)' },
-  staff: { header: 'Staff', width: 'minmax(130px, 1fr)' },
+  staff: { header: 'Staff', width: 'minmax(190px, 1fr)' },
   keydate: { header: 'Key Date', width: '210px' },
   status: { header: 'Status', width: '130px' },
-  updated: { header: 'Updated', width: '130px' },
-  team: { header: 'Team', width: '110px' },
+  updated: { header: 'Updated', width: 'minmax(170px, 1.2fr)' },
+  team: { header: 'Team', width: '120px' },
   dateOfEnquiry: { header: 'Date of enquiry', width: '130px' },
   methodOfEnquiry: { header: 'Method', width: '150px' },
   dealingShadow: { header: 'Dealing/Shadow', width: '150px' },
@@ -39,16 +39,25 @@ export const COLUMN_META: Record<ColumnId, ColumnMeta> = {
   lastReviewed: { header: 'Last reviewed', width: '130px' },
 };
 
-/** The ordered list of visible columns for the current view state. */
+/**
+ * The ordered list of visible columns: the fixed ones (Team, Status and
+ * Updated always shown), then the optional ones the person has switched on.
+ */
 export function visibleColumns(state: ViewState): ColumnId[] {
-  const cols: ColumnId[] = [];
-  if (state.mode === 'advanced') cols.push('select');
-  cols.push('expander', 'client', 'child', 'type', 'staff', 'keydate');
-  if (state.mode === 'advanced') {
-    cols.push('status', 'updated');
-    for (const opt of OPTIONAL_COLUMNS) {
-      if (state.columns.includes(opt.id)) cols.push(opt.id);
-    }
+  const cols: ColumnId[] = [
+    'select',
+    'expander',
+    'client',
+    'child',
+    'type',
+    'staff',
+    'team',
+    'status',
+    'keydate',
+    'updated',
+  ];
+  for (const opt of OPTIONAL_COLUMNS) {
+    if (state.columns.includes(opt.id)) cols.push(opt.id);
   }
   return cols;
 }

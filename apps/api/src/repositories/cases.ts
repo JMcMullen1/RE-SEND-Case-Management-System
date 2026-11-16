@@ -135,6 +135,7 @@ interface RawRow {
   invoice_status_text: string | null;
   consult_status: string;
   most_recent_note_date: string | null;
+  most_recent_note_text: string | null;
   last_reviewed_at: string | null;
   key_dates: CaseListRow['keyDates'];
 }
@@ -163,6 +164,7 @@ function mapRow(r: RawRow): CaseListRow {
     invoiceStatusText: r.invoice_status_text,
     consultStatus: r.consult_status as CaseListRow['consultStatus'],
     mostRecentNoteDate: r.most_recent_note_date,
+    mostRecentNoteText: r.most_recent_note_text,
     lastReviewedAt: r.last_reviewed_at,
     keyDates: r.key_dates ?? [],
   };
@@ -199,6 +201,7 @@ const SELECT_ROW = sql`
   c.invoice_status_text,
   c.consult_status::text AS consult_status,
   (SELECT max(n.entry_date) FROM case_notes n WHERE n.case_id = c.id AND n.deleted_at IS NULL) AS most_recent_note_date,
+  (SELECT left(regexp_replace(n.body, '[[:space:]]+', ' ', 'g'), 160) FROM case_notes n WHERE n.case_id = c.id AND n.deleted_at IS NULL ORDER BY n.entry_date DESC, n.created_at DESC LIMIT 1) AS most_recent_note_text,
   (SELECT max(r.reviewed_at) FROM case_reviews r WHERE r.case_id = c.id AND r.deleted_at IS NULL) AS last_reviewed_at,
   COALESCE((SELECT array_agg(t.code ORDER BY t.code) FROM case_teams ct JOIN teams t ON t.id = ct.team_id WHERE ct.case_id = c.id), '{}') AS team_codes,
   COALESCE((

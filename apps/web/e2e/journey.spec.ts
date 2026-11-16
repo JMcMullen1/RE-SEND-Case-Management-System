@@ -334,7 +334,7 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
     .getByRole('button', { name: /Enquiries|TSA Team/ })
     .first();
   await ownerButton.click();
-  await page.getByRole('menuitem', { name: 'Alan Marsden' }).click();
+  await page.getByRole('menuitemradio', { name: 'Alan Marsden' }).click();
 
   // The second session sees the new owner without reloading. Target the owner
   // cell button (not the hidden <option> in the acting-user switcher).

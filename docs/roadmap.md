@@ -6,7 +6,9 @@ between pieces of work.
 
 ## Built
 
-- Case list (simple and advanced views, filters, saved views, live updates).
+- Case list (one view with filters, saved views and live updates; Staff, Team
+  and Status changed in place with a click; a weekly review written in a row's
+  drop-down, shown under Updated; teams TSA, ISA, Admin and Support).
 - Case record, case notes and billables (labelled notes), audit trail.
 - Adding a case: manual entry, query-form smart fill, duplicate detection.
 - Tribunal directions orders: extraction, working-day arithmetic, reviewed diff.

@@ -70,31 +70,39 @@ export function CaseTable({
     selectable && rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   return (
-    <div className="flex h-full flex-col">
-      <div
-        role="row"
-        className="grid items-center gap-3 border-b border-gray-200 pl-3.5 pr-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
-        style={{ gridTemplateColumns: template }}
-      >
-        {columns.map((id) => (
-          <div key={id} role="columnheader">
-            {id === 'select' ? (
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={onToggleSelectAll}
-                aria-label="Select all cases"
-                className="h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
-              />
-            ) : (
-              COLUMN_META[id].header
-            )}
-          </div>
-        ))}
+    <div
+      role="table"
+      aria-label="Cases"
+      aria-rowcount={rows.length + 1}
+      className="flex h-full flex-col"
+    >
+      <div role="rowgroup">
+        <div
+          role="row"
+          className="grid items-center gap-3 border-b border-gray-200 pl-3.5 pr-4 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
+          style={{ gridTemplateColumns: template }}
+        >
+          {columns.map((id) => (
+            <div key={id} role="columnheader">
+              {id === 'select' ? (
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={onToggleSelectAll}
+                  aria-label="Select all cases"
+                  className="h-4 w-4 rounded border-gray-300 text-resend-purple focus:ring-resend-purple"
+                />
+              ) : (
+                COLUMN_META[id].header
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-auto" tabIndex={-1}>
+      <div ref={scrollRef} role="presentation" className="flex-1 overflow-auto">
         <div
+          role="rowgroup"
           style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
         >
           {items.map((item) => {
@@ -102,6 +110,7 @@ export function CaseTable({
             return (
               <div
                 key={item.key}
+                role="presentation"
                 data-index={item.index}
                 ref={virtualizer.measureElement}
                 style={{
@@ -130,9 +139,13 @@ export function CaseTable({
           })}
         </div>
         {isFetchingNextPage && (
-          <p className="py-3 text-center text-sm text-gray-400">
-            Loading more…
-          </p>
+          <div role="rowgroup">
+            <div role="row">
+              <p role="cell" className="py-3 text-center text-sm text-gray-500">
+                Loading more…
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>
