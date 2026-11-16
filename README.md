@@ -530,8 +530,8 @@ Correspondence is filed against the case it belongs to (Documents / Emails tab,
   and headers) for AI features, update live for everyone through the same
   `NOTIFY` channel, and every filing, duplicate and deletion is audited by
   identifier. Deleting an email is soft; ticking “also delete its attachments” (for an email filed on the wrong case) removes the attachments that filing added, never a file that was already on the case.
-- **Emails to file** (`/emails`, _Emails_ in the navigation with how many are
-  waiting; `apps/api/src/repositories/email-inbox.ts`,
+- **Emails to file** (`/emails`, reached by its address — not in the
+  navigation, as emails are normally filed on their case; `apps/api/src/repositories/email-inbox.ts`,
   `packages/shared/src/email-matching.ts`). Drop in any number of emails
   without choosing a case. Each is scored against every case from what it
   holds — its reference or Tribunal appeal number in the subject or text, the

@@ -41,9 +41,11 @@ test('emails dropped in are filed to their case, or wait for someone to choose',
 }) => {
   const stamp = Date.now();
   await signIn(page);
+  await expect(page.getByRole('heading', { name: 'Cases' })).toBeVisible();
+  // Not in the navigation: reached by its address.
   await expect(
     page.getByRole('banner').getByRole('link', { name: /^Emails/ }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   // A made-up family, with the client's email address on the case.
   const created = await page.request.post('/api/cases', {
@@ -58,10 +60,7 @@ test('emails dropped in are filed to their case, or wait for someone to choose',
   });
   const { caseReference } = await created.json();
 
-  await page
-    .getByRole('banner')
-    .getByRole('link', { name: /^Emails/ })
-    .click();
+  await page.goto('/emails');
   await expect(
     page.getByRole('heading', { name: 'Emails to file' }),
   ).toBeVisible();
