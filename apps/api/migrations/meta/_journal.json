@@ -162,6 +162,13 @@
       "when": 1794789023624,
       "tag": "0022_more_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794793050790,
+      "tag": "0023_consultation_simple",
+      "breakpoints": true
     }
   ]
 }

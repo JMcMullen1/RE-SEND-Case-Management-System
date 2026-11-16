@@ -16,7 +16,7 @@ const caseDetail = {
   methodOfEnquiry: null,
   originalQuery: null,
   currentWork: 'Section Appeal',
-  consultStatus: 'not_required',
+  consultStatus: 'incomplete',
   supportLevel: null,
   aims: null,
   client: {

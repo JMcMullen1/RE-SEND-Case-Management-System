@@ -1,7 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
-import { londonToday, type CaseClientDetail, type Team } from '@re-send/shared';
+import {
+  CONSULTATION_STATE_DEFAULT,
+  londonToday,
+  type CaseClientDetail,
+  type Team,
+} from '@re-send/shared';
 import { getDb } from '../db/client';
 import { encryptField, readField } from '../crypto/encryption';
 import { encryptSensitive } from '../crypto/sensitive-fields';
@@ -197,7 +202,7 @@ export async function createCase(
         ownerUserId,
         ownerQueue: ownerQueue as never,
         status: (c.status ?? 'Enquiry') as never,
-        consultStatus: (c.consultStatus ?? 'not_required') as never,
+        consultStatus: (c.consultStatus ?? CONSULTATION_STATE_DEFAULT) as never,
         supportLevel: c.supportLevel ?? null,
         paymentCode: (c.paymentCode ?? null) as never,
         discountCode: (c.discountCode ?? null) as never,

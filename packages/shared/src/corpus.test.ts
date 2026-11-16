@@ -58,7 +58,7 @@ describe('renderCaseRecordText', () => {
       team: ['ISA'],
       aims: null,
       supportLevel: null,
-      consultStatus: 'not_required',
+      consultStatus: 'incomplete',
       client: {
         displayName: 'Fairbanks, Farrah',
         additionalNeeds: null,

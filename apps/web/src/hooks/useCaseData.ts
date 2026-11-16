@@ -7,6 +7,7 @@ import {
 import {
   encodeViewState,
   type CaseListRow,
+  type ConsultationState,
   type CaseOwner,
   type OwnerQueue,
   type Status,
@@ -207,5 +208,14 @@ export function useSetWorkType() {
     ({ id, currentWork }: { id: string; currentWork: WorkType }) =>
       patchCaseFields(id, { currentWork }),
     (row, { currentWork }) => ({ ...row, currentWork }),
+  );
+}
+
+/** Change whether a case's consultation is done, from the case list. */
+export function useSetConsultation() {
+  return useRowEdit(
+    ({ id, consultStatus }: { id: string; consultStatus: ConsultationState }) =>
+      patchCaseFields(id, { consultStatus }),
+    (row, { consultStatus }) => ({ ...row, consultStatus }),
   );
 }

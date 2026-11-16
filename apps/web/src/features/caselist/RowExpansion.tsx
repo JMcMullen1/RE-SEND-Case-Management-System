@@ -1,7 +1,10 @@
 import {
+  CONSULTATION_STATE_LABELS,
+  KEY_DATE_SOURCE_LABELS,
+  KEY_DATE_TYPE_LABELS,
   formatCivilDate,
+  keyDateWhen,
   relativeSince,
-  selectPrimaryKeyDate,
   typeOfCase,
   NOTE_KIND_SINGULAR,
   type CaseListRow,
@@ -10,7 +13,102 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addNote } from '../../api/caseScreen';
 import { recordReview } from '../../api/review';
+import type { CaseExpansion } from '../../api/client';
 import { useExpansion } from '../../hooks/useCaseData';
+import { TypeDot } from '../calendar/primitives';
+
+/** "Tue 17 Nov 2026" for a civil date. */
+function longDate(iso: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
+ * Every key date of the case, soonest first: the date with its day and time,
+ * how far away it is, what it is and its type, any detail written with it,
+ * and where it came from. The next one is marked; ones gone by are muted.
+ */
+function KeyDatesDetail({
+  keyDates,
+  today,
+}: {
+  keyDates: CaseExpansion['keyDates'];
+  today: string;
+}) {
+  if (keyDates.length === 0)
+    return <p className="text-sm text-gray-500">No key dates on this case.</p>;
+  const nextId = keyDates.find((k) => !keyDateWhen(k.date, today).passed)?.id;
+  return (
+    <ol className="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
+      {keyDates.map((k) => {
+        const when = keyDateWhen(k.date, today);
+        const isNext = k.id === nextId;
+        return (
+          <li
+            key={k.id}
+            className={`grid grid-cols-[9.5rem_1fr] gap-3 px-3 py-2 ${
+              isNext ? 'bg-gray-50' : ''
+            }`}
+          >
+            <div className={when.passed ? 'text-gray-500' : 'text-resend-ink'}>
+              <p className="text-sm font-semibold tabular-nums">
+                {longDate(k.date)}
+              </p>
+              <p className="text-xs tabular-nums">
+                {k.time ? `${k.time.slice(0, 5)} · ` : ''}
+                <span
+                  className={
+                    !when.passed &&
+                    (when.words === 'Today' || when.words === 'Tomorrow')
+                      ? 'font-semibold text-resend-ink'
+                      : ''
+                  }
+                >
+                  {when.words}
+                </span>
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p
+                className={`flex flex-wrap items-center gap-2 text-sm ${
+                  when.passed ? 'text-gray-600' : 'font-medium text-resend-ink'
+                }`}
+              >
+                {k.title}
+                {isNext && (
+                  <span className="rounded-full bg-resend-purple px-2 py-0.5 text-xs font-semibold text-white">
+                    Next
+                  </span>
+                )}
+                {when.passed && (
+                  <span className="rounded-full border border-gray-300 px-2 py-0.5 text-xs text-gray-600">
+                    Passed
+                  </span>
+                )}
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-gray-600">
+                <TypeDot type={k.type} />
+                {KEY_DATE_TYPE_LABELS[k.type]} ·{' '}
+                {KEY_DATE_SOURCE_LABELS[k.source]}
+                {k.sourceReference && ` (${k.sourceReference})`}
+              </p>
+              {k.description && (
+                <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700">
+                  {k.description}
+                </p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 /**
  * The weekly review, written straight from the case list: saved as a note on
@@ -139,12 +237,18 @@ export function RowExpansion({
   today: string;
 }) {
   const { data, isLoading } = useExpansion(row.id, true);
-  const { sameDay } = selectPrimaryKeyDate(row.keyDates, today);
 
   return (
     <div className="grid grid-cols-1 gap-6 bg-gray-50/60 px-6 py-4 md:grid-cols-3">
       <section className="md:col-span-2">
         <WeeklyReview row={row} today={today} />
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Key dates
+        </h4>
+        <div className="mb-4">
+          {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
+          {data && <KeyDatesDetail keyDates={data.keyDates} today={today} />}
+        </div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Recent notes
         </h4>
@@ -168,30 +272,14 @@ export function RowExpansion({
             </li>
           ))}
         </ul>
-
-        {sameDay.length > 0 && (
-          <div className="mt-4">
-            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Also on this day
-            </h4>
-            <ul className="space-y-1">
-              {sameDay.map((k) => (
-                <li key={k.id} className="text-sm text-resend-ink">
-                  {k.title}
-                  <span className="text-gray-500">
-                    {' '}
-                    · {formatCivilDate(k.date)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </section>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-1">
         <Field label="Type of case">
           {typeOfCase(row.currentWork, row.originalQuery) ?? '—'}
+        </Field>
+        <Field label="Consultation">
+          {CONSULTATION_STATE_LABELS[row.consultStatus]}
         </Field>
         <Field label="Method of enquiry">{row.methodOfEnquiry ?? '—'}</Field>
         <Field label="Date of enquiry">

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   OWNER_QUEUE_VALUES,
   STATUS_VALUES,
+  CONSULTATION_STATE_LABELS,
+  CONSULTATION_STATE_VALUES,
   TEAM_VALUES,
   WORK_TYPE_VALUES,
   typeOfCase,
@@ -11,6 +13,7 @@ import {
 } from '@re-send/shared';
 import type { UserSummary } from '../../api/client';
 import {
+  useSetConsultation,
   useSetStatus,
   useSetTeams,
   useSetWorkType,
@@ -115,6 +118,52 @@ export function TypeCell({ row }: { row: CaseListRow }) {
               }}
             >
               {w}
+            </MenuChoice>
+          ))}
+        </>
+      )}
+    </CellMenu>
+  );
+}
+
+/** Consultation: Incomplete, Completed or N/A, changed in place. */
+export function ConsultationCell({ row }: { row: CaseListRow }) {
+  const setConsultation = useSetConsultation();
+  const label = CONSULTATION_STATE_LABELS[row.consultStatus];
+  return (
+    <CellMenu
+      label={`Consultation: ${label}. Change`}
+      trigger={
+        <span
+          className={
+            row.consultStatus === 'completed'
+              ? 'font-medium text-resend-green'
+              : row.consultStatus === 'not_applicable'
+                ? 'text-gray-500'
+                : 'text-resend-ink'
+          }
+        >
+          {row.consultStatus === 'completed' && (
+            <span aria-hidden="true">✓ </span>
+          )}
+          {label}
+        </span>
+      }
+    >
+      {(close) => (
+        <>
+          <MenuHeading>Consultation</MenuHeading>
+          {CONSULTATION_STATE_VALUES.map((v) => (
+            <MenuChoice
+              key={v}
+              current={row.consultStatus === v}
+              onChoose={() => {
+                close();
+                if (v !== row.consultStatus)
+                  setConsultation.mutate({ id: row.id, consultStatus: v });
+              }}
+            >
+              {CONSULTATION_STATE_LABELS[v]}
             </MenuChoice>
           ))}
         </>

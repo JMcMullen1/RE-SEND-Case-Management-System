@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { CONSULTATION_STATE_DEFAULT } from '@re-send/shared';
 import {
   type AnyPgColumn,
   bigint,
@@ -208,7 +209,7 @@ export const cases = pgTable(
     methodOfEnquiry: enquiryMethodEnum('method_of_enquiry'),
     consultStatus: consultationStateEnum('consult_status')
       .notNull()
-      .default('not_required'),
+      .default(CONSULTATION_STATE_DEFAULT),
     supportLevel: text('support_level'),
     mediationStatus: text('mediation_status'),
     finalPlanIssuedDate: date('final_plan_issued_date'),

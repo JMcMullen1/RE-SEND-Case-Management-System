@@ -30,6 +30,16 @@ what is written is saved as a note on the case and recorded as the week's
 review (as review mode does), so the **Updated** column shows "Today" with the
 start of it. A half-written review is kept if the row is closed.
 
+**Consultation** is one field per case — Incomplete (the default), Completed
+or N/A — shown and changed in its own column after Team, in a row's
+drop-down and in the case page's header and details (migration 0023 turned
+the old states into these: Held into Completed, the rest into Incomplete).
+The drop-down also lists **every key date** of the case, soonest first: the
+day and date, time, how far away it is (or that it has passed), what it is and
+its type, any detail written with it, and where it came from (added by hand,
+a directions order with its reference, or the query form); the next one is
+marked.
+
 ## Legibility
 
 The interface greys (secondary text, labels, borders, dividers, panels) come
