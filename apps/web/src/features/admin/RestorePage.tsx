@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { checkBackup, runRestore, type BackupSummary } from '../../api/admin';
+import {
+  checkBackup,
+  restoreStatus,
+  runRestore,
+  type BackupSummary,
+} from '../../api/admin';
+import { ApiError } from '../../api/client';
 import { useMe } from '../../hooks/useCaseData';
 import { AdminTabs } from '../layout/AdminTabs';
 
@@ -46,6 +52,26 @@ export function RestorePage() {
   const restore = useMutation({
     mutationFn: (id: string) => runRestore(id),
   });
+  // The restore runs on the server; follow it until it ends. If this admin
+  // is not in the backup, their session ends with it.
+  const progressQuery = useQuery({
+    queryKey: ['restore-status', checked?.id],
+    queryFn: restoreStatus,
+    enabled: restore.isSuccess,
+    refetchInterval: (q) =>
+      q.state.data?.state === 'running' || !q.state.data ? 2000 : false,
+    retry: false,
+  });
+  const outcome = restore.isSuccess ? progressQuery.data : undefined;
+  const signedOut =
+    progressQuery.error instanceof ApiError &&
+    [401, 403].includes(progressQuery.error.status);
+  const running =
+    restore.isPending ||
+    (restore.isSuccess &&
+      !signedOut &&
+      outcome?.state !== 'done' &&
+      outcome?.state !== 'failed');
 
   if (me.isLoading) return null;
 
@@ -65,14 +91,15 @@ export function RestorePage() {
           <p className="text-sm text-gray-600">
             Only an admin can import a backup.
           </p>
-        ) : restore.data ? (
+        ) : outcome?.state === 'done' || signedOut ? (
           <section className={panel} aria-labelledby="done-h">
             <h2 id="done-h" className="text-base font-semibold">
               Everything has been put back
             </h2>
             <p className="mt-2 text-sm">
-              {n(restore.data.rows)} records and {n(restore.data.files)} files
-              from the backup are back in place.
+              {outcome?.state === 'done'
+                ? `${n(outcome.rows)} records and ${n(outcome.files)} files from the backup are back in place.`
+                : 'Your account is not in the backup, so you have been signed out. Sign in with an account from the backup.'}
             </p>
             <button
               type="button"
@@ -192,15 +219,15 @@ export function RestorePage() {
                 </label>
                 <button
                   type="button"
-                  disabled={confirm !== 'REPLACE' || restore.isPending}
+                  disabled={confirm !== 'REPLACE' || running}
                   onClick={() => restore.mutate(checked.id)}
                   className={`mt-3 ${primary}`}
                 >
-                  {restore.isPending
+                  {running
                     ? 'Putting everything back…'
                     : 'Replace everything with this backup'}
                 </button>
-                {restore.isPending && (
+                {running && (
                   <p role="status" className="mt-2 text-sm text-gray-600">
                     This can take a few minutes for a large document library.
                     Keep this page open.
@@ -212,6 +239,14 @@ export function RestorePage() {
                     className="mt-2 text-sm text-status-amber-text"
                   >
                     {errorText(restore.error)} Nothing has been changed.
+                  </p>
+                )}
+                {outcome?.state === 'failed' && (
+                  <p
+                    role="alert"
+                    className="mt-2 text-sm text-status-amber-text"
+                  >
+                    {outcome.message}
                   </p>
                 )}
               </section>

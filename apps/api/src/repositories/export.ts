@@ -7,6 +7,9 @@ import {
 } from '../crypto/sensitive-fields';
 import { recordAudit } from './audit';
 
+/** Anything that can run a query: the database, or a transaction. */
+export type Executor = Pick<ReturnType<typeof getDb>, 'execute'>;
+
 /**
  * Every table holding the charity's data, in the order a reader would want
  * them, with columns left out of the export. Only `users.ical_token` is
@@ -133,7 +136,7 @@ export async function recordExportEvent(
 }
 
 /** Every stored document file, with the case it belongs to. */
-export async function exportDocumentFiles(): Promise<
+export async function exportDocumentFiles(db: Executor = getDb()): Promise<
   {
     id: string;
     caseReference: string;
@@ -145,7 +148,7 @@ export async function exportDocumentFiles(): Promise<
     email: boolean;
   }[]
 > {
-  const rows = (await getDb().execute(
+  const rows = (await db.execute(
     // Emails waiting to be filed have no case yet: their files go in a
     // folder of their own.
     sql`SELECT * FROM (

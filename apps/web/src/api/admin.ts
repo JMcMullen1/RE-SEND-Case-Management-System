@@ -65,12 +65,21 @@ export function checkBackup(
   return postFileWithProgress('/api/admin/restore/check', file, onProgress);
 }
 
-/** Full import, step 2: replace everything with the checked backup. */
-export function runRestore(
-  id: string,
-): Promise<{ rows: number; files: number }> {
+/** Full import, step 2: start replacing everything with the checked backup. */
+export function runRestore(id: string): Promise<{ started: true }> {
   return request(`/api/admin/restore/${id}`, {
     method: 'POST',
     body: JSON.stringify({ confirm: 'REPLACE' }),
   });
+}
+
+export type RestoreStatus =
+  | { state: 'idle' }
+  | { state: 'running'; startedAt: string }
+  | { state: 'done'; rows: number; files: number; finishedAt: string }
+  | { state: 'failed'; message: string; finishedAt: string };
+
+/** Where the restore this admin started stands. */
+export function restoreStatus(): Promise<RestoreStatus> {
+  return request('/api/admin/restore/status');
 }

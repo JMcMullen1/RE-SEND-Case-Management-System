@@ -9,7 +9,12 @@ import {
 } from '@re-send/shared';
 import { resolveActingUser } from '../auth/context';
 import { streamExport } from '../export/zip';
-import { checkBackup, RestoreRefused, runRestore } from '../backup/restore';
+import {
+  checkBackup,
+  restoreStatus,
+  RestoreRefused,
+  startRestore,
+} from '../backup/restore';
 import { disconnectUser } from '../realtime';
 import { recordExportEvent } from '../repositories/export';
 import {
@@ -281,10 +286,7 @@ export function registerAdminRoutes(fastify: FastifyInstance): void {
         params: z.object({ id: z.string().uuid() }),
         body: z.object({ confirm: z.literal('REPLACE') }),
         response: {
-          200: z.object({
-            rows: z.number().int(),
-            files: z.number().int(),
-          }),
+          202: z.object({ started: z.literal(true) }),
           403: Message,
           422: Message,
         },
@@ -294,12 +296,46 @@ export function registerAdminRoutes(fastify: FastifyInstance): void {
       const admin = await requireAdmin(request, reply);
       if (!admin) return;
       try {
-        return await runRestore(request.params.id, admin.id);
+        // Runs in the background; the page follows it through the status.
+        startRestore(request.params.id, admin.id);
+        return reply.code(202).send({ started: true });
       } catch (err) {
         if (err instanceof RestoreRefused)
           return reply.code(422).send({ message: err.message });
         throw err;
       }
+    },
+  );
+
+  // Where the restore stands: running, done (with counts) or failed.
+  app.get(
+    '/api/admin/restore/status',
+    {
+      schema: {
+        response: {
+          200: z.discriminatedUnion('state', [
+            z.object({ state: z.literal('idle') }),
+            z.object({ state: z.literal('running'), startedAt: z.string() }),
+            z.object({
+              state: z.literal('done'),
+              rows: z.number().int(),
+              files: z.number().int(),
+              finishedAt: z.string(),
+            }),
+            z.object({
+              state: z.literal('failed'),
+              message: z.string(),
+              finishedAt: z.string(),
+            }),
+          ]),
+          403: Message,
+        },
+      },
+    },
+    async (request, reply) => {
+      const admin = await requireAdmin(request, reply);
+      if (!admin) return;
+      return restoreStatus(admin.id);
     },
   );
 }

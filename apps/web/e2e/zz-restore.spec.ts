@@ -1,10 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { strToU8, zipSync } from 'fflate';
 
 /**
  * Full export, then Full import, through the screens: a backup is taken, a
  * made-up case is added afterwards, and putting the backup back removes it
- * while every case from the backup is still there. Runs last: it replaces
+ * while every case from the backup is still there, with its Word document
+ * (itself a ZIP inside the backup) back byte for byte. Runs last: it replaces
  * everything in the e2e database.
  */
 async function signIn(page: Page) {
@@ -27,6 +29,29 @@ test('a full export can be put back with Full import', async ({ page }) => {
     },
   });
   expect(before.ok()).toBe(true);
+  const { caseId } = await before.json();
+  // A Word document is a ZIP: it must come back whole, not unpacked.
+  const docx = Buffer.from(
+    zipSync({
+      '[Content_Types].xml': strToU8('<Types/>'),
+      'word/document.xml': strToU8(`<w:document>${stamp}</w:document>`),
+    }),
+  );
+  const uploaded = await page.request.post(
+    `/api/cases/${caseId}/documents?category=Plan`,
+    {
+      multipart: {
+        file: {
+          name: 'plan.docx',
+          mimeType:
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          buffer: docx,
+        },
+      },
+    },
+  );
+  expect(uploaded.ok()).toBe(true);
+  const documentId = (await uploaded.json()).document.id as string;
 
   await page.goto('/admin/export');
   const downloading = page.waitForEvent('download');
@@ -81,4 +106,9 @@ test('a full export can be put back with Full import', async ({ page }) => {
     ).includes(name);
   expect(await found(`Kept Child${stamp}`)).toBe(true);
   expect(await found(`Later Child${stamp}`)).toBe(false);
+  const content = await page.request.get(
+    `/api/documents/${documentId}/content`,
+  );
+  expect(content.ok()).toBe(true);
+  expect(Buffer.compare(await content.body(), docx)).toBe(0);
 });

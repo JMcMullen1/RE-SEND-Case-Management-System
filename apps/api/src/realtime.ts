@@ -175,6 +175,18 @@ export function disconnectUser(userId: string): number {
   return closed;
 }
 
+/**
+ * Close every live connection on this instance. Each open screen reconnects
+ * and refreshes everything it shows — used after a full import replaced the
+ * data under them.
+ */
+export function disconnectAll(): number {
+  const all = [...connections.values()];
+  connections.clear();
+  for (const conn of all) conn.close?.();
+  return all.length;
+}
+
 export function removeConnection(id: number): void {
   const conn = connections.get(id);
   connections.delete(id);

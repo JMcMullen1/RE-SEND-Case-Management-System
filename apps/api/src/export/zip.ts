@@ -1,14 +1,14 @@
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { Zip, ZipDeflate, ZipPassThrough, strToU8 } from 'fflate';
 import { PRODUCT_NAME } from '@re-send/shared';
 import {
   EXPORT_TABLES,
-  exportDocumentFiles,
   exportTableColumns,
   exportTablePage,
 } from '../repositories/export';
-import { backupTablePage, migrationState } from '../repositories/backup';
+import { withBackupSnapshot } from '../repositories/backup';
 import { getStorageProvider } from '../storage';
 
 /** Identifies a full export a restore can read. */
@@ -23,9 +23,16 @@ export interface BackupManifest {
   createdBy: string;
   /** The migrations the database had run (a restore needs the same). */
   schema: { count: number; lastHash: string | null };
-  tables: { table: string; columns: string[]; rows: number }[];
-  /** Each stored file: its storage key and where it is in this archive. */
-  files: { storageKey: string; path: string }[];
+  /** Each table: its columns, rows, and the SHA-256 of its JSON lines. */
+  tables: {
+    table: string;
+    columns: string[];
+    rows: number;
+    bytes: number;
+    sha256: string;
+  }[];
+  /** Each stored file: its storage key, where it is here, size and SHA-256. */
+  files: { storageKey: string; path: string; bytes: number; sha256: string }[];
 }
 
 /** UTF-8 byte-order mark, so spreadsheet software reads the CSV as UTF-8. */
@@ -204,86 +211,106 @@ export function streamExport(by: string): {
       counts.push(`${table}: ${tableRows} rows`);
     }
 
-    // The same tables as JSON lines, exactly as stored, for a restore.
-    const tablesForRestore: BackupManifest['tables'] = [];
-    for (const { table, omit } of EXPORT_TABLES) {
-      if (stopped()) throw new Error('export abandoned');
-      const columns = await exportTableColumns(table, omit);
-      const file = new ZipDeflate(`restore/tables/${table}.ndjson`, {
-        level: 6,
-      });
-      zip.add(file);
-      let tableRows = 0;
-      for (let offset = 0; ; offset += PAGE_ROWS) {
-        const page = await backupTablePage(table, columns, offset, PAGE_ROWS);
-        const last = page.length < PAGE_ROWS;
-        file.push(
-          strToU8(page.map((r) => `${JSON.stringify(r)}\n`).join('')),
-          last,
-        );
-        tableRows += page.length;
-        await drain();
-        if (stopped()) throw new Error('export abandoned');
-        if (last) break;
-      }
-      tablesForRestore.push({ table, columns, rows: tableRows });
-    }
-
-    const files = await exportDocumentFiles();
-    const stored: BackupManifest['files'] = [];
-    const storedKeys = new Set<string>();
-    const used = new Set<string>();
-    const missing: string[] = [];
+    // The same tables as JSON lines, exactly as stored, for a restore — read,
+    // with the files, from one consistent snapshot.
     let written = 0;
-    for (const f of files) {
-      if (stopped()) throw new Error('export abandoned');
-      // One copy of each stored file (two records can share one).
-      if (storedKeys.has(f.storageKey)) continue;
-      const folder = `${f.email ? 'emails' : 'documents'}/${f.deleted ? '_deleted/' : ''}${safeSegment(f.caseReference)}`;
-      const name = safeSegment(
-        f.version > 1 ? withSuffix(f.filename, ` (v${f.version})`) : f.filename,
-      );
-      let object: Awaited<
-        ReturnType<ReturnType<typeof getStorageProvider>['get']>
-      >;
-      try {
-        object = await getStorageProvider().get(f.storageKey);
-      } catch {
-        // E.g. encrypted with a key no longer configured: listed, not fatal.
-        missing.push(
-          `${folder}/${name} (document id ${f.id}, could not be read or decrypted)`,
-        );
-        continue;
+    const missing: string[] = [];
+    const manifest = await withBackupSnapshot(async (snapshot) => {
+      const tablesForRestore: BackupManifest['tables'] = [];
+      for (const { table, omit } of EXPORT_TABLES) {
+        if (stopped()) throw new Error('export abandoned');
+        const columns = await exportTableColumns(table, omit);
+        const file = new ZipDeflate(`restore/tables/${table}.ndjson`, {
+          level: 6,
+        });
+        zip.add(file);
+        let tableRows = 0;
+        let bytes = 0;
+        const hash = createHash('sha256');
+        for (let offset = 0; ; offset += PAGE_ROWS) {
+          const page = await snapshot.page(table, columns, offset, PAGE_ROWS);
+          const last = page.length < PAGE_ROWS;
+          const chunk = strToU8(
+            page.map((r) => `${JSON.stringify(r)}\n`).join(''),
+          );
+          hash.update(chunk);
+          bytes += chunk.length;
+          file.push(chunk, last);
+          tableRows += page.length;
+          await drain();
+          if (stopped()) throw new Error('export abandoned');
+          if (last) break;
+        }
+        tablesForRestore.push({
+          table,
+          columns,
+          rows: tableRows,
+          bytes,
+          sha256: hash.digest('hex'),
+        });
       }
-      if (!object) {
-        missing.push(`${folder}/${name} (document id ${f.id})`);
-        continue;
-      }
-      // Mostly compressed already (PDF, DOCX, images): stored, not deflated.
-      const path = uniquePath(folder, name, used);
-      const entry = new ZipPassThrough(path);
-      zip.add(entry);
-      const body = new Uint8Array(object.body);
-      for (let at = 0; at < body.length || at === 0; at += SLICE_BYTES) {
-        const end = Math.min(at + SLICE_BYTES, body.length);
-        entry.push(body.subarray(at, end), end >= body.length);
-        await drain();
-        if (end >= body.length) break;
-      }
-      written += 1;
-      storedKeys.add(f.storageKey);
-      stored.push({ storageKey: f.storageKey, path });
-    }
 
-    const manifest: BackupManifest = {
-      format: BACKUP_FORMAT,
-      version: BACKUP_VERSION,
-      createdAt: new Date().toISOString(),
-      createdBy: by,
-      schema: await migrationState(),
-      tables: tablesForRestore,
-      files: stored,
-    };
+      const files = await snapshot.documentFiles();
+      const stored: BackupManifest['files'] = [];
+      const storedKeys = new Set<string>();
+      const used = new Set<string>();
+      for (const f of files) {
+        if (stopped()) throw new Error('export abandoned');
+        // One copy of each stored file (two records can share one).
+        if (storedKeys.has(f.storageKey)) continue;
+        const folder = `${f.email ? 'emails' : 'documents'}/${f.deleted ? '_deleted/' : ''}${safeSegment(f.caseReference)}`;
+        const name = safeSegment(
+          f.version > 1
+            ? withSuffix(f.filename, ` (v${f.version})`)
+            : f.filename,
+        );
+        let object: Awaited<
+          ReturnType<ReturnType<typeof getStorageProvider>['get']>
+        >;
+        try {
+          object = await getStorageProvider().get(f.storageKey);
+        } catch {
+          // E.g. encrypted with a key no longer configured: listed, not fatal.
+          missing.push(
+            `${folder}/${name} (document id ${f.id}, could not be read or decrypted)`,
+          );
+          continue;
+        }
+        if (!object) {
+          missing.push(`${folder}/${name} (document id ${f.id})`);
+          continue;
+        }
+        // Mostly compressed already (PDF, DOCX, images): stored, not deflated.
+        const path = uniquePath(folder, name, used);
+        const entry = new ZipPassThrough(path);
+        zip.add(entry);
+        const body = new Uint8Array(object.body);
+        for (let at = 0; at < body.length || at === 0; at += SLICE_BYTES) {
+          const end = Math.min(at + SLICE_BYTES, body.length);
+          entry.push(body.subarray(at, end), end >= body.length);
+          await drain();
+          if (end >= body.length) break;
+        }
+        written += 1;
+        storedKeys.add(f.storageKey);
+        stored.push({
+          storageKey: f.storageKey,
+          path,
+          bytes: body.length,
+          sha256: createHash('sha256').update(body).digest('hex'),
+        });
+      }
+
+      return {
+        format: BACKUP_FORMAT,
+        version: BACKUP_VERSION,
+        createdAt: new Date().toISOString(),
+        createdBy: by,
+        schema: await snapshot.migrationState(),
+        tables: tablesForRestore,
+        files: stored,
+      } satisfies BackupManifest;
+    });
     await addText('restore/manifest.json', JSON.stringify(manifest));
 
     await addText(

@@ -240,24 +240,33 @@ put a full export back. Each is its own Admin tab: **Staff** (`/admin/staff`),
   not added to the export. Original emails (the .eml/.msg filed, and those
   still waiting in Emails to file) are under `emails/`.
 - **The export is also a backup.** Alongside the readable CSVs it carries
-  `restore/`: every table as JSON lines with exact values (sensitive fields
-  decrypted, so the backup opens under any key — keep it as safely as the
-  system itself) and `restore/manifest.json`, naming the migration state, the
-  row counts and the storage key of every file.
-- **Full import** puts a full export back, exactly. In two steps: the ZIP is
-  uploaded and **checked** first — it must be a complete export from the same
-  version of the system (same migrations), every table and listed file present
-  and every row count matching — and the admin sees when and by whom it was
-  made and what it holds. Only after typing **REPLACE** does it run: every file
-  is stored again under its original key (encrypted under the current key),
-  then, in **one transaction**, every exported table is emptied and refilled
-  with the backup's own ids, in foreign-key order (links to the same table or
-  round a loop filled in afterwards), `updated_at` kept, sensitive fields
-  encrypted again. Any failure leaves the records untouched. Admin-only,
-  rate-limited, one at a time, audited (`system.restore`, kept in the restored
-  audit trail). Calendar-feed tokens are not in a backup, so feeds need
-  re-subscribing afterwards. An export from an earlier version is refused
-  rather than half put back.
+  `restore/`: every table as JSON lines with exact values, read from **one
+  consistent database snapshot** (sensitive fields decrypted, so the backup
+  opens under any key — keep it as safely as the system itself), and
+  `restore/manifest.json`, naming the migration state, the row counts, and the
+  size and SHA-256 of every table and every file with its storage key.
+- **Full import** puts a full export back. In two steps:
+  1. **Check.** The ZIP is uploaded and read through its central directory (a
+     Word document, itself a ZIP, is read as one file). It must be a complete,
+     unaltered export from the same version of the system (same migrations):
+     exactly the exported tables and columns, every line a row, every checksum
+     and size matching, and every file belonging to one of the backup's own
+     document records. The admin sees when and by whom it was made and what it
+     holds. Limits guard against oversized or crafted files.
+  2. **Replace**, after typing **REPLACE**. It runs in the background (the page
+     follows it): every file is stored again under its original key, encrypted
+     under the current key, then, in **one transaction**, every exported table
+     is emptied and refilled with the backup's own ids in foreign-key order,
+     `updated_at` kept, sensitive fields encrypted again. Any failure leaves
+     the records untouched. Afterwards every open screen refreshes.
+  - **Not rewound:** the **audit trail** keeps every entry made since the
+    backup alongside the backup's own; anyone **marked as having left** stays
+    so (and is disconnected); each person keeps their **calendar link**.
+  - Admin-only, rate-limited, one at a time; the check, start, outcome and any
+    failure are audited (outcomes only — no record values). The temporary copy
+    is deleted when done, after an hour unused, or at the next start after a
+    crash. The restore state is held by the API process, which suits the
+    single instance this system runs as.
 
 ## Importing the existing case list
 
