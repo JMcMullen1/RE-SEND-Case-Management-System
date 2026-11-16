@@ -18,13 +18,16 @@ test('status, team and the weekly review are edited straight from the case list'
 }) => {
   const stamp = Date.now();
   await signIn(page);
-  await page.request.post('/api/cases', {
+  // Signed in before anything is created (the session cookie must exist).
+  await expect(page.getByRole('heading', { name: 'Cases' })).toBeVisible();
+  const created = await page.request.post('/api/cases', {
     data: {
       client: { fullName: `Quickedit Parent${stamp}` },
       child: { fullName: `Rowan Quickedit${stamp}` },
       case: { currentWork: 'Section Appeal', team: ['TSA'] },
     },
   });
+  expect(created.ok()).toBe(true);
   await page.reload();
   await page
     .getByPlaceholder('Search client, child, reference or notes')
