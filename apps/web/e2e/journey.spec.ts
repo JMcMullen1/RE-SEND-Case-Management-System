@@ -302,7 +302,14 @@ test('demonstration journey: sign in, add cases, directions, calendar, review, l
     .getByRole('button', { name: 'Mark as left' })
     .click();
   await expect(page.getByRole('heading', { name: /Left \(1\)/ })).toBeVisible();
-  // The full export downloads as a ZIP.
+  // The full export is its own tab, and downloads as a ZIP.
+  await page
+    .getByRole('navigation', { name: 'Admin' })
+    .getByRole('link', { name: 'Full export', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Full export', exact: true }),
+  ).toBeVisible();
   const downloading = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download full export' }).click();
   const zip = await downloading;

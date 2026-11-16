@@ -52,6 +52,8 @@ function screenTitle(path: string): string | null {
   if (path === '/admin/rates') return 'Staff rates';
   if (path === '/admin/staff') return 'Staff';
   if (path === '/admin/import') return 'Import the case list';
+  if (path === '/admin/export') return 'Full export';
+  if (path === '/admin/restore') return 'Full import';
   if (path === '/admin/import-schools') return 'Import schools';
   if (path.startsWith('/schools')) return 'Schools';
   if (path === '/search') return 'Search';
@@ -189,6 +191,24 @@ const importRoute = createRoute({
   ),
 });
 
+const exportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/export',
+  component: lazyRouteComponent(
+    () => import('./features/admin/ExportPage'),
+    'ExportPage',
+  ),
+});
+
+const restoreRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/restore',
+  component: lazyRouteComponent(
+    () => import('./features/admin/RestorePage'),
+    'RestorePage',
+  ),
+});
+
 const schoolImportRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/import-schools',
@@ -229,6 +249,8 @@ const routeTree = rootRoute.addChildren([
   staffRoute,
   importRoute,
   schoolImportRoute,
+  exportRoute,
+  restoreRoute,
   searchRoute,
   emailsRoute,
 ]);

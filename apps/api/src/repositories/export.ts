@@ -141,18 +141,22 @@ export async function exportDocumentFiles(): Promise<
     version: number;
     storageKey: string;
     deleted: boolean;
+    /** The original .eml / .msg of a filed email (kept with the emails). */
+    email: boolean;
   }[]
 > {
   const rows = (await getDb().execute(
     // Emails waiting to be filed have no case yet: their files go in a
     // folder of their own.
     sql`SELECT * FROM (
-          SELECT d.id, c.case_reference, d.original_filename, d.version,
-                 d.storage_key, d.deleted_at IS NOT NULL AS deleted
-          FROM documents d JOIN cases c ON c.id = d.case_id
+          SELECT d.id, coalesce(c.case_reference, 'No case') AS case_reference,
+                 d.original_filename, d.version,
+                 d.storage_key, d.deleted_at IS NOT NULL AS deleted,
+                 EXISTS (SELECT 1 FROM emails e WHERE e.raw_document_id = d.id) AS email
+          FROM documents d LEFT JOIN cases c ON c.id = d.case_id
           UNION ALL
           SELECT i.id, 'Emails to file' AS case_reference, i.original_filename,
-                 1 AS version, i.storage_key, false AS deleted
+                 1 AS version, i.storage_key, false AS deleted, true AS email
           FROM email_inbox i WHERE i.status = 'waiting'
         ) f
         ORDER BY case_reference, original_filename, version`,
@@ -163,6 +167,7 @@ export async function exportDocumentFiles(): Promise<
     version: number;
     storage_key: string;
     deleted: boolean;
+    email: boolean;
   }[];
   return rows.map((r) => ({
     id: r.id,
@@ -171,5 +176,6 @@ export async function exportDocumentFiles(): Promise<
     version: r.version,
     storageKey: r.storage_key,
     deleted: r.deleted,
+    email: r.email,
   }));
 }

@@ -1,8 +1,10 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 
 const TABS = [
-  { to: '/admin/staff', label: 'Staff and export' },
+  { to: '/admin/staff', label: 'Staff' },
   { to: '/admin/rates', label: 'Staff rates' },
+  { to: '/admin/export', label: 'Full export' },
+  { to: '/admin/restore', label: 'Full import' },
   { to: '/admin/import', label: 'Import the case list' },
   { to: '/admin/import-schools', label: 'Import schools' },
 ] as const;

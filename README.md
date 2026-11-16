@@ -205,10 +205,13 @@ more than one set of conventions.
   flags live in `ai_job_flags` and toggle at runtime (`GET`/`POST /api/ai/flags`).
 - **Prompt caching** is wired with a selectable TTL but off by default.
 
-## Staff administration and data export
+## Staff administration, full export and full import
 
-Admins manage staff and take the charity's data with them at any time
-(`/admin/staff`, `apps/api/src/repositories/staff.ts`, `apps/api/src/export`).
+Admins manage staff, take the charity's data with them at any time, and can
+put a full export back. Each is its own Admin tab: **Staff** (`/admin/staff`),
+**Full export** (`/admin/export`) and **Full import** (`/admin/restore`)
+(`apps/api/src/repositories/staff.ts`, `apps/api/src/export`,
+`apps/api/src/backup`, `apps/api/src/repositories/backup.ts`).
 
 - **Joiners, roles and leavers are an admin action, not a deploy.** An admin
   adds a person (name, work email used to sign in, role), changes their name,
@@ -234,7 +237,27 @@ Admins manage staff and take the charity's data with them at any time
   Streamed with backpressure (tables a page at a time, documents in slices,
   stopping if the download is abandoned); admin-only, rate-limited; the start
   and the outcome of each export are audited. A test fails if a new table is
-  not added to the export.
+  not added to the export. Original emails (the .eml/.msg filed, and those
+  still waiting in Emails to file) are under `emails/`.
+- **The export is also a backup.** Alongside the readable CSVs it carries
+  `restore/`: every table as JSON lines with exact values (sensitive fields
+  decrypted, so the backup opens under any key — keep it as safely as the
+  system itself) and `restore/manifest.json`, naming the migration state, the
+  row counts and the storage key of every file.
+- **Full import** puts a full export back, exactly. In two steps: the ZIP is
+  uploaded and **checked** first — it must be a complete export from the same
+  version of the system (same migrations), every table and listed file present
+  and every row count matching — and the admin sees when and by whom it was
+  made and what it holds. Only after typing **REPLACE** does it run: every file
+  is stored again under its original key (encrypted under the current key),
+  then, in **one transaction**, every exported table is emptied and refilled
+  with the backup's own ids, in foreign-key order (links to the same table or
+  round a loop filled in afterwards), `updated_at` kept, sensitive fields
+  encrypted again. Any failure leaves the records untouched. Admin-only,
+  rate-limited, one at a time, audited (`system.restore`, kept in the restored
+  audit trail). Calendar-feed tokens are not in a backup, so feeds need
+  re-subscribing afterwards. An export from an earlier version is refused
+  rather than half put back.
 
 ## Importing the existing case list
 

@@ -8,7 +8,25 @@ import {
   exportTableColumns,
   exportTablePage,
 } from '../repositories/export';
+import { backupTablePage, migrationState } from '../repositories/backup';
 import { getStorageProvider } from '../storage';
+
+/** Identifies a full export a restore can read. */
+export const BACKUP_FORMAT = 'resend-backup';
+export const BACKUP_VERSION = 1;
+
+/** restore/manifest.json: what a restore needs to put everything back. */
+export interface BackupManifest {
+  format: typeof BACKUP_FORMAT;
+  version: number;
+  createdAt: string;
+  createdBy: string;
+  /** The migrations the database had run (a restore needs the same). */
+  schema: { count: number; lastHash: string | null };
+  tables: { table: string; columns: string[]; rows: number }[];
+  /** Each stored file: its storage key and where it is in this archive. */
+  files: { storageKey: string; path: string }[];
+}
 
 /** UTF-8 byte-order mark, so spreadsheet software reads the CSV as UTF-8. */
 const BOM = String.fromCharCode(0xfeff);
@@ -108,6 +126,13 @@ documents/   Every stored file, in a folder per case reference, under its
              original filename. Earlier versions carry "(vN)"; files deleted
              in the system are under documents/_deleted/. The documents CSV
              maps each file to its record.
+emails/      The original email files (.eml / .msg) filed on each case, and
+             any waiting in "Emails to file". The emails CSV holds each email's
+             details and text; its attachments are under documents/.
+restore/     The same data for Admin › Full import to put back exactly: every
+             table as JSON lines (restore/tables/) and restore/manifest.json,
+             which maps each stored file to its place in this archive. Leave
+             it as it is if this export is your backup.
 MANIFEST.txt Written last: row counts per table, the number of files, and
              any file missing from storage. If it is absent, the export did
              not finish — download it again.
@@ -179,13 +204,42 @@ export function streamExport(by: string): {
       counts.push(`${table}: ${tableRows} rows`);
     }
 
+    // The same tables as JSON lines, exactly as stored, for a restore.
+    const tablesForRestore: BackupManifest['tables'] = [];
+    for (const { table, omit } of EXPORT_TABLES) {
+      if (stopped()) throw new Error('export abandoned');
+      const columns = await exportTableColumns(table, omit);
+      const file = new ZipDeflate(`restore/tables/${table}.ndjson`, {
+        level: 6,
+      });
+      zip.add(file);
+      let tableRows = 0;
+      for (let offset = 0; ; offset += PAGE_ROWS) {
+        const page = await backupTablePage(table, columns, offset, PAGE_ROWS);
+        const last = page.length < PAGE_ROWS;
+        file.push(
+          strToU8(page.map((r) => `${JSON.stringify(r)}\n`).join('')),
+          last,
+        );
+        tableRows += page.length;
+        await drain();
+        if (stopped()) throw new Error('export abandoned');
+        if (last) break;
+      }
+      tablesForRestore.push({ table, columns, rows: tableRows });
+    }
+
     const files = await exportDocumentFiles();
+    const stored: BackupManifest['files'] = [];
+    const storedKeys = new Set<string>();
     const used = new Set<string>();
     const missing: string[] = [];
     let written = 0;
     for (const f of files) {
       if (stopped()) throw new Error('export abandoned');
-      const folder = `documents/${f.deleted ? '_deleted/' : ''}${safeSegment(f.caseReference)}`;
+      // One copy of each stored file (two records can share one).
+      if (storedKeys.has(f.storageKey)) continue;
+      const folder = `${f.email ? 'emails' : 'documents'}/${f.deleted ? '_deleted/' : ''}${safeSegment(f.caseReference)}`;
       const name = safeSegment(
         f.version > 1 ? withSuffix(f.filename, ` (v${f.version})`) : f.filename,
       );
@@ -206,7 +260,8 @@ export function streamExport(by: string): {
         continue;
       }
       // Mostly compressed already (PDF, DOCX, images): stored, not deflated.
-      const entry = new ZipPassThrough(uniquePath(folder, name, used));
+      const path = uniquePath(folder, name, used);
+      const entry = new ZipPassThrough(path);
       zip.add(entry);
       const body = new Uint8Array(object.body);
       for (let at = 0; at < body.length || at === 0; at += SLICE_BYTES) {
@@ -216,7 +271,20 @@ export function streamExport(by: string): {
         if (end >= body.length) break;
       }
       written += 1;
+      storedKeys.add(f.storageKey);
+      stored.push({ storageKey: f.storageKey, path });
     }
+
+    const manifest: BackupManifest = {
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      createdAt: new Date().toISOString(),
+      createdBy: by,
+      schema: await migrationState(),
+      tables: tablesForRestore,
+      files: stored,
+    };
+    await addText('restore/manifest.json', JSON.stringify(manifest));
 
     await addText(
       'MANIFEST.txt',
