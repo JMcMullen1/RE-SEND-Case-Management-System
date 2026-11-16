@@ -47,7 +47,7 @@ export function RowExpansion({
           {data?.notes.map((n, i) => (
             <li key={i} className="border-l-2 border-resend-lilac pl-3">
               <p className="text-sm text-resend-ink">
-                <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white align-middle">
+                <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-white align-middle">
                   {NOTE_KIND_SINGULAR[n.kind]}
                 </span>
                 {n.body}

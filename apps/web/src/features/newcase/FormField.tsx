@@ -47,7 +47,7 @@ export function FormField({
       : machineFilled
         ? 'border-resend-purple'
         : 'border-gray-200';
-  const base = `w-full rounded-md border px-3 py-2 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:bg-gray-50 disabled:text-gray-500 ${borderColour}`;
+  const base = `w-full rounded-md border px-3 py-2 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple disabled:bg-gray-50 disabled:text-gray-500 ${borderColour}`;
 
   return (
     <label className="block">
@@ -58,7 +58,7 @@ export function FormField({
         </span>
         {machineFilled && (
           <span
-            className={`rounded px-1 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+            className={`rounded px-1 py-0.5 text-xs font-semibold normal-case tracking-normal ${
               lowConfidence
                 ? 'border border-status-amber text-resend-ink'
                 : 'bg-resend-lilac text-white'

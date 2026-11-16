@@ -420,7 +420,7 @@ function VersionHistory({ documentId }: { documentId: string }) {
         >
           <span className="tabular-nums">v{v.version}</span>
           {v.isCurrent && (
-            <span className="rounded bg-resend-green px-1 text-[10px] font-medium text-white">
+            <span className="rounded bg-resend-green px-1 text-xs font-medium text-white">
               current
             </span>
           )}

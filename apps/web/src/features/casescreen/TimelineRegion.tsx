@@ -113,7 +113,7 @@ export function TimelineRegion({
             }
             aria-label={`New ${singular}`}
             rows={3}
-            className="w-full rounded-lg border border-gray-200 p-3 text-sm text-resend-ink placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            className="w-full rounded-lg border border-gray-200 p-3 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           />
           <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
             {billable ? (
@@ -350,16 +350,16 @@ function NoteRow({
     <li className="py-3">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xs text-gray-500">
-          <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+          <span className="mr-1.5 rounded bg-resend-purple px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-white">
             {NOTE_KIND_SINGULAR[item.kind]}
           </span>
           {billable && item.minutes !== null && (
-            <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-resend-ink">
+            <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-resend-ink">
               {formatMinutes(item.minutes)}
             </span>
           )}
           {billable && item.minutes === null && (
-            <span className="mr-1.5 rounded border border-status-amber px-1.5 py-0.5 text-[11px] font-medium text-resend-ink">
+            <span className="mr-1.5 rounded border border-status-amber px-1.5 py-0.5 text-xs font-medium text-resend-ink">
               No time recorded
             </span>
           )}

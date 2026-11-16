@@ -18,7 +18,7 @@ import {
   useTimeline,
 } from '../../hooks/useCaseScreen';
 
-const chip = 'rounded px-1.5 py-0.5 text-[11px] font-medium';
+const chip = 'rounded px-1.5 py-0.5 text-xs font-medium';
 
 /** How much of an email body shows before "Show the whole email". */
 const EMAIL_PREVIEW_LINES = 6;

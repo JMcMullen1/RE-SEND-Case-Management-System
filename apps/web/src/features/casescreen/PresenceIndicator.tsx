@@ -18,7 +18,7 @@ export function PresenceIndicator({ users }: { users: PresenceUser[] }) {
           <span
             key={u.userId}
             title={u.displayName}
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-resend-lilac text-[10px] font-semibold text-white"
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-resend-lilac text-xs font-semibold text-white"
           >
             {initials(u.displayName)}
           </span>

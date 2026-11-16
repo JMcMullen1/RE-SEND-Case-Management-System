@@ -358,7 +358,7 @@ export function ReviewModePage() {
             }
             placeholder="Type straight into the case. It is saved when you mark the case reviewed."
             aria-label="Meeting note"
-            className="min-h-0 flex-1 resize-none rounded-lg border border-gray-200 p-3 text-sm text-resend-ink placeholder:text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
+            className="min-h-0 flex-1 resize-none rounded-lg border border-gray-200 p-3 text-sm text-resend-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-resend-purple"
           />
           <button
             type="button"

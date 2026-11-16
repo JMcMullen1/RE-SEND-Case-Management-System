@@ -80,6 +80,41 @@ export function keyDateTypeCssVarName(type: KeyDateTypeColorKey): string {
 }
 
 /**
+ * The neutral greys of the interface — secondary text, labels, borders,
+ * dividers and panel backgrounds — used through Tailwind's `gray-*` classes.
+ * Darker than Tailwind's defaults so the interface reads crisply: every text
+ * step from 400 up meets WCAG AA (4.5:1) on white, and borders and dividers
+ * are visible on any screen. `placeholder` is for input placeholders, kept
+ * lighter than typed text so the two are never confused.
+ */
+export const NEUTRAL_COLORS = {
+  50: '#F6F7F9',
+  100: '#ECEEF1',
+  200: '#D3D7DD',
+  300: '#B4BAC3',
+  400: '#626A76',
+  500: '#4A515C',
+  600: '#373D47',
+  700: '#262B33',
+  800: '#171A20',
+  900: '#0B0D11',
+  placeholder: '#7B828D',
+} as const;
+
+export type NeutralColorKey = keyof typeof NEUTRAL_COLORS;
+
+/** CSS custom property for a neutral, holding its RGB channels ("98 106 118"). */
+export function neutralCssVarName(key: NeutralColorKey): string {
+  return `--gray-${key}`;
+}
+
+/** "#626A76" → "98 106 118", for colours used with an opacity (bg-gray-50/50). */
+function rgbChannels(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+
+/**
  * Emit the brand palette and the calendar key-date-type palette as a CSS
  * `:root` block of custom properties. Injected once at the top of the web app's
  * global stylesheet.
@@ -93,5 +128,11 @@ export function brandingCss(): string {
       (key) => `  ${keyDateTypeCssVarName(key)}: ${KEY_DATE_TYPE_COLORS[key]};`,
     )
     .join('\n');
-  return `:root {\n${brand}\n${keyDate}\n}\n`;
+  const neutral = (Object.keys(NEUTRAL_COLORS) as NeutralColorKey[])
+    .map(
+      (key) =>
+        `  ${neutralCssVarName(key)}: ${rgbChannels(NEUTRAL_COLORS[key])};`,
+    )
+    .join('\n');
+  return `:root {\n${brand}\n${keyDate}\n${neutral}\n}\n`;
 }
